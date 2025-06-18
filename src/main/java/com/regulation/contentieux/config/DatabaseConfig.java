@@ -10,9 +10,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.Statement;
+import java.sql.*;
 import java.util.Properties;
 
 /**
@@ -85,16 +83,30 @@ public class DatabaseConfig {
      * Initialise la base de données SQLite
      * SÉCURISÉ: Vérifie l'existence de la base sans l'écraser
      */
+    /**
+     * Initialise la base de données SQLite
+     * AJOUT: Création automatique du dossier data si nécessaire
+     */
     public static void initializeSQLite() {
         try {
             String sqlitePath = dbProperties.getProperty("sqlite.path", DEFAULT_SQLITE_PATH);
 
-            // Vérifier si la base de données existe
+            // AJOUT: Créer le dossier parent si nécessaire
             Path dbPath = Paths.get(sqlitePath);
+            Path parentDir = dbPath.getParent();
+            if (parentDir != null && !Files.exists(parentDir)) {
+                Files.createDirectories(parentDir);
+                logger.info("Dossier créé: {}", parentDir);
+            }
+
+            // Vérifier si la base de données existe
             boolean dbExists = Files.exists(dbPath);
 
             logger.info("Vérification de la base SQLite: {}", sqlitePath);
             logger.info("Base de données existante: {}", dbExists ? "OUI" : "NON");
+            if (dbExists) {
+                logger.info("Taille de la base: {} MB", Files.size(dbPath) / (1024 * 1024));
+            }
 
             // Configuration du pool de connexions SQLite
             HikariConfig config = new HikariConfig();
@@ -120,9 +132,20 @@ public class DatabaseConfig {
                 logger.info("Tables SQLite créées avec succès");
             } else {
                 logger.info("Base de données existante détectée, pas de modification");
-                // Juste vérifier la connexion
+                // Juste vérifier la connexion et compter les enregistrements
                 try (Connection conn = getSQLiteConnection()) {
                     logger.info("Connexion à la base existante: OK");
+
+                    // Compter les affaires pour vérification
+                    try (PreparedStatement stmt = conn.prepareStatement("SELECT COUNT(*) FROM affaires");
+                         ResultSet rs = stmt.executeQuery()) {
+                        if (rs.next()) {
+                            int count = rs.getInt(1);
+                            logger.info("Nombre d'affaires dans la base: {}", count);
+                        }
+                    } catch (SQLException e) {
+                        logger.warn("Impossible de compter les affaires: {}", e.getMessage());
+                    }
                 }
             }
 

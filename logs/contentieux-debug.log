@@ -59,3 +59,41 @@
 2025-06-18 12:14:31.127 [Thread-8] DEBUG c.r.contentieux.dao.AffaireDAO - Échec du parsing direct de date, tentative avec String pour l'affaire 5
 2025-06-18 12:14:31.131 [Thread-8] DEBUG c.r.contentieux.dao.AffaireDAO - Date parsée avec succès: 2024-12-20 -> 2024-12-20
 2025-06-18 12:14:31.259 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Interface mise à jour: 5 affaires affichées
+2025-06-18 12:35:32.712 [Thread-9] DEBUG c.r.contentieux.dao.AffaireDAO - Échec du parsing direct de date, tentative avec String pour l'affaire 1
+2025-06-18 12:35:32.714 [Thread-9] DEBUG c.r.contentieux.dao.AffaireDAO - Date parsée avec succès: 2024-12-01 -> 2024-12-01
+2025-06-18 12:35:32.718 [Thread-9] DEBUG c.r.contentieux.dao.AffaireDAO - Échec du parsing direct de date, tentative avec String pour l'affaire 2
+2025-06-18 12:35:32.719 [Thread-9] DEBUG c.r.contentieux.dao.AffaireDAO - Date parsée avec succès: 2024-12-05 -> 2024-12-05
+2025-06-18 12:35:32.731 [Thread-9] DEBUG c.r.contentieux.dao.AffaireDAO - Échec du parsing direct de date, tentative avec String pour l'affaire 3
+2025-06-18 12:35:32.732 [Thread-9] DEBUG c.r.contentieux.dao.AffaireDAO - Date parsée avec succès: 2024-12-10 -> 2024-12-10
+2025-06-18 12:35:32.737 [Thread-9] DEBUG c.r.contentieux.dao.AffaireDAO - Échec du parsing direct de date, tentative avec String pour l'affaire 4
+2025-06-18 12:35:32.738 [Thread-9] DEBUG c.r.contentieux.dao.AffaireDAO - Date parsée avec succès: 2024-12-15 -> 2024-12-15
+2025-06-18 12:35:32.745 [Thread-9] DEBUG c.r.contentieux.dao.AffaireDAO - Échec du parsing direct de date, tentative avec String pour l'affaire 5
+2025-06-18 12:35:32.751 [Thread-9] DEBUG c.r.contentieux.dao.AffaireDAO - Date parsée avec succès: 2024-12-20 -> 2024-12-20
+2025-06-18 12:35:32.837 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Interface mise à jour: 5 affaires affichées
+2025-06-18 12:44:53.700 [JavaFX Application Thread] DEBUG c.r.c.controller.LoginController - LoginController initialisé
+2025-06-18 12:45:01.290 [JavaFX Application Thread] DEBUG c.r.contentieux.dao.UtilisateurDAO - Dernière connexion mise à jour pour l'utilisateur ID: 1
+2025-06-18 12:45:09.740 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Interface mise à jour: 0 affaires affichées
+2025-06-18 12:45:27.162 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Interface mise à jour: 0 affaires affichées
+2025-06-18 12:45:28.624 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Interface mise à jour: 0 affaires affichées
+2025-06-18 12:57:31.586 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Interface mise à jour: 25 affaires affichées
+2025-06-18 12:58:06.670 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Interface mise à jour: 25 affaires affichées
+2025-06-18 12:58:09.808 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Interface mise à jour: 25 affaires affichées
+2025-06-18 12:58:11.305 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Interface mise à jour: 25 affaires affichées
+2025-06-18 12:58:12.233 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Interface mise à jour: 25 affaires affichées
+2025-06-18 12:58:21.361 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Interface mise à jour: 0 affaires affichées
+2025-06-18 12:58:26.208 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Interface mise à jour: 0 affaires affichées
+2025-06-18 12:58:33.695 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Interface mise à jour: 0 affaires affichées
+2025-06-18 12:58:37.283 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Interface mise à jour: 0 affaires affichées
+2025-06-18 12:58:41.394 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Interface mise à jour: 25 affaires affichées
+2025-06-18 12:58:53.840 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Interface mise à jour: 2 affaires affichées
+2025-06-18 12:59:21.878 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Interface mise à jour: 25 affaires affichées
+2025-06-18 12:59:24.172 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Interface mise à jour: 25 affaires affichées
+2025-06-18 12:59:24.868 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Interface mise à jour: 25 affaires affichées
+2025-06-18 12:59:27.913 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Interface mise à jour: 25 affaires affichées
+2025-06-18 12:59:29.237 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Interface mise à jour: 25 affaires affichées
+2025-06-18 12:59:30.704 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Interface mise à jour: 10 affaires affichées
+2025-06-18 12:59:33.532 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Interface mise à jour: 1 affaires affichées
+2025-06-18 12:59:46.523 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Interface mise à jour: 0 affaires affichées
+2025-06-18 12:59:48.977 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Interface mise à jour: 0 affaires affichées
+2025-06-18 12:59:50.431 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Interface mise à jour: 0 affaires affichées
+2025-06-18 12:59:50.662 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Interface mise à jour: 1 affaires affichées

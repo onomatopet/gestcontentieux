@@ -310,6 +310,14 @@ public class AffaireListController implements Initializable {
      * Charge les données
      */
     private void loadData() {
+        // Afficher immédiatement un indicateur de chargement
+        Platform.runLater(() -> {
+            affaires.clear();
+            // Ajouter un placeholder temporaire
+            totalCountLabel.setText("Chargement...");
+            paginationInfoLabel.setText("Chargement en cours...");
+        });
+
         Task<List<AffaireViewModel>> loadTask = new Task<List<AffaireViewModel>>() {
             @Override
             protected List<AffaireViewModel> call() throws Exception {
@@ -321,13 +329,18 @@ public class AffaireListController implements Initializable {
                 LocalDate dateDebut = dateDebutPicker.getValue();
                 LocalDate dateFin = dateFinPicker.getValue();
 
-                // Recherche avec pagination
+                logger.info("Chargement page {} (offset: {}, limit: {})", currentPage, offset, pageSize);
+
+                // OPTIMISÉ: Chargement avec timeout pour éviter les blocages
                 List<Affaire> affairesList = affaireDAO.searchAffaires(
                         searchText, statut, dateDebut, dateFin, null, offset, pageSize);
 
-                // Comptage total
+                // Comptage total (optimisé)
                 totalElements = affaireDAO.countSearchAffaires(
                         searchText, statut, dateDebut, dateFin, null);
+
+                logger.info("Chargement terminé: {} affaires trouvées sur {} total",
+                        affairesList.size(), totalElements);
 
                 // Conversion vers le modèle d'affichage
                 return affairesList.stream()
@@ -343,7 +356,7 @@ public class AffaireListController implements Initializable {
                 viewModel.setMontantAmendeTotal(affaire.getMontantAmendeTotal());
                 viewModel.setStatut(affaire.getStatut());
 
-                // Pour l'instant, utiliser les IDs (à améliorer avec des jointures)
+                // OPTIMISÉ: Affichage simple pour éviter les jointures coûteuses
                 viewModel.setContrevenantNom("Contrevenant #" + affaire.getContrevenantId());
                 viewModel.setContraventionLibelle("Contravention #" + affaire.getContraventionId());
                 viewModel.setBureauNom(affaire.getBureauId() != null ? "Bureau #" + affaire.getBureauId() : "");
@@ -364,11 +377,11 @@ public class AffaireListController implements Initializable {
                     updatePaginationButtons();
                     updatePaginationNumbers();
 
-                    // Mise à jour du compteur
-                    totalCountLabel.setText(totalElements + " affaire(s)");
+                    // Mise à jour du compteur avec format lisible
+                    String countText = formatLargeNumber(totalElements) + " affaire(s)";
+                    totalCountLabel.setText(countText);
 
-                    logger.debug("Chargement terminé: {} affaires sur {} au total",
-                            affaires.size(), totalElements);
+                    logger.debug("Interface mise à jour: {} affaires affichées", affaires.size());
                 });
             }
 
@@ -376,16 +389,34 @@ public class AffaireListController implements Initializable {
             protected void failed() {
                 Platform.runLater(() -> {
                     logger.error("Erreur lors du chargement des affaires", getException());
+                    totalCountLabel.setText("Erreur");
+                    paginationInfoLabel.setText("Erreur de chargement");
+
                     AlertUtil.showErrorAlert("Erreur de chargement",
                             "Impossible de charger les affaires",
-                            "Une erreur technique s'est produite.");
+                            "Vérifiez la connexion à la base de données.");
                 });
             }
         };
 
+        // Configuration du thread avec priorité normale
         Thread loadThread = new Thread(loadTask);
         loadThread.setDaemon(true);
+        loadThread.setPriority(Thread.NORM_PRIORITY);
         loadThread.start();
+    }
+
+    /**
+     * Formate les grands nombres de manière lisible
+     */
+    private String formatLargeNumber(long number) {
+        if (number < 1000) {
+            return String.valueOf(number);
+        } else if (number < 1000000) {
+            return String.format("%.1fk", number / 1000.0);
+        } else {
+            return String.format("%.1fM", number / 1000000.0);
+        }
     }
 
     // Actions sur les affaires

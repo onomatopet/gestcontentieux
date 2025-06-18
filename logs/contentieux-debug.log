@@ -1,0 +1,61 @@
+2025-06-18 10:46:39.881 [JavaFX Application Thread] DEBUG c.r.c.controller.LoginController - LoginController initialisé
+2025-06-18 10:50:57.344 [JavaFX Application Thread] DEBUG c.r.c.controller.LoginController - LoginController initialisé
+2025-06-18 11:04:29.339 [JavaFX Application Thread] DEBUG c.r.c.controller.LoginController - LoginController initialisé
+2025-06-18 11:14:26.625 [JavaFX Application Thread] DEBUG c.r.contentieux.dao.UtilisateurDAO - Dernière connexion mise à jour pour l'utilisateur ID: 1
+2025-06-18 11:18:02.795 [JavaFX Application Thread] DEBUG c.r.contentieux.util.AlertUtil - Confirmation 'Confirmer la déconnexion': Acceptée
+2025-06-18 11:18:02.969 [JavaFX Application Thread] DEBUG c.r.c.controller.LoginController - LoginController initialisé
+2025-06-18 11:19:15.787 [JavaFX Application Thread] DEBUG c.r.c.controller.LoginController - LoginController initialisé
+2025-06-18 11:19:44.733 [JavaFX Application Thread] DEBUG c.r.contentieux.dao.UtilisateurDAO - Dernière connexion mise à jour pour l'utilisateur ID: 1
+2025-06-18 11:30:18.968 [JavaFX Application Thread] DEBUG c.r.contentieux.util.AlertUtil - Confirmation 'Confirmer la déconnexion': Acceptée
+2025-06-18 11:30:18.983 [JavaFX Application Thread] DEBUG c.r.c.controller.LoginController - LoginController initialisé
+2025-06-18 11:30:34.701 [JavaFX Application Thread] DEBUG c.r.contentieux.dao.UtilisateurDAO - Dernière connexion mise à jour pour l'utilisateur ID: 1
+2025-06-18 11:42:26.852 [JavaFX Application Thread] DEBUG c.r.c.controller.LoginController - LoginController initialisé
+2025-06-18 11:42:37.613 [JavaFX Application Thread] DEBUG c.r.contentieux.dao.UtilisateurDAO - Dernière connexion mise à jour pour l'utilisateur ID: 1
+2025-06-18 11:44:25.420 [JavaFX Application Thread] DEBUG c.r.c.controller.LoginController - LoginController initialisé
+2025-06-18 11:44:30.796 [JavaFX Application Thread] DEBUG c.r.contentieux.dao.UtilisateurDAO - Dernière connexion mise à jour pour l'utilisateur ID: 1
+2025-06-18 11:54:06.597 [JavaFX Application Thread] DEBUG c.r.c.controller.LoginController - LoginController initialisé
+2025-06-18 11:54:11.570 [JavaFX Application Thread] DEBUG c.r.contentieux.dao.UtilisateurDAO - Dernière connexion mise à jour pour l'utilisateur ID: 1
+2025-06-18 11:54:20.063 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Interface mise à jour: 0 affaires affichées
+2025-06-18 11:57:06.688 [JavaFX Application Thread] DEBUG c.r.contentieux.util.AlertUtil - Confirmation 'Confirmer la déconnexion': Acceptée
+2025-06-18 11:57:06.702 [JavaFX Application Thread] DEBUG c.r.c.controller.LoginController - LoginController initialisé
+2025-06-18 11:57:29.666 [JavaFX Application Thread] DEBUG c.r.c.controller.LoginController - LoginController initialisé
+2025-06-18 11:57:50.388 [JavaFX Application Thread] DEBUG c.r.contentieux.dao.UtilisateurDAO - Dernière connexion mise à jour pour l'utilisateur ID: 1
+2025-06-18 11:57:55.616 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Interface mise à jour: 0 affaires affichées
+2025-06-18 12:11:10.371 [JavaFX Application Thread] DEBUG c.r.c.controller.LoginController - LoginController initialisé
+2025-06-18 12:11:15.850 [JavaFX Application Thread] DEBUG c.r.contentieux.dao.UtilisateurDAO - Dernière connexion mise à jour pour l'utilisateur ID: 1
+2025-06-18 12:11:21.287 [Thread-5] DEBUG c.r.contentieux.dao.AffaireDAO - Échec du parsing direct de date, tentative avec String pour l'affaire 1
+2025-06-18 12:11:21.291 [Thread-5] DEBUG c.r.contentieux.dao.AffaireDAO - Date parsée avec succès: 2024-12-01 -> 2024-12-01
+2025-06-18 12:11:21.297 [Thread-5] DEBUG c.r.contentieux.dao.AffaireDAO - Échec du parsing direct de date, tentative avec String pour l'affaire 2
+2025-06-18 12:11:21.297 [Thread-5] DEBUG c.r.contentieux.dao.AffaireDAO - Date parsée avec succès: 2024-12-05 -> 2024-12-05
+2025-06-18 12:11:21.298 [Thread-5] DEBUG c.r.contentieux.dao.AffaireDAO - Échec du parsing direct de date, tentative avec String pour l'affaire 3
+2025-06-18 12:11:21.299 [Thread-5] DEBUG c.r.contentieux.dao.AffaireDAO - Date parsée avec succès: 2024-12-10 -> 2024-12-10
+2025-06-18 12:11:21.301 [Thread-5] DEBUG c.r.contentieux.dao.AffaireDAO - Échec du parsing direct de date, tentative avec String pour l'affaire 4
+2025-06-18 12:11:21.303 [Thread-5] DEBUG c.r.contentieux.dao.AffaireDAO - Date parsée avec succès: 2024-12-15 -> 2024-12-15
+2025-06-18 12:11:21.304 [Thread-5] DEBUG c.r.contentieux.dao.AffaireDAO - Échec du parsing direct de date, tentative avec String pour l'affaire 5
+2025-06-18 12:11:21.305 [Thread-5] DEBUG c.r.contentieux.dao.AffaireDAO - Date parsée avec succès: 2024-12-20 -> 2024-12-20
+2025-06-18 12:11:21.667 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Interface mise à jour: 5 affaires affichées
+2025-06-18 12:14:04.335 [Thread-6] DEBUG c.r.contentieux.dao.AffaireDAO - Échec du parsing direct de date, tentative avec String pour l'affaire 1
+2025-06-18 12:14:04.335 [Thread-6] DEBUG c.r.contentieux.dao.AffaireDAO - Date parsée avec succès: 2024-12-01 -> 2024-12-01
+2025-06-18 12:14:04.336 [Thread-6] DEBUG c.r.contentieux.dao.AffaireDAO - Échec du parsing direct de date, tentative avec String pour l'affaire 2
+2025-06-18 12:14:04.337 [Thread-6] DEBUG c.r.contentieux.dao.AffaireDAO - Date parsée avec succès: 2024-12-05 -> 2024-12-05
+2025-06-18 12:14:04.337 [Thread-6] DEBUG c.r.contentieux.dao.AffaireDAO - Échec du parsing direct de date, tentative avec String pour l'affaire 3
+2025-06-18 12:14:04.338 [Thread-6] DEBUG c.r.contentieux.dao.AffaireDAO - Date parsée avec succès: 2024-12-10 -> 2024-12-10
+2025-06-18 12:14:04.338 [Thread-6] DEBUG c.r.contentieux.dao.AffaireDAO - Échec du parsing direct de date, tentative avec String pour l'affaire 4
+2025-06-18 12:14:04.339 [Thread-6] DEBUG c.r.contentieux.dao.AffaireDAO - Date parsée avec succès: 2024-12-15 -> 2024-12-15
+2025-06-18 12:14:04.352 [Thread-6] DEBUG c.r.contentieux.dao.AffaireDAO - Échec du parsing direct de date, tentative avec String pour l'affaire 5
+2025-06-18 12:14:04.355 [Thread-6] DEBUG c.r.contentieux.dao.AffaireDAO - Date parsée avec succès: 2024-12-20 -> 2024-12-20
+2025-06-18 12:14:04.466 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Interface mise à jour: 5 affaires affichées
+2025-06-18 12:14:10.009 [JavaFX Application Thread] DEBUG c.r.contentieux.util.AlertUtil - Confirmation 'Confirmer la déconnexion': Acceptée
+2025-06-18 12:14:10.027 [JavaFX Application Thread] DEBUG c.r.c.controller.LoginController - LoginController initialisé
+2025-06-18 12:14:18.048 [JavaFX Application Thread] DEBUG c.r.contentieux.dao.UtilisateurDAO - Dernière connexion mise à jour pour l'utilisateur ID: 1
+2025-06-18 12:14:31.060 [Thread-8] DEBUG c.r.contentieux.dao.AffaireDAO - Échec du parsing direct de date, tentative avec String pour l'affaire 1
+2025-06-18 12:14:31.062 [Thread-8] DEBUG c.r.contentieux.dao.AffaireDAO - Date parsée avec succès: 2024-12-01 -> 2024-12-01
+2025-06-18 12:14:31.064 [Thread-8] DEBUG c.r.contentieux.dao.AffaireDAO - Échec du parsing direct de date, tentative avec String pour l'affaire 2
+2025-06-18 12:14:31.064 [Thread-8] DEBUG c.r.contentieux.dao.AffaireDAO - Date parsée avec succès: 2024-12-05 -> 2024-12-05
+2025-06-18 12:14:31.069 [Thread-8] DEBUG c.r.contentieux.dao.AffaireDAO - Échec du parsing direct de date, tentative avec String pour l'affaire 3
+2025-06-18 12:14:31.071 [Thread-8] DEBUG c.r.contentieux.dao.AffaireDAO - Date parsée avec succès: 2024-12-10 -> 2024-12-10
+2025-06-18 12:14:31.085 [Thread-8] DEBUG c.r.contentieux.dao.AffaireDAO - Échec du parsing direct de date, tentative avec String pour l'affaire 4
+2025-06-18 12:14:31.085 [Thread-8] DEBUG c.r.contentieux.dao.AffaireDAO - Date parsée avec succès: 2024-12-15 -> 2024-12-15
+2025-06-18 12:14:31.127 [Thread-8] DEBUG c.r.contentieux.dao.AffaireDAO - Échec du parsing direct de date, tentative avec String pour l'affaire 5
+2025-06-18 12:14:31.131 [Thread-8] DEBUG c.r.contentieux.dao.AffaireDAO - Date parsée avec succès: 2024-12-20 -> 2024-12-20
+2025-06-18 12:14:31.259 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Interface mise à jour: 5 affaires affichées

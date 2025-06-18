@@ -194,6 +194,9 @@ public class LoginController implements Initializable {
     /**
      * Charge la vue principale après connexion réussie
      */
+    /**
+     * Charge la vue principale après connexion réussie
+     */
     private void loadMainView() {
         try {
             logger.info("Chargement de l'interface principale...");
@@ -204,12 +207,17 @@ public class LoginController implements Initializable {
             // Récupération de la fenêtre actuelle
             Stage stage = (Stage) loginButton.getScene().getWindow();
 
-            // Configuration de la fenêtre principale
+            // Configuration de la fenêtre principale - CORRIGÉ
             stage.setTitle("Gestion des Affaires Contentieuses - v1.0.0");
             stage.setScene(mainScene);
-            stage.setMaximized(true);
+
+            // CORRIGÉ: Maximisé au lieu de plein écran
+            stage.setMaximized(true);           // ✅ Maximisé (garde la barre des tâches)
+            // Supprimer cette ligne si elle existe : stage.setFullScreen(true);
+
             stage.setMinWidth(1200);
             stage.setMinHeight(800);
+            stage.setResizable(true);           // ✅ Permet de redimensionner
 
             // Centrer sur l'écran si pas maximisé
             stage.centerOnScreen();

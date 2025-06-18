@@ -17,6 +17,7 @@ import java.util.Properties;
 
 /**
  * Configuration et gestion des connexions aux bases de données SQLite et MySQL
+ * VERSION SÉCURISÉE - Ne modifie pas la base existante
  */
 public class DatabaseConfig {
 
@@ -27,7 +28,7 @@ public class DatabaseConfig {
     private static HikariDataSource mysqlDataSource;
 
     // Configuration par défaut
-    private static final String DEFAULT_SQLITE_PATH = "gestion_contentieux.db"; // Utilise votre base existante
+    private static final String DEFAULT_SQLITE_PATH = "gestion_contentieux.db";
     private static final String CONFIG_FILE = "database.properties";
 
     // Properties de configuration
@@ -64,7 +65,7 @@ public class DatabaseConfig {
      * Définit les propriétés par défaut
      */
     private static void setDefaultProperties() {
-        // Configuration SQLite - utilise votre base existante
+        // Configuration SQLite
         dbProperties.setProperty("sqlite.path", DEFAULT_SQLITE_PATH);
         dbProperties.setProperty("sqlite.poolSize", "10");
 
@@ -82,10 +83,18 @@ public class DatabaseConfig {
 
     /**
      * Initialise la base de données SQLite
+     * SÉCURISÉ: Vérifie l'existence de la base sans l'écraser
      */
-    public static void initializeSQLiteDatabase() {
+    public static void initializeSQLite() {
         try {
             String sqlitePath = dbProperties.getProperty("sqlite.path", DEFAULT_SQLITE_PATH);
+
+            // Vérifier si la base de données existe
+            Path dbPath = Paths.get(sqlitePath);
+            boolean dbExists = Files.exists(dbPath);
+
+            logger.info("Vérification de la base SQLite: {}", sqlitePath);
+            logger.info("Base de données existante: {}", dbExists ? "OUI" : "NON");
 
             // Configuration du pool de connexions SQLite
             HikariConfig config = new HikariConfig();
@@ -104,8 +113,18 @@ public class DatabaseConfig {
 
             sqliteDataSource = new HikariDataSource(config);
 
-            // Création des tables si nécessaire
-            createSQLiteTables();
+            // SÉCURISÉ: Seulement créer les tables si la base n'existe pas
+            if (!dbExists) {
+                logger.info("Base de données non trouvée, création des tables...");
+                createSQLiteTables();
+                logger.info("Tables SQLite créées avec succès");
+            } else {
+                logger.info("Base de données existante détectée, pas de modification");
+                // Juste vérifier la connexion
+                try (Connection conn = getSQLiteConnection()) {
+                    logger.info("Connexion à la base existante: OK");
+                }
+            }
 
             logger.info("Base de données SQLite initialisée : {}", sqlitePath);
 
@@ -113,13 +132,6 @@ public class DatabaseConfig {
             logger.error("Erreur lors de l'initialisation de la base SQLite", e);
             throw new RuntimeException("Impossible d'initialiser la base SQLite", e);
         }
-    }
-
-    /**
-     * Alias pour compatibilité
-     */
-    public static void initializeSQLite() {
-        initializeSQLiteDatabase();
     }
 
     /**
@@ -173,7 +185,7 @@ public class DatabaseConfig {
     }
 
     /**
-     * Crée les tables SQLite si elles n'existent pas
+     * Crée les tables SQLite SEULEMENT si elles n'existent pas
      */
     private static void createSQLiteTables() {
         String[] createTableStatements = {
@@ -305,8 +317,6 @@ public class DatabaseConfig {
                 stmt.execute(sql);
             }
 
-            logger.info("Tables SQLite créées avec succès");
-
         } catch (SQLException e) {
             logger.error("Erreur lors de la création des tables SQLite", e);
             throw new RuntimeException("Impossible de créer les tables SQLite", e);
@@ -314,63 +324,23 @@ public class DatabaseConfig {
     }
 
     /**
-     * Crée les données initiales
+     * Crée les données initiales SEULEMENT si nécessaire
      */
     public static void createInitialData() {
         try (Connection conn = getSQLiteConnection();
              Statement stmt = conn.createStatement()) {
 
-            // Utilisateur admin par défaut (mot de passe: "admin")
+            // Vérifier si des données existent déjà
+            var rs = stmt.executeQuery("SELECT COUNT(*) FROM utilisateurs");
+            if (rs.next() && rs.getInt(1) > 0) {
+                logger.info("Données existantes détectées, pas d'initialisation");
+                return;
+            }
+
+            // Utilisateur admin par défaut (mot de passe: "admin" -> SHA-256)
             stmt.execute("""
                 INSERT OR IGNORE INTO utilisateurs (username, password_hash, nom_complet, role) 
                 VALUES ('admin', 'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f', 'Administrateur Système', 'SUPER_ADMIN')
-            """);
-
-            // Données de test pour les services
-            stmt.execute("""
-                INSERT OR IGNORE INTO services (code_service, nom_service) 
-                VALUES 
-                ('SRV001', 'Service Fiscal'),
-                ('SRV002', 'Service Douanier'),
-                ('SRV003', 'Service Commercial')
-            """);
-
-            // Données de test pour les bureaux
-            stmt.execute("""
-                INSERT OR IGNORE INTO bureaux (code_bureau, nom_bureau) 
-                VALUES 
-                ('BUR001', 'Bureau Central'),
-                ('BUR002', 'Bureau Nord'),
-                ('BUR003', 'Bureau Sud')
-            """);
-
-            // Données de test pour les contraventions
-            stmt.execute("""
-                INSERT OR IGNORE INTO contraventions (code, libelle, description) 
-                VALUES 
-                ('CV001', 'Défaut de déclaration fiscale', 'Non-respect des obligations déclaratives'),
-                ('CV002', 'Contrebande', 'Importation illégale de marchandises'),
-                ('CV003', 'Pratique commerciale déloyale', 'Concurrence déloyale')
-            """);
-
-            // Données de test pour les contrevenants
-            stmt.execute("""
-                INSERT OR IGNORE INTO contrevenants (code, nom_complet, type_personne, adresse, telephone) 
-                VALUES 
-                ('CTR001', 'MARTIN Jean', 'PHYSIQUE', '123 Rue de la Paix, Pointe-Noire', '+242 06 123 45 67'),
-                ('CTR002', 'SOCIETE ABC SARL', 'MORALE', '456 Avenue de l''Indépendance, Pointe-Noire', '+242 05 987 65 43'),
-                ('CTR003', 'DUPONT Marie', 'PHYSIQUE', '789 Boulevard des Congolais, Pointe-Noire', '+242 06 555 44 33')
-            """);
-
-            // Données de test pour les affaires (avec nouveau format YYMMNNNN)
-            stmt.execute("""
-                INSERT OR IGNORE INTO affaires (numero_affaire, date_creation, montant_amende_total, statut, contrevenant_id, contravention_id, bureau_id, service_id, created_by) 
-                VALUES 
-                ('24120001', '2024-12-01', 500000.0, 'EN_COURS', 1, 1, 1, 1, 'admin'),
-                ('24120002', '2024-12-05', 1200000.0, 'OUVERTE', 2, 2, 2, 2, 'admin'),
-                ('24120003', '2024-12-10', 750000.0, 'CLOTUREE', 3, 3, 1, 3, 'admin'),
-                ('24120004', '2024-12-15', 300000.0, 'EN_COURS', 1, 1, 3, 1, 'admin'),
-                ('24120005', '2024-12-20', 2000000.0, 'SUSPENDUE', 2, 2, 2, 2, 'admin')
             """);
 
             logger.info("Données initiales créées avec succès");
@@ -385,7 +355,7 @@ public class DatabaseConfig {
      */
     public static Connection getSQLiteConnection() throws SQLException {
         if (sqliteDataSource == null) {
-            initializeSQLiteDatabase();
+            initializeSQLite();
         }
         return sqliteDataSource.getConnection();
     }
@@ -448,29 +418,5 @@ public class DatabaseConfig {
      */
     public static boolean isMySQLAvailable() {
         return mysqlDataSource != null && !mysqlDataSource.isClosed();
-    }
-
-    /**
-     * Obtient des statistiques sur les pools de connexions
-     */
-    public static String getConnectionPoolStats() {
-        StringBuilder stats = new StringBuilder();
-
-        if (sqliteDataSource != null) {
-            stats.append("SQLite Pool - ");
-            stats.append("Active: ").append(sqliteDataSource.getHikariPoolMXBean().getActiveConnections());
-            stats.append(", Idle: ").append(sqliteDataSource.getHikariPoolMXBean().getIdleConnections());
-            stats.append(", Total: ").append(sqliteDataSource.getHikariPoolMXBean().getTotalConnections());
-            stats.append("\n");
-        }
-
-        if (mysqlDataSource != null) {
-            stats.append("MySQL Pool - ");
-            stats.append("Active: ").append(mysqlDataSource.getHikariPoolMXBean().getActiveConnections());
-            stats.append(", Idle: ").append(mysqlDataSource.getHikariPoolMXBean().getIdleConnections());
-            stats.append(", Total: ").append(mysqlDataSource.getHikariPoolMXBean().getTotalConnections());
-        }
-
-        return stats.toString();
     }
 }

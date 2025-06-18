@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import java.sql.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -85,10 +86,31 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
         affaire.setId(rs.getLong("id"));
         affaire.setNumeroAffaire(rs.getString("numero_affaire"));
 
-        // Conversion de Date vers LocalDate
-        Date sqlDate = rs.getDate("date_creation");
-        if (sqlDate != null) {
-            affaire.setDateCreation(sqlDate.toLocalDate());
+        // CORRIGÉ: Gestion robuste des dates avec différents formats
+        try {
+            Date sqlDate = rs.getDate("date_creation");
+            if (sqlDate != null) {
+                affaire.setDateCreation(sqlDate.toLocalDate());
+            }
+        } catch (SQLException e) {
+            // Fallback: essayer de parser la date comme String si le format direct échoue
+            logger.debug("Échec du parsing direct de date, tentative avec String pour l'affaire {}", rs.getLong("id"));
+            try {
+                String dateStr = rs.getString("date_creation");
+                if (dateStr != null && !dateStr.trim().isEmpty()) {
+                    // Parser différents formats possibles
+                    LocalDate parsedDate = parseDateString(dateStr);
+                    affaire.setDateCreation(parsedDate);
+                    logger.debug("Date parsée avec succès: {} -> {}", dateStr, parsedDate);
+                } else {
+                    logger.warn("Date de création nulle ou vide pour l'affaire {}", rs.getLong("id"));
+                }
+            } catch (Exception parseEx) {
+                logger.error("Impossible de parser la date de création pour l'affaire {}: {}",
+                        rs.getLong("id"), parseEx.getMessage());
+                // Utiliser une date par défaut ou null
+                affaire.setDateCreation(LocalDate.now());
+            }
         }
 
         affaire.setMontantAmendeTotal(rs.getDouble("montant_amende_total"));
@@ -118,21 +140,62 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
             affaire.setServiceId(serviceId);
         }
 
-        // Timestamps
-        Timestamp createdAt = rs.getTimestamp("created_at");
-        if (createdAt != null) {
-            affaire.setCreatedAt(createdAt.toLocalDateTime());
+        // CORRIGÉ: Timestamps avec gestion d'erreur similaire
+        try {
+            Timestamp createdAt = rs.getTimestamp("created_at");
+            if (createdAt != null) {
+                affaire.setCreatedAt(createdAt.toLocalDateTime());
+            }
+        } catch (SQLException e) {
+            logger.debug("Échec du parsing de created_at pour l'affaire {}", affaire.getId());
+            affaire.setCreatedAt(LocalDateTime.now());
         }
 
-        Timestamp updatedAt = rs.getTimestamp("updated_at");
-        if (updatedAt != null) {
-            affaire.setUpdatedAt(updatedAt.toLocalDateTime());
+        try {
+            Timestamp updatedAt = rs.getTimestamp("updated_at");
+            if (updatedAt != null) {
+                affaire.setUpdatedAt(updatedAt.toLocalDateTime());
+            }
+        } catch (SQLException e) {
+            logger.debug("Échec du parsing de updated_at pour l'affaire {}", affaire.getId());
+            affaire.setUpdatedAt(LocalDateTime.now());
         }
 
         affaire.setCreatedBy(rs.getString("created_by"));
         affaire.setUpdatedBy(rs.getString("updated_by"));
 
         return affaire;
+    }
+
+    /**
+     * Parse une date depuis différents formats string possibles
+     */
+    private LocalDate parseDateString(String dateStr) {
+        if (dateStr == null || dateStr.trim().isEmpty()) {
+            return null;
+        }
+
+        dateStr = dateStr.trim();
+
+        // Format ISO (YYYY-MM-DD)
+        if (dateStr.matches("\\d{4}-\\d{2}-\\d{2}")) {
+            return LocalDate.parse(dateStr);
+        }
+
+        // Format français (DD/MM/YYYY)
+        if (dateStr.matches("\\d{2}/\\d{2}/\\d{4}")) {
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+            return LocalDate.parse(dateStr, formatter);
+        }
+
+        // Format américain (MM/DD/YYYY)
+        if (dateStr.matches("\\d{2}/\\d{2}/\\d{4}")) {
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
+            return LocalDate.parse(dateStr, formatter);
+        }
+
+        // Si aucun format ne correspond, essayer la conversion directe
+        throw new RuntimeException("Format de date non supporté: " + dateStr);
     }
 
     @Override

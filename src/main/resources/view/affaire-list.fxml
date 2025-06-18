@@ -2,7 +2,6 @@
 
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.*?>
-<?import javafx.scene.control.cell.*?>
 <?import javafx.scene.layout.*?>
 <?import javafx.scene.text.*?>
 
@@ -88,61 +87,27 @@
             <!-- Tableau principal -->
             <TableView fx:id="affairesTableView" VBox.vgrow="ALWAYS">
                 <columns>
-                    <!-- Colonne de sélection -->
+                    <!-- CORRIGÉ : Colonne de sélection sans cellFactory dans FXML -->
                     <TableColumn fx:id="selectColumn" prefWidth="40.0" sortable="false" resizable="false">
-                        <cellFactory>
-                            <CheckBoxTableCell />
-                        </cellFactory>
+                        <!-- La cellFactory sera définie dans le contrôleur Java -->
                     </TableColumn>
 
                     <!-- Colonnes des données -->
-                    <TableColumn fx:id="numeroColumn" text="Numéro" prefWidth="120.0">
-                        <cellValueFactory>
-                            <PropertyValueFactory property="numeroAffaire" />
-                        </cellValueFactory>
-                    </TableColumn>
+                    <TableColumn fx:id="numeroColumn" text="Numéro" prefWidth="120.0" />
 
-                    <TableColumn fx:id="dateCreationColumn" text="Date de création" prefWidth="120.0">
-                        <cellValueFactory>
-                            <PropertyValueFactory property="dateCreation" />
-                        </cellValueFactory>
-                    </TableColumn>
+                    <TableColumn fx:id="dateCreationColumn" text="Date de création" prefWidth="120.0" />
 
-                    <TableColumn fx:id="contrevenantColumn" text="Contrevenant" prefWidth="200.0">
-                        <cellValueFactory>
-                            <PropertyValueFactory property="contrevenantNom" />
-                        </cellValueFactory>
-                    </TableColumn>
+                    <TableColumn fx:id="contrevenantColumn" text="Contrevenant" prefWidth="200.0" />
 
-                    <TableColumn fx:id="contraventionColumn" text="Contravention" prefWidth="150.0">
-                        <cellValueFactory>
-                            <PropertyValueFactory property="contraventionLibelle" />
-                        </cellValueFactory>
-                    </TableColumn>
+                    <TableColumn fx:id="contraventionColumn" text="Contravention" prefWidth="150.0" />
 
-                    <TableColumn fx:id="montantColumn" text="Montant (FCFA)" prefWidth="120.0">
-                        <cellValueFactory>
-                            <PropertyValueFactory property="montantAmendeTotal" />
-                        </cellValueFactory>
-                    </TableColumn>
+                    <TableColumn fx:id="montantColumn" text="Montant (FCFA)" prefWidth="120.0" />
 
-                    <TableColumn fx:id="statutColumn" text="Statut" prefWidth="100.0">
-                        <cellValueFactory>
-                            <PropertyValueFactory property="statut" />
-                        </cellValueFactory>
-                    </TableColumn>
+                    <TableColumn fx:id="statutColumn" text="Statut" prefWidth="100.0" />
 
-                    <TableColumn fx:id="bureauColumn" text="Bureau" prefWidth="120.0">
-                        <cellValueFactory>
-                            <PropertyValueFactory property="bureauNom" />
-                        </cellValueFactory>
-                    </TableColumn>
+                    <TableColumn fx:id="bureauColumn" text="Bureau" prefWidth="120.0" />
 
-                    <TableColumn fx:id="serviceColumn" text="Service" prefWidth="120.0">
-                        <cellValueFactory>
-                            <PropertyValueFactory property="serviceNom" />
-                        </cellValueFactory>
-                    </TableColumn>
+                    <TableColumn fx:id="serviceColumn" text="Service" prefWidth="120.0" />
 
                     <!-- Colonne d'actions -->
                     <TableColumn fx:id="actionsColumn" text="Actions" prefWidth="100.0" sortable="false">

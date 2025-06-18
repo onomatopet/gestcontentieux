@@ -312,6 +312,47 @@ public class MainController implements Initializable {
         titleLabel.setText("Affaires Contentieuses");
         statusLabel.setText("Chargement des affaires...");
         logger.info("Chargement de la vue des affaires");
+
+        // Version simple avec Runnable
+        Platform.runLater(() -> {
+            try {
+                updateProgress(0.3, "Préparation...");
+
+                // Chargement de la vue FXML
+                javafx.scene.Node affairesView = FXMLLoaderUtil.loadParent("view/affaire-list.fxml");
+
+                updateProgress(0.8, "Finalisation...");
+
+                // Mise à jour de l'interface
+                mainContentArea.getChildren().clear();
+                mainContentArea.getChildren().add(affairesView);
+
+                updateProgress(-1, "");
+                statusLabel.setText("Vue des affaires chargée");
+                logger.info("Vue des affaires chargée avec succès");
+
+            } catch (Exception e) {
+                logger.error("Erreur lors du chargement de la vue des affaires", e);
+                updateProgress(-1, "");
+                statusLabel.setText("Erreur lors du chargement");
+
+                AlertUtil.showErrorAlert("Erreur de chargement",
+                        "Impossible de charger la vue des affaires",
+                        "Erreur technique: " + e.getMessage());
+            }
+        });
+    }
+
+    /**
+     * Obtient le nombre total d'affaires (optimisé)
+     */
+    private String getTotalAffairesCount() {
+        try {
+            // TODO: Implémenter un comptage rapide depuis la base
+            return "30k+"; // Temporaire
+        } catch (Exception e) {
+            return "?";
+        }
     }
 
     private void handleNewAffaire() { logger.info("Action: Nouvelle affaire"); }

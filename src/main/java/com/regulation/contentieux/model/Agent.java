@@ -2,14 +2,16 @@ package com.regulation.contentieux.model;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.regulation.contentieux.model.enums.StatutAffaire;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-class Agent {
+/**
+ * Entité représentant un agent
+ */
+public class Agent {
     private Long id;
     private String codeAgent;
     private String nom;

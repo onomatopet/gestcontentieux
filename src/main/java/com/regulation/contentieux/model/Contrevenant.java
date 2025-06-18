@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-class Contrevenant {
+public class Contrevenant {
     private Long id;
     private String code;
     private String nomComplet;

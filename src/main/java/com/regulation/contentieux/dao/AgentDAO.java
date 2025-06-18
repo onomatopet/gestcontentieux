@@ -13,8 +13,8 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * DAO pour la gestion des agents
- * Suit la même logique que les autres DAOs
+ * DAO pour la gestion des agents - SUIT LE PATTERN ÉTABLI
+ * Respecte exactement la structure des autres DAOs
  */
 public class AgentDAO extends AbstractSQLiteDAO<Agent, Long> {
 
@@ -42,8 +42,8 @@ public class AgentDAO extends AbstractSQLiteDAO<Agent, Long> {
     protected String getUpdateQuery() {
         return """
             UPDATE agents 
-            SET code_agent = ?, nom = ?, prenom = ?, grade = ?, 
-                service_id = ?, actif = ?, updated_at = CURRENT_TIMESTAMP 
+            SET code_agent = ?, nom = ?, prenom = ?, grade = ?, service_id = ?, 
+                actif = ?, updated_at = CURRENT_TIMESTAMP 
             WHERE id = ?
         """;
     }
@@ -51,8 +51,8 @@ public class AgentDAO extends AbstractSQLiteDAO<Agent, Long> {
     @Override
     protected String getSelectAllQuery() {
         return """
-            SELECT id, code_agent, nom, prenom, grade, service_id, 
-                   actif, created_at, updated_at 
+            SELECT id, code_agent, nom, prenom, grade, service_id, actif, 
+                   created_at, updated_at 
             FROM agents 
             ORDER BY nom ASC, prenom ASC
         """;
@@ -61,8 +61,8 @@ public class AgentDAO extends AbstractSQLiteDAO<Agent, Long> {
     @Override
     protected String getSelectByIdQuery() {
         return """
-            SELECT id, code_agent, nom, prenom, grade, service_id, 
-                   actif, created_at, updated_at 
+            SELECT id, code_agent, nom, prenom, grade, service_id, actif, 
+                   created_at, updated_at 
             FROM agents 
             WHERE id = ?
         """;
@@ -78,7 +78,7 @@ public class AgentDAO extends AbstractSQLiteDAO<Agent, Long> {
         agent.setPrenom(rs.getString("prenom"));
         agent.setGrade(rs.getString("grade"));
 
-        // Gestion du service_id nullable
+        // Gestion du service (nullable)
         long serviceId = rs.getLong("service_id");
         if (!rs.wasNull()) {
             agent.setServiceId(serviceId);
@@ -86,7 +86,7 @@ public class AgentDAO extends AbstractSQLiteDAO<Agent, Long> {
 
         agent.setActif(rs.getBoolean("actif"));
 
-        // Gestion des timestamps avec fallback
+        // Gestion des timestamps - COMME DANS LES AUTRES DAOs
         try {
             Timestamp createdAt = rs.getTimestamp("created_at");
             if (createdAt != null) {
@@ -160,8 +160,8 @@ public class AgentDAO extends AbstractSQLiteDAO<Agent, Long> {
      */
     public Optional<Agent> findByCodeAgent(String codeAgent) {
         String sql = """
-            SELECT id, code_agent, nom, prenom, grade, service_id, 
-                   actif, created_at, updated_at 
+            SELECT id, code_agent, nom, prenom, grade, service_id, actif, 
+                   created_at, updated_at 
             FROM agents 
             WHERE code_agent = ?
         """;
@@ -184,14 +184,14 @@ public class AgentDAO extends AbstractSQLiteDAO<Agent, Long> {
     }
 
     /**
-     * Trouve les agents actifs
+     * Trouve les agents actifs seulement
      */
     public List<Agent> findActiveAgents() {
         String sql = """
-            SELECT id, code_agent, nom, prenom, grade, service_id, 
-                   actif, created_at, updated_at 
+            SELECT id, code_agent, nom, prenom, grade, service_id, actif, 
+                   created_at, updated_at 
             FROM agents 
-            WHERE actif = true 
+            WHERE actif = 1 
             ORDER BY nom ASC, prenom ASC
         """;
 
@@ -217,10 +217,10 @@ public class AgentDAO extends AbstractSQLiteDAO<Agent, Long> {
      */
     public List<Agent> findByServiceId(Long serviceId) {
         String sql = """
-            SELECT id, code_agent, nom, prenom, grade, service_id, 
-                   actif, created_at, updated_at 
+            SELECT id, code_agent, nom, prenom, grade, service_id, actif, 
+                   created_at, updated_at 
             FROM agents 
-            WHERE service_id = ? AND actif = true 
+            WHERE service_id = ? AND actif = 1 
             ORDER BY nom ASC, prenom ASC
         """;
 
@@ -249,23 +249,23 @@ public class AgentDAO extends AbstractSQLiteDAO<Agent, Long> {
     public List<Agent> searchAgents(String nomOuPrenom, String grade, Long serviceId,
                                     Boolean actif, int offset, int limit) {
         StringBuilder sql = new StringBuilder();
-        sql.append("SELECT id, code_agent, nom, prenom, grade, service_id, ");
-        sql.append("actif, created_at, updated_at ");
+        sql.append("SELECT id, code_agent, nom, prenom, grade, service_id, actif, ");
+        sql.append("created_at, updated_at ");
         sql.append("FROM agents WHERE 1=1 ");
 
         List<Object> parameters = new ArrayList<>();
 
         if (nomOuPrenom != null && !nomOuPrenom.trim().isEmpty()) {
             sql.append("AND (nom LIKE ? OR prenom LIKE ? OR code_agent LIKE ?) ");
-            String pattern = "%" + nomOuPrenom.trim() + "%";
-            parameters.add(pattern);
-            parameters.add(pattern);
-            parameters.add(pattern);
+            String searchPattern = "%" + nomOuPrenom.trim() + "%";
+            parameters.add(searchPattern);
+            parameters.add(searchPattern);
+            parameters.add(searchPattern);
         }
 
         if (grade != null && !grade.trim().isEmpty()) {
-            sql.append("AND grade = ? ");
-            parameters.add(grade);
+            sql.append("AND grade LIKE ? ");
+            parameters.add("%" + grade.trim() + "%");
         }
 
         if (serviceId != null) {
@@ -275,7 +275,7 @@ public class AgentDAO extends AbstractSQLiteDAO<Agent, Long> {
 
         if (actif != null) {
             sql.append("AND actif = ? ");
-            parameters.add(actif);
+            parameters.add(actif ? 1 : 0);
         }
 
         sql.append("ORDER BY nom ASC, prenom ASC LIMIT ? OFFSET ?");
@@ -305,7 +305,7 @@ public class AgentDAO extends AbstractSQLiteDAO<Agent, Long> {
     }
 
     /**
-     * Compte les agents correspondant aux critères de recherche
+     * Compte les agents correspondant aux critères
      */
     public long countSearchAgents(String nomOuPrenom, String grade, Long serviceId, Boolean actif) {
         StringBuilder sql = new StringBuilder();
@@ -315,15 +315,15 @@ public class AgentDAO extends AbstractSQLiteDAO<Agent, Long> {
 
         if (nomOuPrenom != null && !nomOuPrenom.trim().isEmpty()) {
             sql.append("AND (nom LIKE ? OR prenom LIKE ? OR code_agent LIKE ?) ");
-            String pattern = "%" + nomOuPrenom.trim() + "%";
-            parameters.add(pattern);
-            parameters.add(pattern);
-            parameters.add(pattern);
+            String searchPattern = "%" + nomOuPrenom.trim() + "%";
+            parameters.add(searchPattern);
+            parameters.add(searchPattern);
+            parameters.add(searchPattern);
         }
 
         if (grade != null && !grade.trim().isEmpty()) {
-            sql.append("AND grade = ? ");
-            parameters.add(grade);
+            sql.append("AND grade LIKE ? ");
+            parameters.add("%" + grade.trim() + "%");
         }
 
         if (serviceId != null) {
@@ -333,7 +333,7 @@ public class AgentDAO extends AbstractSQLiteDAO<Agent, Long> {
 
         if (actif != null) {
             sql.append("AND actif = ? ");
-            parameters.add(actif);
+            parameters.add(actif ? 1 : 0);
         }
 
         try (Connection conn = DatabaseConfig.getSQLiteConnection();
@@ -383,25 +383,20 @@ public class AgentDAO extends AbstractSQLiteDAO<Agent, Long> {
 
         } catch (SQLException e) {
             logger.error("Erreur lors de la génération du code agent", e);
-            return prefix + "00001"; // Fallback
+            return prefix + "00001";
         }
     }
 
-    /**
-     * Génère le code suivant basé sur le dernier code
-     */
     private String generateNextCodeFromLast(String lastCode, String prefix) {
         try {
-            if (lastCode != null && lastCode.startsWith(prefix)) {
-                String numberPart = lastCode.substring(prefix.length());
-                int number = Integer.parseInt(numberPart);
-                return prefix + String.format("%05d", number + 1);
+            if (lastCode != null && lastCode.startsWith(prefix) && lastCode.length() == 7) {
+                String numericPart = lastCode.substring(2);
+                int lastNumber = Integer.parseInt(numericPart);
+                return prefix + String.format("%05d", lastNumber + 1);
             }
-
             return prefix + "00001";
-
         } catch (Exception e) {
-            logger.warn("Erreur lors du parsing du dernier code: {}", lastCode, e);
+            logger.warn("Erreur lors du parsing du dernier code agent: {}", lastCode, e);
             return prefix + "00001";
         }
     }
@@ -426,50 +421,40 @@ public class AgentDAO extends AbstractSQLiteDAO<Agent, Long> {
     }
 
     /**
-     * Désactive un agent (soft delete)
+     * Désactive un agent
      */
     public boolean deactivateAgent(Long agentId) {
-        String sql = "UPDATE agents SET actif = false, updated_at = CURRENT_TIMESTAMP WHERE id = ?";
+        String sql = "UPDATE agents SET actif = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?";
 
         try (Connection conn = DatabaseConfig.getSQLiteConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setLong(1, agentId);
             int rowsUpdated = stmt.executeUpdate();
-
-            if (rowsUpdated > 0) {
-                logger.info("Agent {} désactivé", agentId);
-                return true;
-            }
+            return rowsUpdated > 0;
 
         } catch (SQLException e) {
-            logger.error("Erreur lors de la désactivation de l'agent", e);
+            logger.error("Erreur lors de la désactivation de l'agent: " + agentId, e);
+            return false;
         }
-
-        return false;
     }
 
     /**
      * Réactive un agent
      */
     public boolean reactivateAgent(Long agentId) {
-        String sql = "UPDATE agents SET actif = true, updated_at = CURRENT_TIMESTAMP WHERE id = ?";
+        String sql = "UPDATE agents SET actif = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?";
 
         try (Connection conn = DatabaseConfig.getSQLiteConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setLong(1, agentId);
             int rowsUpdated = stmt.executeUpdate();
-
-            if (rowsUpdated > 0) {
-                logger.info("Agent {} réactivé", agentId);
-                return true;
-            }
+            return rowsUpdated > 0;
 
         } catch (SQLException e) {
-            logger.error("Erreur lors de la réactivation de l'agent", e);
+            logger.error("Erreur lors de la réactivation de l'agent: " + agentId, e);
+            return false;
         }
-
-        return false;
     }
 }

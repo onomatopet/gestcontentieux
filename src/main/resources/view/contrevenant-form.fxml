@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.regulation.contentieux.controller.ContrevenantFormController">
+
+    <top>
+        <!-- En-tête du formulaire -->
+        <VBox spacing="10.0" styleClass="title-bar">
+            <HBox alignment="CENTER_LEFT" spacing="15.0">
+                <Label fx:id="formTitleLabel" styleClass="title-2" text="Nouveau Contrevenant">
+                    <font>
+                        <Font name="System Bold" size="18.0" />
+                    </font>
+                </Label>
+
+                <Region HBox.hgrow="ALWAYS" />
+
+                <Label fx:id="modeLabel" styleClass="text-muted" text="Mode création" />
+            </HBox>
+
+            <padding>
+                <Insets bottom="10.0" left="15.0" right="15.0" top="10.0" />
+            </padding>
+        </VBox>
+    </top>
+
+    <center>
+        <!-- Formulaire principal -->
+        <ScrollPane fitToWidth="true" styleClass="main-content">
+            <VBox spacing="20.0">
+
+                <!-- Section Informations générales -->
+                <VBox spacing="15.0">
+                    <Label styleClass="title-3" text="Informations générales">
+                        <font>
+                            <Font name="System Bold" size="14.0" />
+                        </font>
+                    </Label>
+
+                    <GridPane hgap="15.0" vgap="10.0">
+                        <columnConstraints>
+                            <ColumnConstraints minWidth="120.0" prefWidth="120.0" />
+                            <ColumnConstraints hgrow="SOMETIMES" minWidth="200.0" />
+                            <ColumnConstraints minWidth="120.0" prefWidth="120.0" />
+                            <ColumnConstraints hgrow="SOMETIMES" minWidth="200.0" />
+                        </columnConstraints>
+
+                        <!-- Ligne 1 -->
+                        <Label text="Code :" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+                        <HBox spacing="10.0" alignment="CENTER_LEFT" GridPane.columnIndex="1" GridPane.rowIndex="0">
+                            <TextField fx:id="codeField" prefWidth="200.0" promptText="Généré automatiquement" />
+                            <Button fx:id="generateCodeButton" text="Générer" />
+                        </HBox>
+
+                        <Label text="Type de personne :" GridPane.columnIndex="2" GridPane.rowIndex="0" />
+                        <ComboBox fx:id="typePersonneComboBox" prefWidth="200.0" promptText="Sélectionner le type"
+                                  GridPane.columnIndex="3" GridPane.rowIndex="0" />
+
+                        <!-- Ligne 2 -->
+                        <Label text="Nom complet :" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+                        <TextField fx:id="nomCompletField" prefWidth="200.0" promptText="Nom complet ou raison sociale"
+                                   GridPane.columnIndex="1" GridPane.rowIndex="1" GridPane.columnSpan="3" />
+                    </GridPane>
+                </VBox>
+
+                <Separator />
+
+                <!-- Section Coordonnées -->
+                <VBox spacing="15.0">
+                    <Label styleClass="title-3" text="Coordonnées">
+                        <font>
+                            <Font name="System Bold" size="14.0" />
+                        </font>
+                    </Label>
+
+                    <GridPane hgap="15.0" vgap="10.0">
+                        <columnConstraints>
+                            <ColumnConstraints minWidth="120.0" prefWidth="120.0" />
+                            <ColumnConstraints hgrow="SOMETIMES" minWidth="200.0" />
+                            <ColumnConstraints minWidth="120.0" prefWidth="120.0" />
+                            <ColumnConstraints hgrow="SOMETIMES" minWidth="200.0" />
+                        </columnConstraints>
+
+                        <!-- Ligne 1 -->
+                        <Label text="Téléphone :" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+                        <TextField fx:id="telephoneField" prefWidth="200.0" promptText="+241 01 23 45 67"
+                                   GridPane.columnIndex="1" GridPane.rowIndex="0" />
+
+                        <Label text="Email :" GridPane.columnIndex="2" GridPane.rowIndex="0" />
+                        <TextField fx:id="emailField" prefWidth="200.0" promptText="email@example.com"
+                                   GridPane.columnIndex="3" GridPane.rowIndex="0" />
+
+                        <!-- Ligne 2 - Adresse sur toute la largeur -->
+                        <Label text="Adresse :" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+                        <TextArea fx:id="adresseField" prefRowCount="3" prefWidth="200.0"
+                                  promptText="Adresse complète..." wrapText="true"
+                                  GridPane.columnIndex="1" GridPane.rowIndex="1" GridPane.columnSpan="3" />
+                    </GridPane>
+                </VBox>
+
+                <Separator />
+
+                <!-- Section Informations complémentaires -->
+                <VBox spacing="15.0">
+                    <Label styleClass="title-3" text="Informations complémentaires">
+                        <font>
+                            <Font name="System Bold" size="14.0" />
+                        </font>
+                    </Label>
+
+                    <!-- Informations selon le type de personne -->
+                    <VBox fx:id="personnePhysiqueBox" spacing="10.0" visible="false" managed="false">
+                        <Label styleClass="text-muted" text="Informations spécifiques aux personnes physiques :" />
+
+                        <GridPane hgap="15.0" vgap="10.0">
+                            <columnConstraints>
+                                <ColumnConstraints minWidth="120.0" prefWidth="120.0" />
+                                <ColumnConstraints hgrow="SOMETIMES" minWidth="200.0" />
+                                <ColumnConstraints minWidth="120.0" prefWidth="120.0" />
+                                <ColumnConstraints hgrow="SOMETIMES" minWidth="200.0" />
+                            </columnConstraints>
+
+                            <Label text="Date de naissance :" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+                            <DatePicker fx:id="dateNaissancePicker" prefWidth="200.0"
+                                        GridPane.columnIndex="1" GridPane.rowIndex="0" />
+
+                            <Label text="Profession :" GridPane.columnIndex="2" GridPane.rowIndex="0" />
+                            <TextField fx:id="professionField" prefWidth="200.0" promptText="Profession"
+                                       GridPane.columnIndex="3" GridPane.rowIndex="0" />
+                        </GridPane>
+                    </VBox>
+
+                    <VBox fx:id="personneMoraleBox" spacing="10.0" visible="false" managed="false">
+                        <Label styleClass="text-muted" text="Informations spécifiques aux personnes morales :" />
+
+                        <GridPane hgap="15.0" vgap="10.0">
+                            <columnConstraints>
+                                <ColumnConstraints minWidth="120.0" prefWidth="120.0" />
+                                <ColumnConstraints hgrow="SOMETIMES" minWidth="200.0" />
+                                <ColumnConstraints minWidth="120.0" prefWidth="120.0" />
+                                <ColumnConstraints hgrow="SOMETIMES" minWidth="200.0" />
+                            </columnConstraints>
+
+                            <Label text="N° RCCM :" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+                            <TextField fx:id="numeroRCCMField" prefWidth="200.0" promptText="Numéro RCCM"
+                                       GridPane.columnIndex="1" GridPane.rowIndex="0" />
+
+                            <Label text="Secteur d'activité :" GridPane.columnIndex="2" GridPane.rowIndex="0" />
+                            <TextField fx:id="secteurActiviteField" prefWidth="200.0" promptText="Secteur d'activité"
+                                       GridPane.columnIndex="3" GridPane.rowIndex="0" />
+
+                            <Label text="Représentant légal :" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+                            <TextField fx:id="representantLegalField" prefWidth="200.0" promptText="Nom du représentant"
+                                       GridPane.columnIndex="1" GridPane.rowIndex="1" GridPane.columnSpan="3" />
+                        </GridPane>
+                    </VBox>
+                </VBox>
+
+                <Separator />
+
+                <!-- Section Historique des affaires -->
+                <VBox spacing="15.0" fx:id="affairesHistoryBox" visible="false" managed="false">
+                    <HBox alignment="CENTER_LEFT" spacing="10.0">
+                        <Label styleClass="title-3" text="Affaires liées">
+                            <font>
+                                <Font name="System Bold" size="14.0" />
+                            </font>
+                        </Label>
+                        <Label fx:id="affairesCountLabel" styleClass="text-muted" text="(0 affaire)" />
+                        <Button fx:id="viewAffairesButton" text="Voir toutes les affaires" />
+                    </HBox>
+
+                    <!-- Résumé des affaires -->
+                    <GridPane hgap="15.0" vgap="5.0" styleClass="system-info">
+                        <columnConstraints>
+                            <ColumnConstraints minWidth="150.0" prefWidth="150.0" />
+                            <ColumnConstraints hgrow="SOMETIMES" />
+                            <ColumnConstraints minWidth="150.0" prefWidth="150.0" />
+                            <ColumnConstraints hgrow="SOMETIMES" />
+                        </columnConstraints>
+
+                        <Label text="Total des amendes :" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+                        <Label fx:id="totalAmendesLabel" styleClass="text-primary" text="0 FCFA"
+                               GridPane.columnIndex="1" GridPane.rowIndex="0" />
+
+                        <Label text="Montant encaissé :" GridPane.columnIndex="2" GridPane.rowIndex="0" />
+                        <Label fx:id="montantEncaisseLabel" styleClass="text-success" text="0 FCFA"
+                               GridPane.columnIndex="3" GridPane.rowIndex="0" />
+
+                        <Label text="Affaires ouvertes :" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+                        <Label fx:id="affairesOuvertesLabel" styleClass="text-warning" text="0"
+                               GridPane.columnIndex="1" GridPane.rowIndex="1" />
+
+                        <Label text="Solde restant :" GridPane.columnIndex="2" GridPane.rowIndex="1" />
+                        <Label fx:id="soldeRestantLabel" styleClass="text-danger" text="0 FCFA"
+                               GridPane.columnIndex="3" GridPane.rowIndex="1" />
+                    </GridPane>
+                </VBox>
+
+                <padding>
+                    <Insets bottom="20.0" left="20.0" right="20.0" top="20.0" />
+                </padding>
+            </VBox>
+        </ScrollPane>
+    </center>
+
+    <bottom>
+        <!-- Boutons d'action -->
+        <HBox alignment="CENTER_RIGHT" spacing="15.0" styleClass="status-bar">
+            <Button fx:id="cancelButton" text="Annuler" />
+            <Button fx:id="resetButton" text="Réinitialiser" />
+            <Button fx:id="saveButton" styleClass="accent" text="Enregistrer" />
+
+            <padding>
+                <Insets bottom="15.0" left="20.0" right="20.0" top="15.0" />
+            </padding>
+        </HBox>
+    </bottom>
+
+</BorderPane>

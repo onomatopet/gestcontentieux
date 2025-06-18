@@ -11,7 +11,7 @@ import java.util.Objects;
 /**
  * Entité de liaison entre Affaire et Agent avec rôle
  */
-class AffaireActeur {
+public class AffaireActeur {
     private Long affaireId;
     private Long agentId;
     private RoleSurAffaire roleSurAffaire;

@@ -1,0 +1,250 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.regulation.contentieux.controller.EncaissementFormController">
+
+    <top>
+        <!-- En-tête du formulaire -->
+        <VBox spacing="10.0" styleClass="title-bar">
+            <HBox alignment="CENTER_LEFT" spacing="15.0">
+                <Label fx:id="formTitleLabel" styleClass="title-2" text="Nouvel Encaissement">
+                    <font>
+                        <Font name="System Bold" size="18.0" />
+                    </font>
+                </Label>
+
+                <Region HBox.hgrow="ALWAYS" />
+
+                <Label fx:id="modeLabel" styleClass="text-muted" text="Mode création" />
+            </HBox>
+
+            <padding>
+                <Insets bottom="10.0" left="15.0" right="15.0" top="10.0" />
+            </padding>
+        </VBox>
+    </top>
+
+    <center>
+        <!-- Formulaire principal -->
+        <ScrollPane fitToWidth="true" styleClass="main-content">
+            <VBox spacing="20.0">
+
+                <!-- Section Informations générales -->
+                <VBox spacing="15.0">
+                    <Label styleClass="title-3" text="Informations générales">
+                        <font>
+                            <Font name="System Bold" size="14.0" />
+                        </font>
+                    </Label>
+
+                    <GridPane hgap="15.0" vgap="10.0">
+                        <columnConstraints>
+                            <ColumnConstraints minWidth="120.0" prefWidth="120.0" />
+                            <ColumnConstraints hgrow="SOMETIMES" minWidth="200.0" />
+                            <ColumnConstraints minWidth="120.0" prefWidth="120.0" />
+                            <ColumnConstraints hgrow="SOMETIMES" minWidth="200.0" />
+                        </columnConstraints>
+
+                        <!-- Ligne 1 -->
+                        <Label text="Référence :" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+                        <HBox spacing="10.0" alignment="CENTER_LEFT" GridPane.columnIndex="1" GridPane.rowIndex="0">
+                            <TextField fx:id="referenceField" prefWidth="200.0" promptText="Format: YYMMRNNNN" />
+                            <Button fx:id="generateReferenceButton" text="Générer" />
+                        </HBox>
+
+                        <Label text="Date encaissement :" GridPane.columnIndex="2" GridPane.rowIndex="0" />
+                        <DatePicker fx:id="dateEncaissementPicker" prefWidth="200.0" GridPane.columnIndex="3" GridPane.rowIndex="0" />
+
+                        <!-- Ligne 2 -->
+                        <Label text="Montant encaissé :" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+                        <HBox spacing="5.0" alignment="CENTER_LEFT" GridPane.columnIndex="1" GridPane.rowIndex="1">
+                            <TextField fx:id="montantEncaisseField" prefWidth="150.0" promptText="0" />
+                            <Label text="FCFA" />
+                        </HBox>
+
+                        <Label text="Statut :" GridPane.columnIndex="2" GridPane.rowIndex="1" />
+                        <ComboBox fx:id="statutComboBox" prefWidth="200.0" promptText="Sélectionner un statut"
+                                  GridPane.columnIndex="3" GridPane.rowIndex="1" />
+                    </GridPane>
+                </VBox>
+
+                <Separator />
+
+                <!-- Section Affaire liée -->
+                <VBox spacing="15.0">
+                    <Label styleClass="title-3" text="Affaire concernée">
+                        <font>
+                            <Font name="System Bold" size="14.0" />
+                        </font>
+                    </Label>
+
+                    <GridPane hgap="15.0" vgap="10.0">
+                        <columnConstraints>
+                            <ColumnConstraints minWidth="120.0" prefWidth="120.0" />
+                            <ColumnConstraints hgrow="SOMETIMES" minWidth="200.0" />
+                            <ColumnConstraints minWidth="120.0" prefWidth="120.0" />
+                            <ColumnConstraints hgrow="SOMETIMES" minWidth="200.0" />
+                        </columnConstraints>
+
+                        <!-- Ligne 1 -->
+                        <Label text="Affaire :" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+                        <HBox spacing="10.0" alignment="CENTER_LEFT" GridPane.columnIndex="1" GridPane.rowIndex="0" GridPane.columnSpan="3">
+                            <ComboBox fx:id="affaireComboBox" prefWidth="300.0" promptText="Rechercher une affaire..." />
+                            <Button fx:id="searchAffaireButton" text="🔍" />
+                        </HBox>
+                    </GridPane>
+
+                    <!-- Détails de l'affaire sélectionnée -->
+                    <VBox fx:id="affaireDetailsBox" spacing="10.0" visible="false" managed="false" styleClass="system-info">
+                        <Label styleClass="text-muted" text="Détails de l'affaire sélectionnée :" />
+
+                        <GridPane hgap="15.0" vgap="5.0">
+                            <columnConstraints>
+                                <ColumnConstraints minWidth="150.0" prefWidth="150.0" />
+                                <ColumnConstraints hgrow="SOMETIMES" />
+                                <ColumnConstraints minWidth="150.0" prefWidth="150.0" />
+                                <ColumnConstraints hgrow="SOMETIMES" />
+                            </columnConstraints>
+
+                            <Label text="Contrevenant :" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+                            <Label fx:id="contrevenantLabel" text="-" GridPane.columnIndex="1" GridPane.rowIndex="0" />
+
+                            <Label text="Montant total :" GridPane.columnIndex="2" GridPane.rowIndex="0" />
+                            <Label fx:id="montantTotalLabel" styleClass="text-primary" text="0 FCFA"
+                                   GridPane.columnIndex="3" GridPane.rowIndex="0" />
+
+                            <Label text="Déjà encaissé :" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+                            <Label fx:id="montantEncaisseAnterieurLabel" styleClass="text-success" text="0 FCFA"
+                                   GridPane.columnIndex="1" GridPane.rowIndex="1" />
+
+                            <Label text="Solde restant :" GridPane.columnIndex="2" GridPane.rowIndex="1" />
+                            <Label fx:id="soldeRestantLabel" styleClass="text-warning" text="0 FCFA"
+                                   GridPane.columnIndex="3" GridPane.rowIndex="1" />
+                        </GridPane>
+                    </VBox>
+                </VBox>
+
+                <Separator />
+
+                <!-- Section Mode de règlement -->
+                <VBox spacing="15.0">
+                    <Label styleClass="title-3" text="Mode de règlement">
+                        <font>
+                            <Font name="System Bold" size="14.0" />
+                        </font>
+                    </Label>
+
+                    <GridPane hgap="15.0" vgap="10.0">
+                        <columnConstraints>
+                            <ColumnConstraints minWidth="120.0" prefWidth="120.0" />
+                            <ColumnConstraints hgrow="SOMETIMES" minWidth="200.0" />
+                            <ColumnConstraints minWidth="120.0" prefWidth="120.0" />
+                            <ColumnConstraints hgrow="SOMETIMES" minWidth="200.0" />
+                        </columnConstraints>
+
+                        <!-- Ligne 1 -->
+                        <Label text="Mode :" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+                        <ComboBox fx:id="modeReglementComboBox" prefWidth="200.0" promptText="Sélectionner le mode..."
+                                  GridPane.columnIndex="1" GridPane.rowIndex="0" />
+
+                        <Label text="Banque :" GridPane.columnIndex="2" GridPane.rowIndex="0" />
+                        <ComboBox fx:id="banqueComboBox" prefWidth="200.0" promptText="Sélectionner une banque..."
+                                  GridPane.columnIndex="3" GridPane.rowIndex="0" />
+                    </GridPane>
+
+                    <!-- Informations spécifiques au mode de règlement -->
+                    <VBox fx:id="modeReglementInfoBox" spacing="10.0" visible="false" managed="false">
+                        <Label fx:id="modeReglementInfoLabel" styleClass="text-muted" wrapText="true"
+                               text="Informations sur le mode de règlement sélectionné" />
+
+                        <!-- Champs conditionnels selon le mode -->
+                        <GridPane fx:id="modeReglementFieldsGrid" hgap="15.0" vgap="10.0">
+                            <columnConstraints>
+                                <ColumnConstraints minWidth="120.0" prefWidth="120.0" />
+                                <ColumnConstraints hgrow="SOMETIMES" minWidth="200.0" />
+                                <ColumnConstraints minWidth="120.0" prefWidth="120.0" />
+                                <ColumnConstraints hgrow="SOMETIMES" minWidth="200.0" />
+                            </columnConstraints>
+
+                            <!-- Ces champs apparaîtront selon le mode sélectionné -->
+                            <Label fx:id="referenceExterneLabel" text="Référence externe :"
+                                   GridPane.columnIndex="0" GridPane.rowIndex="0" visible="false" managed="false" />
+                            <TextField fx:id="referenceExterneField" prefWidth="200.0" promptText="N° chèque, virement..."
+                                       GridPane.columnIndex="1" GridPane.rowIndex="0" visible="false" managed="false" />
+
+                            <Label fx:id="numeroChequeLabel" text="Numéro chèque :"
+                                   GridPane.columnIndex="2" GridPane.rowIndex="0" visible="false" managed="false" />
+                            <TextField fx:id="numeroChequeField" prefWidth="200.0" promptText="Numéro du chèque"
+                                       GridPane.columnIndex="3" GridPane.rowIndex="0" visible="false" managed="false" />
+                        </GridPane>
+                    </VBox>
+                </VBox>
+
+                <Separator />
+
+                <!-- Section Observations -->
+                <VBox spacing="15.0">
+                    <Label styleClass="title-3" text="Observations">
+                        <font>
+                            <Font name="System Bold" size="14.0" />
+                        </font>
+                    </Label>
+
+                    <TextArea fx:id="observationsField" prefRowCount="3" prefWidth="200.0"
+                              promptText="Observations sur cet encaissement..." wrapText="true" />
+                </VBox>
+
+                <Separator />
+
+                <!-- Section Historique des encaissements (mode édition) -->
+                <VBox fx:id="encaissementsHistoryBox" spacing="15.0" visible="false" managed="false">
+                    <HBox alignment="CENTER_LEFT" spacing="10.0">
+                        <Label styleClass="title-3" text="Autres encaissements de cette affaire">
+                            <font>
+                                <Font name="System Bold" size="14.0" />
+                            </font>
+                        </Label>
+                        <Label fx:id="encaissementsCountLabel" styleClass="text-muted" text="(0 encaissement)" />
+                    </HBox>
+
+                    <!-- Tableau des encaissements existants -->
+                    <TableView fx:id="encaissementsTableView" prefHeight="150.0" maxHeight="200.0">
+                        <columns>
+                            <TableColumn fx:id="histReferenceColumn" text="Référence" prefWidth="120.0" />
+                            <TableColumn fx:id="histDateColumn" text="Date" prefWidth="100.0" />
+                            <TableColumn fx:id="histMontantColumn" text="Montant" prefWidth="120.0" />
+                            <TableColumn fx:id="histModeColumn" text="Mode" prefWidth="120.0" />
+                            <TableColumn fx:id="histStatutColumn" text="Statut" prefWidth="100.0" />
+                        </columns>
+                        <placeholder>
+                            <Label styleClass="text-muted" text="Aucun autre encaissement pour cette affaire" />
+                        </placeholder>
+                    </TableView>
+                </VBox>
+
+                <padding>
+                    <Insets bottom="20.0" left="20.0" right="20.0" top="20.0" />
+                </padding>
+            </VBox>
+        </ScrollPane>
+    </center>
+
+    <bottom>
+        <!-- Boutons d'action -->
+        <HBox alignment="CENTER_RIGHT" spacing="15.0" styleClass="status-bar">
+            <Button fx:id="cancelButton" text="Annuler" />
+            <Button fx:id="resetButton" text="Réinitialiser" />
+            <Button fx:id="saveButton" styleClass="accent" text="Enregistrer" />
+
+            <padding>
+                <Insets bottom="15.0" left="20.0" right="20.0" top="15.0" />
+            </padding>
+        </HBox>
+    </bottom>
+
+</BorderPane>

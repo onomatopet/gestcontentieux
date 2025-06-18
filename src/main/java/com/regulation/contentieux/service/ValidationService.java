@@ -343,4 +343,70 @@ public class ValidationService {
             throw new IllegalArgumentException("Le montant encaissé ne peut pas dépasser le montant de l'affaire");
         }
     }
+
+    /**
+     * Valide le format d'une référence d'encaissement selon le pattern YYMMRNNNN
+     * YY = année sur 2 chiffres (00-99)
+     * MM = mois sur 2 chiffres (01-12)
+     * R = lettre fixe "R" pour "recette"
+     * NNNN = numéro séquentiel sur 4 chiffres (0001-9999)
+     *
+     * Exemples valides: 2506R0001, 2412R0100, 2501R9999
+     *
+     * @param reference La référence à valider
+     * @return true si le format est valide
+     */
+    public boolean isValidEncaissementReference(String reference) {
+        if (reference == null || reference.trim().isEmpty()) {
+            return false;
+        }
+
+        String ref = reference.trim();
+
+        // Vérification de la longueur (doit être exactement 9 caractères)
+        if (ref.length() != 9) {
+            return false;
+        }
+
+        // Vérification du pattern YYMMRNNNN avec regex
+        if (!ref.matches("\\d{2}\\d{2}R\\d{4}")) {
+            return false;
+        }
+
+        try {
+            // Extraction et validation des composants
+            String yearStr = ref.substring(0, 2);
+            String monthStr = ref.substring(2, 4);
+            String letter = ref.substring(4, 5);
+            String numberStr = ref.substring(5, 9);
+
+            // Validation de l'année (00-99, accepté)
+            int year = Integer.parseInt(yearStr);
+            if (year < 0 || year > 99) {
+                return false;
+            }
+
+            // Validation du mois (01-12)
+            int month = Integer.parseInt(monthStr);
+            if (month < 1 || month > 12) {
+                return false;
+            }
+
+            // Validation de la lettre (doit être "R")
+            if (!"R".equals(letter)) {
+                return false;
+            }
+
+            // Validation du numéro séquentiel (0001-9999)
+            int number = Integer.parseInt(numberStr);
+            if (number < 1 || number > 9999) {
+                return false;
+            }
+
+            return true;
+
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
 }

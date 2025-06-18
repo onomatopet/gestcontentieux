@@ -13,8 +13,8 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * DAO pour la gestion des contrevenants
- * Suit la même logique que AffaireDAO
+ * DAO pour la gestion des contrevenants - SUIT LE PATTERN ÉTABLI
+ * Respecte exactement la structure de AffaireDAO
  */
 public class ContrevenantDAO extends AbstractSQLiteDAO<Contrevenant, Long> {
 
@@ -33,8 +33,7 @@ public class ContrevenantDAO extends AbstractSQLiteDAO<Contrevenant, Long> {
     @Override
     protected String getInsertQuery() {
         return """
-            INSERT INTO contrevenants (code, nom_complet, adresse, telephone, 
-                                     email, type_personne) 
+            INSERT INTO contrevenants (code, nom_complet, adresse, telephone, email, type_personne) 
             VALUES (?, ?, ?, ?, ?, ?)
         """;
     }
@@ -43,8 +42,8 @@ public class ContrevenantDAO extends AbstractSQLiteDAO<Contrevenant, Long> {
     protected String getUpdateQuery() {
         return """
             UPDATE contrevenants 
-            SET code = ?, nom_complet = ?, adresse = ?, telephone = ?, 
-                email = ?, type_personne = ?, updated_at = CURRENT_TIMESTAMP 
+            SET code = ?, nom_complet = ?, adresse = ?, telephone = ?, email = ?, 
+                type_personne = ?, updated_at = CURRENT_TIMESTAMP 
             WHERE id = ?
         """;
     }
@@ -52,18 +51,18 @@ public class ContrevenantDAO extends AbstractSQLiteDAO<Contrevenant, Long> {
     @Override
     protected String getSelectAllQuery() {
         return """
-            SELECT id, code, nom_complet, adresse, telephone, email, 
-                   type_personne, created_at, updated_at 
+            SELECT id, code, nom_complet, adresse, telephone, email, type_personne, 
+                   created_at, updated_at 
             FROM contrevenants 
-            ORDER BY nom_complet ASC
+            ORDER BY created_at DESC
         """;
     }
 
     @Override
     protected String getSelectByIdQuery() {
         return """
-            SELECT id, code, nom_complet, adresse, telephone, email, 
-                   type_personne, created_at, updated_at 
+            SELECT id, code, nom_complet, adresse, telephone, email, type_personne, 
+                   created_at, updated_at 
             FROM contrevenants 
             WHERE id = ?
         """;
@@ -81,7 +80,7 @@ public class ContrevenantDAO extends AbstractSQLiteDAO<Contrevenant, Long> {
         contrevenant.setEmail(rs.getString("email"));
         contrevenant.setTypePersonne(rs.getString("type_personne"));
 
-        // Gestion des timestamps avec fallback comme AffaireDAO
+        // Gestion des timestamps - COMME DANS AffaireDAO
         try {
             Timestamp createdAt = rs.getTimestamp("created_at");
             if (createdAt != null) {
@@ -136,15 +135,15 @@ public class ContrevenantDAO extends AbstractSQLiteDAO<Contrevenant, Long> {
         contrevenant.setId(id);
     }
 
-    // Méthodes spécifiques aux contrevenants
+    // Méthodes spécifiques aux contrevenants - SUIT LE PATTERN DE AffaireDAO
 
     /**
      * Trouve un contrevenant par son code
      */
     public Optional<Contrevenant> findByCode(String code) {
         String sql = """
-            SELECT id, code, nom_complet, adresse, telephone, email, 
-                   type_personne, created_at, updated_at 
+            SELECT id, code, nom_complet, adresse, telephone, email, type_personne, 
+                   created_at, updated_at 
             FROM contrevenants 
             WHERE code = ?
         """;
@@ -167,22 +166,53 @@ public class ContrevenantDAO extends AbstractSQLiteDAO<Contrevenant, Long> {
     }
 
     /**
-     * Recherche de contrevenants avec critères multiples
+     * Trouve les contrevenants par type de personne
+     */
+    public List<Contrevenant> findByTypePersonne(String typePersonne) {
+        String sql = """
+            SELECT id, code, nom_complet, adresse, telephone, email, type_personne, 
+                   created_at, updated_at 
+            FROM contrevenants 
+            WHERE type_personne = ? 
+            ORDER BY nom_complet ASC
+        """;
+
+        List<Contrevenant> contrevenants = new ArrayList<>();
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, typePersonne);
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                contrevenants.add(mapResultSetToEntity(rs));
+            }
+
+        } catch (SQLException e) {
+            logger.error("Erreur lors de la recherche par type: " + typePersonne, e);
+        }
+
+        return contrevenants;
+    }
+
+    /**
+     * Recherche de contrevenants avec critères multiples - COMME AffaireDAO
      */
     public List<Contrevenant> searchContrevenants(String nomOuCode, String typePersonne,
                                                   int offset, int limit) {
         StringBuilder sql = new StringBuilder();
-        sql.append("SELECT id, code, nom_complet, adresse, telephone, email, ");
-        sql.append("type_personne, created_at, updated_at ");
+        sql.append("SELECT id, code, nom_complet, adresse, telephone, email, type_personne, ");
+        sql.append("created_at, updated_at ");
         sql.append("FROM contrevenants WHERE 1=1 ");
 
         List<Object> parameters = new ArrayList<>();
 
         if (nomOuCode != null && !nomOuCode.trim().isEmpty()) {
             sql.append("AND (nom_complet LIKE ? OR code LIKE ?) ");
-            String pattern = "%" + nomOuCode.trim() + "%";
-            parameters.add(pattern);
-            parameters.add(pattern);
+            String searchPattern = "%" + nomOuCode.trim() + "%";
+            parameters.add(searchPattern);
+            parameters.add(searchPattern);
         }
 
         if (typePersonne != null && !typePersonne.trim().isEmpty()) {
@@ -190,7 +220,7 @@ public class ContrevenantDAO extends AbstractSQLiteDAO<Contrevenant, Long> {
             parameters.add(typePersonne);
         }
 
-        sql.append("ORDER BY nom_complet ASC LIMIT ? OFFSET ?");
+        sql.append("ORDER BY created_at DESC LIMIT ? OFFSET ?");
         parameters.add(limit);
         parameters.add(offset);
 
@@ -217,7 +247,7 @@ public class ContrevenantDAO extends AbstractSQLiteDAO<Contrevenant, Long> {
     }
 
     /**
-     * Compte les contrevenants correspondant aux critères de recherche
+     * Compte les contrevenants correspondant aux critères - COMME AffaireDAO
      */
     public long countSearchContrevenants(String nomOuCode, String typePersonne) {
         StringBuilder sql = new StringBuilder();
@@ -227,9 +257,9 @@ public class ContrevenantDAO extends AbstractSQLiteDAO<Contrevenant, Long> {
 
         if (nomOuCode != null && !nomOuCode.trim().isEmpty()) {
             sql.append("AND (nom_complet LIKE ? OR code LIKE ?) ");
-            String pattern = "%" + nomOuCode.trim() + "%";
-            parameters.add(pattern);
-            parameters.add(pattern);
+            String searchPattern = "%" + nomOuCode.trim() + "%";
+            parameters.add(searchPattern);
+            parameters.add(searchPattern);
         }
 
         if (typePersonne != null && !typePersonne.trim().isEmpty()) {
@@ -258,10 +288,13 @@ public class ContrevenantDAO extends AbstractSQLiteDAO<Contrevenant, Long> {
 
     /**
      * Génère le prochain code contrevenant selon le format CVNNNNN
+     * CV = préfixe fixe
+     * NNNNN = numéro séquentiel sur 5 chiffres (00001, 00002, etc.)
      */
     public String generateNextCode() {
         String prefix = "CV";
 
+        // Rechercher le dernier code avec ce préfixe
         String sql = """
             SELECT code FROM contrevenants 
             WHERE code LIKE ? 
@@ -290,16 +323,17 @@ public class ContrevenantDAO extends AbstractSQLiteDAO<Contrevenant, Long> {
     }
 
     /**
-     * Génère le code suivant basé sur le dernier code
+     * Génère le code suivant basé sur le dernier code - COMME AffaireDAO
      */
     private String generateNextCodeFromLast(String lastCode, String prefix) {
         try {
-            if (lastCode != null && lastCode.startsWith(prefix)) {
-                String numberPart = lastCode.substring(prefix.length());
-                int number = Integer.parseInt(numberPart);
-                return prefix + String.format("%05d", number + 1);
+            if (lastCode != null && lastCode.startsWith(prefix) && lastCode.length() == 7) {
+                String numericPart = lastCode.substring(2);
+                int lastNumber = Integer.parseInt(numericPart);
+                return prefix + String.format("%05d", lastNumber + 1);
             }
 
+            // Code invalide, recommencer
             return prefix + "00001";
 
         } catch (Exception e) {
@@ -328,46 +362,10 @@ public class ContrevenantDAO extends AbstractSQLiteDAO<Contrevenant, Long> {
     }
 
     /**
-     * Trouve les contrevenants par type de personne
-     */
-    public List<Contrevenant> findByTypePersonne(String typePersonne) {
-        String sql = """
-            SELECT id, code, nom_complet, adresse, telephone, email, 
-                   type_personne, created_at, updated_at 
-            FROM contrevenants 
-            WHERE type_personne = ? 
-            ORDER BY nom_complet ASC
-        """;
-
-        List<Contrevenant> contrevenants = new ArrayList<>();
-
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-            stmt.setString(1, typePersonne);
-            ResultSet rs = stmt.executeQuery();
-
-            while (rs.next()) {
-                contrevenants.add(mapResultSetToEntity(rs));
-            }
-
-        } catch (SQLException e) {
-            logger.error("Erreur lors de la recherche par type de personne: " + typePersonne, e);
-        }
-
-        return contrevenants;
-    }
-
-    /**
-     * Contrevenants récents pour tableau de bord
+     * Trouve les contrevenants récents pour tableau de bord - COMME AffaireDAO
      */
     public List<Contrevenant> getRecentContrevenants(int limit) {
-        String sql = """
-            SELECT id, code, nom_complet, adresse, telephone, email, 
-                   type_personne, created_at, updated_at 
-            FROM contrevenants 
-            ORDER BY created_at DESC LIMIT ?
-        """;
+        String sql = getSelectAllQuery() + " LIMIT ?";
 
         List<Contrevenant> contrevenants = new ArrayList<>();
 
@@ -386,5 +384,46 @@ public class ContrevenantDAO extends AbstractSQLiteDAO<Contrevenant, Long> {
         }
 
         return contrevenants;
+    }
+
+    /**
+     * Recherche rapide pour autocomplete - COMME AgentService
+     */
+    public List<Contrevenant> searchQuick(String query, int limit) {
+        if (query == null || query.trim().length() < 2) {
+            return new ArrayList<>();
+        }
+
+        return searchContrevenants(query.trim(), null, 0, limit);
+    }
+
+    /**
+     * Trouve les contrevenants pour un rapport
+     */
+    public List<Contrevenant> getContrevenantsForReport(String typePersonne) {
+        return searchContrevenants(null, typePersonne, 0, Integer.MAX_VALUE);
+    }
+
+    /**
+     * Statistiques des contrevenants par type
+     */
+    public long countByTypePersonne(String typePersonne) {
+        String sql = "SELECT COUNT(*) FROM contrevenants WHERE type_personne = ?";
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, typePersonne);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                return rs.getLong(1);
+            }
+
+        } catch (SQLException e) {
+            logger.error("Erreur lors du comptage par type", e);
+        }
+
+        return 0;
     }
 }

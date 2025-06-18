@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.regulation.contentieux.controller.AffaireFormController">
+
+    <top>
+        <!-- En-tête du formulaire -->
+        <VBox spacing="10.0" styleClass="title-bar">
+            <HBox alignment="CENTER_LEFT" spacing="15.0">
+                <Label fx:id="formTitleLabel" styleClass="title-2" text="Nouvelle Affaire">
+                    <font>
+                        <Font name="System Bold" size="18.0" />
+                    </font>
+                </Label>
+
+                <Region HBox.hgrow="ALWAYS" />
+
+                <Label fx:id="modeLabel" styleClass="text-muted" text="Mode création" />
+            </HBox>
+
+            <padding>
+                <Insets bottom="10.0" left="15.0" right="15.0" top="10.0" />
+            </padding>
+        </VBox>
+    </top>
+
+    <center>
+        <!-- Formulaire principal -->
+        <ScrollPane fitToWidth="true" styleClass="main-content">
+            <VBox spacing="20.0">
+
+                <!-- Section Informations générales -->
+                <VBox spacing="15.0">
+                    <Label styleClass="title-3" text="Informations générales">
+                        <font>
+                            <Font name="System Bold" size="14.0" />
+                        </font>
+                    </Label>
+
+                    <GridPane hgap="15.0" vgap="10.0">
+                        <columnConstraints>
+                            <ColumnConstraints minWidth="120.0" prefWidth="120.0" />
+                            <ColumnConstraints hgrow="SOMETIMES" minWidth="200.0" />
+                            <ColumnConstraints minWidth="120.0" prefWidth="120.0" />
+                            <ColumnConstraints hgrow="SOMETIMES" minWidth="200.0" />
+                        </columnConstraints>
+
+                        <!-- Ligne 1 -->
+                        <Label text="Numéro d'affaire :" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+                        <HBox spacing="10.0" alignment="CENTER_LEFT" GridPane.columnIndex="1" GridPane.rowIndex="0">
+                            <TextField fx:id="numeroAffaireField" prefWidth="200.0" promptText="Généré automatiquement" />
+                            <Button fx:id="generateNumeroButton" text="Générer" />
+                        </HBox>
+
+                        <Label text="Date de création :" GridPane.columnIndex="2" GridPane.rowIndex="0" />
+                        <DatePicker fx:id="dateCreationPicker" prefWidth="200.0" GridPane.columnIndex="3" GridPane.rowIndex="0" />
+
+                        <!-- Ligne 2 -->
+                        <Label text="Montant amende :" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+                        <HBox spacing="5.0" alignment="CENTER_LEFT" GridPane.columnIndex="1" GridPane.rowIndex="1">
+                            <TextField fx:id="montantAmendeField" prefWidth="150.0" promptText="0" />
+                            <Label text="FCFA" />
+                        </HBox>
+
+                        <Label text="Statut :" GridPane.columnIndex="2" GridPane.rowIndex="1" />
+                        <ComboBox fx:id="statutComboBox" prefWidth="200.0" promptText="Sélectionner un statut"
+                                  GridPane.columnIndex="3" GridPane.rowIndex="1" />
+                    </GridPane>
+                </VBox>
+
+                <Separator />
+
+                <!-- Section Contrevenant et Contravention -->
+                <VBox spacing="15.0">
+                    <Label styleClass="title-3" text="Contrevenant et Contravention">
+                        <font>
+                            <Font name="System Bold" size="14.0" />
+                        </font>
+                    </Label>
+
+                    <GridPane hgap="15.0" vgap="10.0">
+                        <columnConstraints>
+                            <ColumnConstraints minWidth="120.0" prefWidth="120.0" />
+                            <ColumnConstraints hgrow="SOMETIMES" minWidth="200.0" />
+                            <ColumnConstraints minWidth="120.0" prefWidth="120.0" />
+                            <ColumnConstraints hgrow="SOMETIMES" minWidth="200.0" />
+                        </columnConstraints>
+
+                        <!-- Ligne 1 -->
+                        <Label text="Contrevenant :" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+                        <HBox spacing="10.0" alignment="CENTER_LEFT" GridPane.columnIndex="1" GridPane.rowIndex="0">
+                            <ComboBox fx:id="contrevenantComboBox" prefWidth="250.0" promptText="Rechercher un contrevenant..." />
+                            <Button fx:id="newContrevenantButton" text="+" />
+                        </HBox>
+
+                        <Label text="Contravention :" GridPane.columnIndex="2" GridPane.rowIndex="0" />
+                        <HBox spacing="10.0" alignment="CENTER_LEFT" GridPane.columnIndex="3" GridPane.rowIndex="0">
+                            <ComboBox fx:id="contraventionComboBox" prefWidth="250.0" promptText="Sélectionner une contravention..." />
+                            <Button fx:id="newContraventionButton" text="+" />
+                        </HBox>
+                    </GridPane>
+
+                    <!-- Détails du contrevenant sélectionné -->
+                    <VBox fx:id="contrevenantDetailsBox" spacing="5.0" visible="false" managed="false">
+                        <Label styleClass="text-muted" text="Détails du contrevenant :" />
+                        <Label fx:id="contrevenantDetailsLabel" styleClass="text-muted"
+                               text="Aucun contrevenant sélectionné" wrapText="true" />
+                    </VBox>
+                </VBox>
+
+                <Separator />
+
+                <!-- Section Organisation -->
+                <VBox spacing="15.0">
+                    <Label styleClass="title-3" text="Organisation">
+                        <font>
+                            <Font name="System Bold" size="14.0" />
+                        </font>
+                    </Label>
+
+                    <GridPane hgap="15.0" vgap="10.0">
+                        <columnConstraints>
+                            <ColumnConstraints minWidth="120.0" prefWidth="120.0" />
+                            <ColumnConstraints hgrow="SOMETIMES" minWidth="200.0" />
+                            <ColumnConstraints minWidth="120.0" prefWidth="120.0" />
+                            <ColumnConstraints hgrow="SOMETIMES" minWidth="200.0" />
+                        </columnConstraints>
+
+                        <!-- Ligne 1 -->
+                        <Label text="Bureau :" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+                        <ComboBox fx:id="bureauComboBox" prefWidth="200.0" promptText="Sélectionner un bureau..."
+                                  GridPane.columnIndex="1" GridPane.rowIndex="0" />
+
+                        <Label text="Service :" GridPane.columnIndex="2" GridPane.rowIndex="0" />
+                        <ComboBox fx:id="serviceComboBox" prefWidth="200.0" promptText="Sélectionner un service..."
+                                  GridPane.columnIndex="3" GridPane.rowIndex="0" />
+                    </GridPane>
+                </VBox>
+
+                <Separator />
+
+                <!-- Section Assignation des agents -->
+                <VBox spacing="15.0">
+                    <HBox alignment="CENTER_LEFT" spacing="10.0">
+                        <Label styleClass="title-3" text="Assignation des agents">
+                            <font>
+                                <Font name="System Bold" size="14.0" />
+                            </font>
+                        </Label>
+                        <Button fx:id="assignAgentButton" text="+ Assigner un agent" />
+                    </HBox>
+
+                    <!-- Liste des agents assignés -->
+                    <TableView fx:id="agentsTableView" prefHeight="150.0" maxHeight="200.0">
+                        <columns>
+                            <TableColumn fx:id="agentNomColumn" text="Agent" prefWidth="200.0" />
+                            <TableColumn fx:id="agentRoleColumn" text="Rôle" prefWidth="120.0" />
+                            <TableColumn fx:id="agentDateColumn" text="Date assignation" prefWidth="130.0" />
+                            <TableColumn fx:id="agentActionsColumn" text="Actions" prefWidth="100.0" sortable="false" />
+                        </columns>
+                        <placeholder>
+                            <Label styleClass="text-muted" text="Aucun agent assigné" />
+                        </placeholder>
+                    </TableView>
+                </VBox>
+
+                <padding>
+                    <Insets bottom="20.0" left="20.0" right="20.0" top="20.0" />
+                </padding>
+            </VBox>
+        </ScrollPane>
+    </center>
+
+    <bottom>
+        <!-- Boutons d'action -->
+        <HBox alignment="CENTER_RIGHT" spacing="15.0" styleClass="status-bar">
+            <Button fx:id="cancelButton" text="Annuler" />
+            <Button fx:id="resetButton" text="Réinitialiser" />
+            <Button fx:id="saveButton" styleClass="accent" text="Enregistrer" />
+
+            <padding>
+                <Insets bottom="15.0" left="20.0" right="20.0" top="15.0" />
+            </padding>
+        </HBox>
+    </bottom>
+
+</BorderPane>

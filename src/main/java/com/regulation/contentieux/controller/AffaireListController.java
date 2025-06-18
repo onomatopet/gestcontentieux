@@ -1,7 +1,18 @@
 package com.regulation.contentieux.controller;
 
+import com.regulation.contentieux.Main;
+import com.regulation.contentieux.util.FXMLLoaderUtil;
+import com.regulation.contentieux.controller.AffaireFormController;
+import com.regulation.contentieux.dao.ContrevenantDAO;
+import com.regulation.contentieux.model.Contrevenant;
+import javafx.stage.Stage;
+import javafx.stage.Modality;
+import java.util.Optional;
+
 import com.regulation.contentieux.dao.AffaireDAO;
+import com.regulation.contentieux.dao.ContrevenantDAO;
 import com.regulation.contentieux.model.Affaire;
+import com.regulation.contentieux.model.Contrevenant;
 import com.regulation.contentieux.model.enums.StatutAffaire;
 import com.regulation.contentieux.service.AuthenticationService;
 import com.regulation.contentieux.util.AlertUtil;
@@ -26,6 +37,7 @@ import org.slf4j.LoggerFactory;
 import java.net.URL;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.ResourceBundle;
 import java.util.stream.Collectors;
 
@@ -434,33 +446,188 @@ public class AffaireListController implements Initializable {
         performSearch();
     }
 
+    /**
+     * MISE À JOUR : Crée une nouvelle affaire avec le formulaire - REMPLACE LA MÉTHODE EXISTANTE
+     */
     private void createNewAffaire() {
-        logger.info("Création d'une nouvelle affaire");
-        AlertUtil.showInfoAlert("Nouvelle affaire",
-                "Fonctionnalité en développement",
-                "Le formulaire de création sera disponible prochainement.");
-    }
+        try {
+            logger.info("Ouverture du formulaire de création d'affaire");
 
-    private void viewAffaire(AffaireViewModel affaire) {
-        logger.info("Affichage des détails de l'affaire: {}", affaire.getNumeroAffaire());
-        AlertUtil.showInfoAlert("Détails de l'affaire",
-                "Affaire: " + affaire.getNumeroAffaire(),
-                "La vue de détail sera disponible prochainement.");
-    }
+            // Chargement du formulaire FXML
+            FXMLLoaderUtil.LoadResult<AffaireFormController> result =
+                    FXMLLoaderUtil.loadWithController("view/affaire-form.fxml");
 
-    private void editAffaire(AffaireViewModel affaire) {
-        logger.info("Modification de l'affaire: {}", affaire.getNumeroAffaire());
-        AlertUtil.showInfoAlert("Modification d'affaire",
-                "Affaire: " + affaire.getNumeroAffaire(),
-                "Le formulaire de modification sera disponible prochainement.");
-    }
+            // Création de la fenêtre popup
+            Stage formStage = new Stage();
+            formStage.setTitle("Nouvelle Affaire - " + Main.getAppTitle());
+            formStage.setScene(new javafx.scene.Scene(result.getParent(), 900, 700));
+            formStage.setResizable(true);
+            formStage.initModality(javafx.stage.Modality.APPLICATION_MODAL);
 
-    private void editSelectedAffaires() {
-        List<AffaireViewModel> selected = getSelectedAffaires();
-        if (selected.size() == 1) {
-            editAffaire(selected.get(0));
+            // Configuration du contrôleur
+            AffaireFormController controller = result.getController();
+
+            // Génération automatique du numéro d'affaire
+            try {
+                String nextNumero = affaireDAO.generateNextNumeroAffaire();
+                controller.setDefaultValues(nextNumero, null);
+            } catch (Exception e) {
+                logger.warn("Impossible de pré-générer le numéro d'affaire", e);
+            }
+
+            // Gestion de la fermeture
+            formStage.setOnHidden(e -> {
+                logger.info("Formulaire d'affaire fermé, actualisation de la liste");
+                loadData(); // Rafraîchir la liste
+            });
+
+            // Affichage de la fenêtre
+            formStage.showAndWait();
+
+        } catch (Exception e) {
+            logger.error("Erreur lors de l'ouverture du formulaire d'affaire", e);
+            AlertUtil.showErrorAlert("Erreur",
+                    "Impossible d'ouvrir le formulaire",
+                    "Une erreur technique s'est produite : " + e.getMessage());
         }
     }
+
+    /**
+     * MISE À JOUR : Affiche les détails d'une affaire - AMÉLIORE LA MÉTHODE EXISTANTE
+     */
+    private void viewAffaire(AffaireViewModel affaireViewModel) {
+        try {
+            logger.info("Affichage des détails de l'affaire: {}",
+                    affaireViewModel.getNumeroAffaire());
+
+            // Récupération de l'affaire complète depuis la base
+            Optional<Affaire> affaireOpt = affaireDAO.findById(affaireViewModel.getId());
+            if (affaireOpt.isEmpty()) {
+                AlertUtil.showErrorAlert("Erreur",
+                        "Affaire introuvable",
+                        "L'affaire demandée n'existe plus en base de données.");
+                return;
+            }
+
+            Affaire affaire = affaireOpt.get();
+
+            // Construction du message de détails
+            StringBuilder details = new StringBuilder();
+            details.append("Numéro d'affaire : ").append(affaire.getNumeroAffaire()).append("\n");
+            details.append("Date de création : ").append(DateFormatter.formatDate(affaire.getDateCreation())).append("\n");
+            details.append("Montant amende : ").append(CurrencyFormatter.format(affaire.getMontantAmendeTotal())).append("\n");
+            details.append("Statut : ").append(affaire.getStatut().getLibelle()).append("\n");
+            details.append("Contrevenant ID : ").append(affaire.getContrevenantId()).append("\n");
+
+            if (affaire.getCreatedBy() != null) {
+                details.append("Créé par : ").append(affaire.getCreatedBy()).append("\n");
+            }
+            if (affaire.getCreatedAt() != null) {
+                details.append("Créé le : ").append(DateFormatter.formatDateTime(affaire.getCreatedAt())).append("\n");
+            }
+            if (affaire.getUpdatedBy() != null) {
+                details.append("Modifié par : ").append(affaire.getUpdatedBy()).append("\n");
+            }
+            if (affaire.getUpdatedAt() != null) {
+                details.append("Modifié le : ").append(DateFormatter.formatDateTime(affaire.getUpdatedAt())).append("\n");
+            }
+
+            // Affichage dans une alerte d'information
+            AlertUtil.showInfoAlert("Détails de l'affaire",
+                    "Affaire : " + affaire.getNumeroAffaire(),
+                    details.toString());
+
+        } catch (Exception e) {
+            logger.error("Erreur lors de l'affichage des détails", e);
+            AlertUtil.showErrorAlert("Erreur",
+                    "Impossible d'afficher les détails",
+                    "Une erreur technique s'est produite : " + e.getMessage());
+        }
+    }
+
+    /**
+     * MISE À JOUR : Édite une affaire avec le formulaire - REMPLACE LA MÉTHODE EXISTANTE
+     */
+    private void editAffaire(AffaireViewModel affaireViewModel) {
+        try {
+            logger.info("Ouverture du formulaire d'édition pour l'affaire: {}",
+                    affaireViewModel.getNumeroAffaire());
+
+            // Récupération de l'affaire complète depuis la base
+            Optional<Affaire> affaireOpt = affaireDAO.findById(affaireViewModel.getId());
+            if (affaireOpt.isEmpty()) {
+                AlertUtil.showErrorAlert("Erreur",
+                        "Affaire introuvable",
+                        "L'affaire demandée n'existe plus en base de données.");
+                return;
+            }
+
+            Affaire affaire = affaireOpt.get();
+
+            // Vérification des permissions d'édition
+            if (!affaire.peutEtreModifiee()) {
+                AlertUtil.showWarningAlert("Modification impossible",
+                        "Cette affaire ne peut pas être modifiée",
+                        "Statut actuel : " + affaire.getStatut().getLibelle());
+                return;
+            }
+
+            // Chargement du formulaire FXML
+            FXMLLoaderUtil.LoadResult<AffaireFormController> result =
+                    FXMLLoaderUtil.loadWithController("view/affaire-form.fxml");
+
+            // Création de la fenêtre popup
+            Stage formStage = new Stage();
+            formStage.setTitle("Modifier l'affaire " + affaire.getNumeroAffaire() +
+                    " - " + Main.getAppTitle());
+            formStage.setScene(new javafx.scene.Scene(result.getParent(), 900, 700));
+            formStage.setResizable(true);
+            formStage.initModality(javafx.stage.Modality.APPLICATION_MODAL);
+
+            // Configuration du contrôleur en mode édition
+            AffaireFormController controller = result.getController();
+            controller.setAffaireToEdit(affaire);
+
+            // Gestion de la fermeture
+            formStage.setOnHidden(e -> {
+                logger.info("Formulaire d'édition fermé, actualisation de la liste");
+                loadData(); // Rafraîchir la liste
+            });
+
+            // Affichage de la fenêtre
+            formStage.showAndWait();
+
+        } catch (Exception e) {
+            logger.error("Erreur lors de l'ouverture du formulaire d'édition", e);
+            AlertUtil.showErrorAlert("Erreur",
+                    "Impossible d'ouvrir le formulaire d'édition",
+                    "Une erreur technique s'est produite : " + e.getMessage());
+        }
+    }
+
+    /**
+     * MISE À JOUR : Actions sur les affaires sélectionnées - AMÉLIORE LES MÉTHODES EXISTANTES
+     */
+    private void editSelectedAffaires() {
+        List<AffaireViewModel> selected = getSelectedAffaires();
+
+        if (selected.isEmpty()) {
+            AlertUtil.showWarningAlert("Aucune sélection",
+                    "Aucune affaire sélectionnée",
+                    "Veuillez sélectionner au moins une affaire à modifier.");
+            return;
+        }
+
+        if (selected.size() == 1) {
+            editAffaire(selected.get(0));
+        } else {
+            // Édition en lot (future fonctionnalité)
+            AlertUtil.showInfoAlert("Édition en lot",
+                    "Fonctionnalité en développement",
+                    "L'édition en lot de " + selected.size() + " affaires sera disponible prochainement.");
+        }
+    }
+
 
     private void deleteSelectedAffaires() {
         List<AffaireViewModel> selected = getSelectedAffaires();
@@ -520,11 +687,100 @@ public class AffaireListController implements Initializable {
 
     private void duplicateSelectedAffaires() {
         List<AffaireViewModel> selected = getSelectedAffaires();
+
+        if (selected.isEmpty()) {
+            AlertUtil.showWarningAlert("Aucune sélection",
+                    "Aucune affaire sélectionnée",
+                    "Veuillez sélectionner une affaire à dupliquer.");
+            return;
+        }
+
         if (selected.size() == 1) {
-            logger.info("Duplication de l'affaire: {}", selected.get(0).getNumeroAffaire());
-            AlertUtil.showInfoAlert("Duplication d'affaire",
-                    "Fonctionnalité en développement",
-                    "La duplication sera disponible prochainement.");
+            duplicateAffaire(selected.get(0));
+        } else {
+            AlertUtil.showWarningAlert("Sélection multiple",
+                    "Duplication multiple non supportée",
+                    "Veuillez sélectionner une seule affaire à dupliquer.");
+        }
+    }
+
+    /**
+     * NOUVELLE MÉTHODE : Gère la duplication d'une affaire
+     */
+    private void duplicateAffaire(AffaireViewModel affaireViewModel) {
+        try {
+            logger.info("Duplication de l'affaire: {}", affaireViewModel.getNumeroAffaire());
+
+            // Récupération de l'affaire originale
+            Optional<Affaire> affaireOpt = affaireDAO.findById(affaireViewModel.getId());
+            if (affaireOpt.isEmpty()) {
+                AlertUtil.showErrorAlert("Erreur",
+                        "Affaire introuvable",
+                        "L'affaire à dupliquer n'existe plus en base de données.");
+                return;
+            }
+
+            Affaire affaireOriginale = affaireOpt.get();
+
+            // Confirmation de duplication
+            if (!AlertUtil.showConfirmAlert("Confirmation de duplication",
+                    "Dupliquer l'affaire " + affaireOriginale.getNumeroAffaire(),
+                    "Voulez-vous vraiment créer une copie de cette affaire ?")) {
+                return;
+            }
+
+            // Chargement du formulaire FXML
+            FXMLLoaderUtil.LoadResult<AffaireFormController> result =
+                    FXMLLoaderUtil.loadWithController("view/affaire-form.fxml");
+
+            // Création de la fenêtre popup
+            Stage formStage = new Stage();
+            formStage.setTitle("Dupliquer l'affaire " + affaireOriginale.getNumeroAffaire() +
+                    " - " + Main.getAppTitle());
+            formStage.setScene(new javafx.scene.Scene(result.getParent(), 900, 700));
+            formStage.setResizable(true);
+            formStage.initModality(javafx.stage.Modality.APPLICATION_MODAL);
+
+            // Configuration du contrôleur avec les données de l'affaire originale
+            AffaireFormController controller = result.getController();
+
+            // Génération d'un nouveau numéro d'affaire
+            try {
+                String nextNumero = affaireDAO.generateNextNumeroAffaire();
+
+                // Récupération du contrevenant si possible
+                Contrevenant contrevenant = null;
+                try {
+                    ContrevenantDAO contrevenantDAO = new ContrevenantDAO();
+                    Optional<Contrevenant> contrevenantOpt = contrevenantDAO.findById(affaireOriginale.getContrevenantId());
+                    if (contrevenantOpt.isPresent()) {
+                        contrevenant = contrevenantOpt.get();
+                    }
+                } catch (Exception e) {
+                    logger.warn("Impossible de récupérer le contrevenant pour la duplication", e);
+                }
+
+                // Configuration des valeurs par défaut
+                controller.setDefaultValues(nextNumero, contrevenant);
+
+            } catch (Exception e) {
+                logger.warn("Impossible de pré-remplir les données pour la duplication", e);
+            }
+
+            // Gestion de la fermeture
+            formStage.setOnHidden(e -> {
+                logger.info("Formulaire de duplication fermé, actualisation de la liste");
+                loadData(); // Rafraîchir la liste
+            });
+
+            // Affichage de la fenêtre
+            formStage.showAndWait();
+
+        } catch (Exception e) {
+            logger.error("Erreur lors de la duplication de l'affaire", e);
+            AlertUtil.showErrorAlert("Erreur",
+                    "Impossible de dupliquer l'affaire",
+                    "Une erreur technique s'est produite : " + e.getMessage());
         }
     }
 

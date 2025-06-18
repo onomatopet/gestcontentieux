@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.regulation.contentieux.controller.ContrevenantListController">
+
+    <top>
+        <!-- Barre de filtres et recherche -->
+        <VBox spacing="10.0" styleClass="filter-container">
+
+            <!-- Titre et compteurs -->
+            <HBox alignment="CENTER_LEFT" spacing="15.0">
+                <Label styleClass="title-2" text="Liste des Contrevenants">
+                    <font>
+                        <Font name="System Bold" size="18.0" />
+                    </font>
+                </Label>
+
+                <Region HBox.hgrow="ALWAYS" />
+
+                <Label fx:id="totalCountLabel" styleClass="text-muted" text="0 contrevenant(s)" />
+
+                <Separator orientation="VERTICAL" />
+
+                <Button fx:id="newContrevenantButton" styleClass="accent" text="Nouveau Contrevenant" />
+            </HBox>
+
+            <!-- Filtres de recherche -->
+            <HBox spacing="10.0" alignment="CENTER_LEFT">
+                <Label text="Recherche:" />
+                <TextField fx:id="searchField" promptText="Nom ou code..." prefWidth="200.0" />
+
+                <Label text="Type:" />
+                <ComboBox fx:id="typePersonneComboBox" prefWidth="150.0" promptText="Tous les types" />
+
+                <Button fx:id="searchButton" text="Rechercher" />
+                <Button fx:id="clearFiltersButton" text="Effacer" />
+
+                <Region HBox.hgrow="ALWAYS" />
+
+                <Button fx:id="exportButton" text="Exporter" />
+            </HBox>
+
+            <padding>
+                <Insets bottom="10.0" left="15.0" right="15.0" top="10.0" />
+            </padding>
+        </VBox>
+    </top>
+
+    <center>
+        <!-- Tableau des contrevenants -->
+        <VBox>
+            <!-- Barre d'actions du tableau -->
+            <HBox alignment="CENTER_LEFT" spacing="10.0" styleClass="table-toolbar">
+                <CheckBox fx:id="selectAllCheckBox" text="Tout sélectionner" />
+
+                <Separator orientation="VERTICAL" />
+
+                <Button fx:id="editButton" text="Modifier" disable="true" />
+                <Button fx:id="deleteButton" text="Supprimer" disable="true" styleClass="button-danger" />
+                <Button fx:id="duplicateButton" text="Dupliquer" disable="true" />
+
+                <Separator orientation="VERTICAL" />
+
+                <Button fx:id="printButton" text="Imprimer" />
+
+                <Region HBox.hgrow="ALWAYS" />
+
+                <Label text="Affichage:" />
+                <ComboBox fx:id="pageSizeComboBox" prefWidth="80.0" />
+
+                <padding>
+                    <Insets bottom="5.0" left="10.0" right="10.0" top="5.0" />
+                </padding>
+            </HBox>
+
+            <!-- Tableau principal -->
+            <TableView fx:id="contrevenantsTableView" VBox.vgrow="ALWAYS">
+                <columns>
+                    <!-- Colonne de sélection -->
+                    <TableColumn fx:id="selectColumn" prefWidth="40.0" sortable="false" resizable="false">
+                        <!-- La cellFactory sera définie dans le contrôleur Java -->
+                    </TableColumn>
+
+                    <!-- Colonnes des données -->
+                    <TableColumn fx:id="codeColumn" text="Code" prefWidth="100.0" />
+
+                    <TableColumn fx:id="nomCompletColumn" text="Nom complet" prefWidth="250.0" />
+
+                    <TableColumn fx:id="typePersonneColumn" text="Type" prefWidth="120.0" />
+
+                    <TableColumn fx:id="telephoneColumn" text="Téléphone" prefWidth="120.0" />
+
+                    <TableColumn fx:id="emailColumn" text="Email" prefWidth="200.0" />
+
+                    <TableColumn fx:id="dateCreationColumn" text="Date de création" prefWidth="130.0" />
+
+                    <!-- Colonne d'actions -->
+                    <TableColumn fx:id="actionsColumn" text="Actions" prefWidth="100.0" sortable="false">
+                        <!-- Les boutons d'action seront générés dans le contrôleur -->
+                    </TableColumn>
+                </columns>
+
+                <!-- Placeholder quand le tableau est vide -->
+                <placeholder>
+                    <VBox alignment="CENTER" spacing="10.0">
+                        <Label styleClass="text-muted" text="Aucun contrevenant trouvé">
+                            <font>
+                                <Font size="16.0" />
+                            </font>
+                        </Label>
+                        <Label styleClass="text-muted" text="Cliquez sur 'Nouveau Contrevenant' pour commencer" />
+                    </VBox>
+                </placeholder>
+            </TableView>
+        </VBox>
+    </center>
+
+    <bottom>
+        <!-- Pagination et informations -->
+        <VBox>
+            <!-- Informations de pagination -->
+            <HBox alignment="CENTER_LEFT" spacing="10.0" styleClass="pagination-info">
+                <Label fx:id="paginationInfoLabel" text="Affichage de 0 à 0 sur 0 résultats" />
+
+                <Region HBox.hgrow="ALWAYS" />
+
+                <Label text="Aller à la page:" />
+                <TextField fx:id="gotoPageField" prefWidth="60.0" />
+                <Button fx:id="gotoPageButton" text="OK" />
+
+                <padding>
+                    <Insets bottom="5.0" left="10.0" right="10.0" top="5.0" />
+                </padding>
+            </HBox>
+
+            <!-- Contrôles de pagination -->
+            <HBox alignment="CENTER" spacing="5.0" styleClass="pagination-controls">
+                <Button fx:id="firstPageButton" text="⮬ Premier" disable="true" />
+                <Button fx:id="previousPageButton" text="◀ Précédent" disable="true" />
+
+                <!-- Pages numérotées (générées dynamiquement) -->
+                <HBox fx:id="pageNumbersContainer" spacing="2.0" alignment="CENTER" />
+
+                <Button fx:id="nextPageButton" text="Suivant ▶" disable="true" />
+                <Button fx:id="lastPageButton" text="Dernier ⮮" disable="true" />
+
+                <padding>
+                    <Insets bottom="10.0" left="10.0" right="10.0" top="5.0" />
+                </padding>
+            </HBox>
+        </VBox>
+    </bottom>
+
+</BorderPane>

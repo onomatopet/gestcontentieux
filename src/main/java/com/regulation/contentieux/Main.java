@@ -15,6 +15,7 @@ import java.util.Objects;
 
 /**
  * Classe principale de l'application de gestion des affaires contentieuses
+ * VERSION MISE À JOUR avec toutes les fonctionnalités du cahier des charges
  */
 public class Main extends Application {
 
@@ -152,10 +153,12 @@ public class Main extends Application {
     }
 
     /**
-     * Initialisation de la base de données
+     * Initialisation COMPLÈTE de la base de données
      */
     private void initializeDatabase() throws Exception {
-        // Vérification et création des tables SQLite
+        logger.info("Initialisation complète de la base de données...");
+
+        // Vérification et création des tables SQLite avec TOUTES les données
         DatabaseConfig.initializeSQLite();
 
         // Test de connexion MySQL (optionnel)
@@ -166,8 +169,35 @@ public class Main extends Application {
             logger.warn("Connexion MySQL: Non disponible (mode local uniquement)");
         }
 
-        // Création des données initiales si nécessaire
-        DatabaseConfig.createInitialData();
+        // Vérification finale
+        verifyDatabaseIntegrity();
+    }
+
+    /**
+     * Vérifie l'intégrité de la base de données
+     */
+    private void verifyDatabaseIntegrity() {
+        try (var conn = DatabaseConfig.getSQLiteConnection()) {
+            // Vérifier quelques tables clés
+            String[] criticalTables = {"utilisateurs", "affaires", "contrevenants", "agents"};
+
+            for (String table : criticalTables) {
+                try (var stmt = conn.prepareStatement("SELECT COUNT(*) FROM " + table);
+                     var rs = stmt.executeQuery()) {
+
+                    if (rs.next()) {
+                        int count = rs.getInt(1);
+                        logger.debug("Table {} vérifiée: {} enregistrements", table, count);
+                    }
+                }
+            }
+
+            logger.info("Intégrité de la base de données vérifiée avec succès");
+
+        } catch (Exception e) {
+            logger.error("Erreur lors de la vérification de l'intégrité", e);
+            throw new RuntimeException("Base de données corrompue", e);
+        }
     }
 
     /**

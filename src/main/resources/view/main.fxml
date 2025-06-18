@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.regulation.contentieux.controller.MainController">
+
+    <top>
+        <VBox>
+            <!-- Barre de menu -->
+            <MenuBar fx:id="menuBar">
+                <Menu fx:id="menuFichier" text="Fichier" />
+                <Menu fx:id="menuAffaires" text="Affaires" />
+                <Menu fx:id="menuContrevenants" text="Contrevenants" />
+                <Menu fx:id="menuAgents" text="Agents" />
+                <Menu fx:id="menuEncaissements" text="Encaissements" />
+                <Menu fx:id="menuRapports" text="Rapports" />
+                <Menu fx:id="menuAdministration" text="Administration" />
+                <Menu fx:id="menuAide" text="Aide" />
+            </MenuBar>
+
+            <!-- Barre de titre -->
+            <HBox alignment="CENTER_LEFT" spacing="10.0" styleClass="title-bar">
+                <children>
+                    <Label fx:id="titleLabel" styleClass="title-1" text="Gestion des Affaires Contentieuses">
+                        <font>
+                            <Font name="System Bold" size="16.0" />
+                        </font>
+                    </Label>
+
+                    <Region HBox.hgrow="ALWAYS" />
+
+                    <Label fx:id="userInfoLabel" styleClass="text-muted" text="Utilisateur connecté" />
+
+                    <Button fx:id="logoutButton" styleClass="button-icon" text="Déconnexion" />
+                </children>
+                <padding>
+                    <Insets bottom="10.0" left="15.0" right="15.0" top="10.0" />
+                </padding>
+            </HBox>
+
+            <!-- Barre d'outils -->
+            <ToolBar fx:id="toolBar">
+                <items>
+                    <Button fx:id="newButton" styleClass="button-icon" text="Nouveau" />
+                    <Button fx:id="editButton" styleClass="button-icon" text="Éditer" />
+                    <Button fx:id="deleteButton" styleClass="button-icon" text="Supprimer" />
+
+                    <Separator fx:id="toolbarSeparator" />
+
+                    <Button fx:id="refreshButton" styleClass="button-icon" text="Actualiser" />
+                    <Button fx:id="printButton" styleClass="button-icon" text="Imprimer" />
+
+                    <Separator />
+
+                    <Button fx:id="filterButton" styleClass="button-icon" text="Filtrer" />
+
+                    <Region HBox.hgrow="ALWAYS" />
+
+                    <TextField fx:id="searchField" maxWidth="250.0" prefWidth="200.0" promptText="Rechercher..." />
+                </items>
+            </ToolBar>
+        </VBox>
+    </top>
+
+    <center>
+        <!-- Zone de contenu principal -->
+        <BorderPane fx:id="contentPane">
+            <center>
+                <StackPane fx:id="mainContentArea" styleClass="main-content">
+                    <!-- Le contenu sera chargé dynamiquement ici -->
+                </StackPane>
+            </center>
+        </BorderPane>
+    </center>
+
+    <bottom>
+        <!-- Barre de statut -->
+        <HBox alignment="CENTER_LEFT" spacing="10.0" styleClass="status-bar">
+            <children>
+                <Label fx:id="statusLabel" text="Prêt" />
+
+                <Region HBox.hgrow="ALWAYS" />
+
+                <ProgressBar fx:id="progressBar" prefWidth="100.0" visible="false" />
+                <Label fx:id="progressLabel" styleClass="text-muted" text="Chargement..." visible="false" />
+
+                <Separator orientation="VERTICAL" />
+
+                <Label fx:id="connectionStatusLabel" styleClass="text-muted" text="Connecté" />
+            </children>
+            <padding>
+                <Insets bottom="5.0" left="10.0" right="10.0" top="5.0" />
+            </padding>
+        </HBox>
+    </bottom>
+
+</BorderPane>

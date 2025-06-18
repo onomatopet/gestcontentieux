@@ -1,5 +1,6 @@
 package com.regulation.contentieux.config;
 
+import com.regulation.contentieux.util.DatabaseSchemaCompletion;
 import com.regulation.contentieux.util.DatabaseSchemaUpdate;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
@@ -126,6 +127,9 @@ public class DatabaseConfig {
                 logger.info("Base de données non trouvée, création complète...");
                 createAllSQLiteTables();
                 createInitialData();
+                DatabaseSchemaCompletion.executeSchemaCompletion();
+
+                logger.info("Base de données SQLite initialisée avec schéma complet : {}", sqlitePath);
                 logger.info("Base de données complète créée avec succès");
             } else {
                 logger.info("Base de données existante détectée");

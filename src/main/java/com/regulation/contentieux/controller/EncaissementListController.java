@@ -397,11 +397,11 @@ public class EncaissementListController implements Initializable {
 
                 // Chargement des encaissements
                 List<Encaissement> encaissementsList = encaissementService.searchEncaissements(
-                        searchText, statut, modeReglement, dateDebut, dateFin, currentPage, pageSize);
+                        searchText, statut, modeReglement, dateDebut, dateFin, null, currentPage, pageSize);
 
                 // Comptage total
                 totalElements = encaissementService.countSearchEncaissements(
-                        searchText, statut, modeReglement, dateDebut, dateFin);
+                        searchText, statut, modeReglement, dateDebut, dateFin, null);
 
                 logger.info("Chargement terminé: {} encaissements trouvés sur {} total",
                         encaissementsList.size(), totalElements);
@@ -555,7 +555,8 @@ public class EncaissementListController implements Initializable {
         Task<Void> validateTask = new Task<Void>() {
             @Override
             protected Void call() throws Exception {
-                encaissementService.validerEncaissement(encaissement.getId());
+                String currentUser = authService.getCurrentUser().getUsername();
+                encaissementService.validerEncaissement(encaissement.getId(), currentUser);
                 return null;
             }
 
@@ -589,7 +590,8 @@ public class EncaissementListController implements Initializable {
         Task<Void> rejectTask = new Task<Void>() {
             @Override
             protected Void call() throws Exception {
-                encaissementService.rejeterEncaissement(encaissement.getId());
+                String currentUser = authService.getCurrentUser().getUsername();
+                encaissementService.rejeterEncaissement(encaissement.getId(), currentUser);
                 return null;
             }
 
@@ -724,8 +726,9 @@ public class EncaissementListController implements Initializable {
         Task<Void> batchTask = new Task<Void>() {
             @Override
             protected Void call() throws Exception {
+                String currentUser = authService.getCurrentUser().getUsername(); // AJOUTÉ
                 for (EncaissementViewModel encaissement : encaissements) {
-                    encaissementService.validerEncaissement(encaissement.getId());
+                    encaissementService.validerEncaissement(encaissement.getId(), currentUser); // CORRIGÉ
                 }
                 return null;
             }
@@ -756,12 +759,14 @@ public class EncaissementListController implements Initializable {
         batchThread.start();
     }
 
+
     private void performBatchRejection(List<EncaissementViewModel> encaissements) {
         Task<Void> batchTask = new Task<Void>() {
             @Override
             protected Void call() throws Exception {
+                String currentUser = authService.getCurrentUser().getUsername(); // AJOUTÉ
                 for (EncaissementViewModel encaissement : encaissements) {
-                    encaissementService.rejeterEncaissement(encaissement.getId());
+                    encaissementService.rejeterEncaissement(encaissement.getId(), currentUser); // CORRIGÉ
                 }
                 return null;
             }

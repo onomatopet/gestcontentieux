@@ -84,7 +84,7 @@ public class RapportService {
                         .map(encaissement -> BigDecimal.valueOf(encaissement.getMontant()))
                         .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-                affaireDTO.setMontantEncaisse(montantAffaire);
+                BigDecimal montantAffaire = BigDecimal.valueOf(affaire.getMontantAmende());
 
                 // Calcul de la répartition
                 BigDecimal partEtat = montantAffaire.multiply(POURCENTAGE_ETAT)
@@ -667,6 +667,8 @@ public class RapportService {
                         .map(encaissement -> BigDecimal.valueOf(encaissement.getMontant()))
                         .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+                BigDecimal montantTotalAffaire = BigDecimal.valueOf(affaire.getMontantAmende());
+
                 if (montantTotalAffaire.compareTo(BigDecimal.ZERO) > 0) {
                     // Calculs de répartition pour cette affaire
                     BigDecimal produitNet = CalculsRepartition.calculerProduitNet(montantTotalAffaire);
@@ -796,26 +798,13 @@ public class RapportService {
                     List<Encaissement> encaissements = encaissementDAO.findByAffaireAndPeriod(
                             affaire.getId(), dateDebut, dateFin);
 
-                    BigDecimal totalMontant = encaissements.stream()
+                    // ou BigDecimal.valueOf(affaire.getMontantAmende())
+                    montantService = montantService.add(encaissements.stream()
                             .map(encaissement -> BigDecimal.valueOf(encaissement.getMontant()))
-                            .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-
-                    montantService = montantService.add(montantAffaire);
+                            .reduce(BigDecimal.ZERO, BigDecimal::add));
                 }
 
-                ServiceAmendeDTO serviceDTO = new ServiceAmendeDTO(
-                        nomService,
-                        affairesService.size(),
-                        montantService
-                );
-
-                // Observations conditionnelles
-                if (affairesService.size() > 10) {
-                    serviceDTO.setObservations("Service très actif");
-                } else if (montantService.compareTo(BigDecimal.ZERO) == 0) {
-                    serviceDTO.setObservations("Aucun encaissement");
-                }
+                ServiceAmendeDTO serviceDTO = getServiceAmendeDTO(nomService, affairesService, montantService);
 
                 servicesDTO.add(serviceDTO);
                 totalGeneral = totalGeneral.add(montantService);
@@ -838,6 +827,22 @@ public class RapportService {
             logger.error("Erreur lors de la génération du tableau des amendes par services", e);
             throw new RuntimeException("Impossible de générer le tableau: " + e.getMessage(), e);
         }
+    }
+
+    private static ServiceAmendeDTO getServiceAmendeDTO(String nomService, List<Affaire> affairesService, BigDecimal montantService) {
+        ServiceAmendeDTO serviceDTO = new ServiceAmendeDTO(
+                nomService,
+                affairesService.size(),
+                montantService
+        );
+
+        // Observations conditionnelles
+        if (affairesService.size() > 10) {
+            serviceDTO.setObservations("Service très actif");
+        } else if (montantService.compareTo(BigDecimal.ZERO) == 0) {
+            serviceDTO.setObservations("Aucun encaissement");
+        }
+        return serviceDTO;
     }
 
     // ==================== IMPRIMÉ 8: ETAT PAR SERIES DE MANDATEMENTS AGENTS ====================
@@ -987,7 +992,7 @@ public class RapportService {
         BigDecimal totalAmende = rapport.getAffaires().stream()
                 .map(AffaireRepartitionDTO::getMontantAmende)
                 .map(encaissement -> BigDecimal.valueOf(encaissement.getMontant()))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+                .reduce(BigDecimal.ZERO, (a, b) -> a.add(b));
 
         if (totalAmende.compareTo(BigDecimal.ZERO) > 0) {
             BigDecimal tauxRecouvrement = rapport.getTotalEncaisse()
@@ -1041,7 +1046,7 @@ public class RapportService {
 
         dto.setNumeroAffaire(affaire.getNumeroAffaire());
         dto.setDateCreation(affaire.getDateCreation());
-        dto.setMontantAmende(affaire.getMontantAmende());
+        BigDecimal montant = BigDecimal.valueOf(affaire.getMontantAmende());
         dto.setStatut(affaire.getStatut().getLibelle());
 
         if (affaire.getContrevenant() != null) {

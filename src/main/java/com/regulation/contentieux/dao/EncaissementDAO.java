@@ -659,4 +659,45 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
 
         return 0;
     }
+
+    // MÉTHODES À AJOUTER À LA FIN DE LA CLASSE EncaissementDAO
+
+    /**
+     * Trouve les encaissements d'une affaire spécifique dans une période donnée
+     * MÉTHODE MANQUANTE POUR RapportService
+     */
+    public List<Encaissement> findByAffaireAndPeriod(Long affaireId, LocalDate dateDebut, LocalDate dateFin) {
+        String sql = """
+        SELECT id, affaire_id, montant_encaisse, date_encaissement, mode_reglement, 
+               reference, banque_id, statut, created_at, updated_at, created_by, updated_by 
+        FROM encaissements 
+        WHERE affaire_id = ? 
+        AND date_encaissement BETWEEN ? AND ? 
+        AND statut = 'VALIDE'
+        ORDER BY date_encaissement DESC
+    """;
+
+        List<Encaissement> encaissements = new ArrayList<>();
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setLong(1, affaireId);
+            stmt.setDate(2, Date.valueOf(dateDebut));
+            stmt.setDate(3, Date.valueOf(dateFin));
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                encaissements.add(mapResultSetToEntity(rs));
+            }
+
+            logger.debug("Trouvé {} encaissements pour l'affaire {} entre {} et {}",
+                    encaissements.size(), affaireId, dateDebut, dateFin);
+
+        } catch (SQLException e) {
+            logger.error("Erreur lors de la recherche d'encaissements par affaire et période", e);
+        }
+
+        return encaissements;
+    }
 }

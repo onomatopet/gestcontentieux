@@ -17,6 +17,21 @@ public class Encaissement {
     private Long affaireId;
     private Double montantEncaisse;
 
+    /**
+     * Alias pour getMontantEncaisse() - REQUIS PAR RapportService
+     */
+    public Double getMontant() {
+        return getMontantEncaisse();
+    }
+
+    /**
+     * Alias pour getReference() - REQUIS PAR RapportService
+     * Retourne la référence du mandat (même chose que reference générale)
+     */
+    public String getReferenceMandat() {
+        return getReference();
+    }
+
     @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate dateEncaissement;
 

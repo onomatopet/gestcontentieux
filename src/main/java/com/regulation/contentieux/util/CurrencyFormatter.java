@@ -98,6 +98,59 @@ public class CurrencyFormatter {
     }
 
     /**
+     * Formate un montant BigDecimal avec le symbole FCFA
+     * REQUIS POUR CORRIGER RapportService et ExportService
+     *
+     * @param amount Le montant BigDecimal à formater
+     * @return Le montant formaté avec FCFA (ex: "1 500 FCFA")
+     */
+    public static String format(java.math.BigDecimal amount) {
+        if (amount == null) {
+            return "0 " + CURRENCY_SYMBOL;
+        }
+        return CURRENCY_FORMAT.format(amount.doubleValue()) + " " + CURRENCY_SYMBOL;
+    }
+
+    /**
+     * Formate un montant BigDecimal sans le symbole de devise
+     *
+     * @param amount Le montant BigDecimal à formater
+     * @return Le montant formaté sans symbole (ex: "1 500")
+     */
+    public static String formatNumber(java.math.BigDecimal amount) {
+        if (amount == null) {
+            return "0";
+        }
+        return CURRENCY_FORMAT.format(amount.doubleValue());
+    }
+
+    /**
+     * Formate un montant BigDecimal avec décimales
+     *
+     * @param amount Le montant BigDecimal à formater
+     * @return Le montant formaté avec décimales (ex: "1 500,75")
+     */
+    public static String formatWithDecimals(java.math.BigDecimal amount) {
+        if (amount == null) {
+            return "0,00";
+        }
+        return NUMBER_FORMAT.format(amount.doubleValue());
+    }
+
+    /**
+     * Formate un montant BigDecimal avec décimales et symbole FCFA
+     *
+     * @param amount Le montant BigDecimal à formater
+     * @return Le montant formaté avec décimales et FCFA (ex: "1 500,75 FCFA")
+     */
+    public static String formatCurrencyWithDecimals(java.math.BigDecimal amount) {
+        if (amount == null) {
+            return "0,00 " + CURRENCY_SYMBOL;
+        }
+        return NUMBER_FORMAT.format(amount.doubleValue()) + " " + CURRENCY_SYMBOL;
+    }
+
+    /**
      * Formate un montant avec décimales et symbole FCFA
      *
      * @param amount Le montant à formater

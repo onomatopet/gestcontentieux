@@ -67,7 +67,8 @@ public class ReferentielController implements Initializable {
     private final ValidationService validationService;
 
     // DAOs pour chaque type
-    private ServiceDAO serviceDAO;
+    private
+    ServiceDAO serviceDAO;
     private BureauDAO bureauDAO;
     private CentreDAO centreDAO;
     private ContraventionDAO contraventionDAO;
@@ -703,3 +704,38 @@ public class ReferentielController implements Initializable {
         }
     }
 }
+
+// OPTION 2: CORRIGER LES TYPES GÉNÉRIQUES SPÉCIFIQUES
+// Si vous avez des déclarations comme:
+// List items = new ArrayList();
+// CORRIGER EN:
+// List<String> items = new ArrayList<>();
+
+// Si vous avez des déclarations comme:
+// ObservableList data = FXCollections.observableArrayList();
+// CORRIGER EN:
+// ObservableList<YourType> data = FXCollections.observableArrayList();
+
+// Si vous avez des tableaux ou listes sans types:
+// TableView table = new TableView();
+// CORRIGER EN:
+// TableView<YourModelClass> table = new TableView<>();
+
+// EXEMPLE DE CORRECTION TYPIQUE:
+// ANCIEN CODE PROBLÉMATIQUE:
+/*
+private void setupTable() {
+    TableView table = new TableView();
+    ObservableList data = FXCollections.observableArrayList();
+    table.setItems(data);
+}
+*/
+
+// NOUVEAU CODE CORRIGÉ:
+/*
+private void setupTable() {
+    TableView<Service> table = new TableView<>();
+    ObservableList<Service> data = FXCollections.observableArrayList();
+    table.setItems(data);
+}
+*/

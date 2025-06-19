@@ -2,10 +2,15 @@ package com.regulation.contentieux.dao;
 
 import com.regulation.contentieux.dao.impl.AbstractSQLiteDAO;
 import com.regulation.contentieux.model.Affaire;
+import com.regulation.contentieux.model.Contravention;
 import com.regulation.contentieux.model.enums.StatutAffaire;
 import com.regulation.contentieux.config.DatabaseConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.regulation.contentieux.model.Contravention;
+import com.regulation.contentieux.dao.ContraventionDAO;
+import java.util.Optional;
 
 import java.sql.*;
 import java.time.LocalDate;
@@ -165,6 +170,19 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
         affaire.setUpdatedBy(rs.getString("updated_by"));
 
         return affaire;
+    }
+
+    /**
+     * Récupère la contravention associée à une affaire
+     * REQUIS POUR RapportService
+     */
+    public Optional<Contravention> getContraventionByAffaire(Affaire affaire) {
+        if (affaire.getContraventionId() == null) {
+            return Optional.empty();
+        }
+
+        ContraventionDAO contraventionDAO = new ContraventionDAO();
+        return contraventionDAO.findById(affaire.getContraventionId());
     }
 
     /**
@@ -701,5 +719,46 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
         }
 
         return false;
+    }
+
+    // MÉTHODES À AJOUTER À LA FIN DE LA CLASSE AffaireDAO
+
+    /**
+     * Trouve les affaires qui ont des encaissements dans une période donnée
+     * MÉTHODE MANQUANTE POUR RapportService
+     */
+    public List<Affaire> findAffairesWithEncaissementsByPeriod(LocalDate dateDebut, LocalDate dateFin) {
+        String sql = """
+        SELECT DISTINCT a.id, a.numero_affaire, a.date_creation, a.montant_amende_total, 
+               a.statut, a.contrevenant_id, a.contravention_id, a.bureau_id, 
+               a.service_id, a.created_at, a.updated_at, a.created_by, a.updated_by 
+        FROM affaires a 
+        INNER JOIN encaissements e ON a.id = e.affaire_id 
+        WHERE e.date_encaissement BETWEEN ? AND ? 
+        AND e.statut = 'VALIDE'
+        ORDER BY a.created_at DESC
+    """;
+
+        List<Affaire> affaires = new ArrayList<>();
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setDate(1, Date.valueOf(dateDebut));
+            stmt.setDate(2, Date.valueOf(dateFin));
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                affaires.add(mapResultSetToEntity(rs));
+            }
+
+            logger.debug("Trouvé {} affaires avec encaissements entre {} et {}",
+                    affaires.size(), dateDebut, dateFin);
+
+        } catch (SQLException e) {
+            logger.error("Erreur lors de la recherche d'affaires avec encaissements par période", e);
+        }
+
+        return affaires;
     }
 }

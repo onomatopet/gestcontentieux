@@ -1,5 +1,7 @@
 package com.regulation.contentieux.service;
 
+import com.regulation.contentieux.dao.AffaireDAO;
+import com.regulation.contentieux.dao.EncaissementDAO;
 import com.regulation.contentieux.model.Affaire;
 import com.regulation.contentieux.model.Encaissement;
 import com.regulation.contentieux.model.enums.StatutEncaissement;
@@ -28,6 +30,17 @@ import java.util.concurrent.CompletableFuture;
 public class PrintService {
 
     private static final Logger logger = LoggerFactory.getLogger(PrintService.class);
+
+    // VARIABLES D'INSTANCE À AJOUTER EN HAUT DE LA CLASSE
+    private AffaireDAO affaireDAO;
+    private EncaissementDAO encaissementDAO;
+    private String partIndicateur = "15.0"; // Pourcentage par défaut pour les indicateurs
+
+    // CONSTRUCTEUR À AJOUTER OU MODIFIER
+    public PrintService() {
+        this.affaireDAO = new AffaireDAO();
+        this.encaissementDAO = new EncaissementDAO();
+    }
 
     // ==================== TEMPLATE HTML DE BASE ====================
 

@@ -1,9 +1,11 @@
 package com.regulation.contentieux.model;
 
+import com.regulation.contentieux.dao.ContraventionDAO;
 import com.regulation.contentieux.model.enums.*;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnore;
-
+import com.regulation.contentieux.dao.ContraventionDAO;
+import com.regulation.contentieux.model.Contravention;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -40,6 +42,46 @@ public class Affaire {
 
     @JsonIgnore
     private List<AffaireActeur> acteurs = new ArrayList<>();
+
+    /**
+     * Alias pour getMontantAmendeTotal() - REQUIS PAR RapportService
+     */
+    public Double getMontantAmende() {
+        return getMontantAmendeTotal();
+    }
+
+    /**
+     * Retourne le type de contravention via l'ID
+     * REQUIS PAR RapportService
+     * Note: En pratique, ceci devrait charger la contravention depuis la base,
+     * mais pour éviter les dépendances circulaires, on retourne l'ID sous forme de String
+     */
+    /**
+     * Retourne l'objet Contravention associé à cette affaire
+     * CORRECTION POUR RapportService
+     */
+    public Contravention getTypeContravention() {
+        if (contraventionId == null) {
+            return null;
+        }
+
+        // Charge la contravention depuis la base de données
+        ContraventionDAO contraventionDAO = new ContraventionDAO();
+        return contraventionDAO.findById(contraventionId).orElse(null);
+    }
+
+// ALTERNATIVE: Si vous voulez garder le String, ajoutez une nouvelle méthode:
+    /**
+     * Retourne l'objet Contravention pour RapportService
+     */
+    public Contravention getContravention() {
+        if (contraventionId == null) {
+            return null;
+        }
+
+        ContraventionDAO contraventionDAO = new ContraventionDAO();
+        return contraventionDAO.findById(contraventionId).orElse(null);
+    }
 
     // Constructeurs
     public Affaire() {

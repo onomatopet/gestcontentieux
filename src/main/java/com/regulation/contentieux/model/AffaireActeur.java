@@ -1,29 +1,29 @@
 package com.regulation.contentieux.model;
 
-
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.regulation.contentieux.model.enums.RoleSurAffaire;
 
 import java.time.LocalDateTime;
 import java.util.Objects;
 
 /**
- * Entité de liaison entre Affaire et Agent avec rôle
+ * Entité représentant la liaison entre une affaire et un agent
+ * Définit le rôle d'un agent sur une affaire spécifique
  */
 public class AffaireActeur {
     private Long affaireId;
     private Long agentId;
-    private RoleSurAffaire roleSurAffaire;
+    private String roleSurAffaire;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime assignedAt;
 
     private String assignedBy;
 
-    // Relations
+    // Relations optionnelles (pour éviter les chargements circulaires)
     @JsonIgnore
     private Affaire affaire;
+
     @JsonIgnore
     private Agent agent;
 
@@ -32,11 +32,33 @@ public class AffaireActeur {
         this.assignedAt = LocalDateTime.now();
     }
 
-    public AffaireActeur(Long affaireId, Long agentId, RoleSurAffaire roleSurAffaire) {
+    public AffaireActeur(Long affaireId, Long agentId, String roleSurAffaire) {
         this();
         this.affaireId = affaireId;
         this.agentId = agentId;
         this.roleSurAffaire = roleSurAffaire;
+    }
+
+    public AffaireActeur(Long affaireId, Long agentId, String roleSurAffaire, String assignedBy) {
+        this(affaireId, agentId, roleSurAffaire);
+        this.assignedBy = assignedBy;
+    }
+
+    // Méthodes métier
+    public boolean estChef() {
+        return "CHEF".equals(roleSurAffaire);
+    }
+
+    public boolean estSaisissant() {
+        return "SAISISSANT".equals(roleSurAffaire);
+    }
+
+    public boolean estVerificateur() {
+        return "VERIFICATEUR".equals(roleSurAffaire);
+    }
+
+    public boolean estActeurPrincipal() {
+        return estChef() || estSaisissant();
     }
 
     // Getters et Setters
@@ -46,8 +68,8 @@ public class AffaireActeur {
     public Long getAgentId() { return agentId; }
     public void setAgentId(Long agentId) { this.agentId = agentId; }
 
-    public RoleSurAffaire getRoleSurAffaire() { return roleSurAffaire; }
-    public void setRoleSurAffaire(RoleSurAffaire roleSurAffaire) { this.roleSurAffaire = roleSurAffaire; }
+    public String getRoleSurAffaire() { return roleSurAffaire; }
+    public void setRoleSurAffaire(String roleSurAffaire) { this.roleSurAffaire = roleSurAffaire; }
 
     public LocalDateTime getAssignedAt() { return assignedAt; }
     public void setAssignedAt(LocalDateTime assignedAt) { this.assignedAt = assignedAt; }
@@ -68,11 +90,17 @@ public class AffaireActeur {
         AffaireActeur that = (AffaireActeur) o;
         return Objects.equals(affaireId, that.affaireId) &&
                 Objects.equals(agentId, that.agentId) &&
-                roleSurAffaire == that.roleSurAffaire;
+                Objects.equals(roleSurAffaire, that.roleSurAffaire);
     }
 
     @Override
     public int hashCode() {
         return Objects.hash(affaireId, agentId, roleSurAffaire);
+    }
+
+    @Override
+    public String toString() {
+        return String.format("AffaireActeur[Affaire:%d, Agent:%d, Role:%s]",
+                affaireId, agentId, roleSurAffaire);
     }
 }

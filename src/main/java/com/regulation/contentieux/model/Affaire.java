@@ -61,13 +61,7 @@ public class Affaire {
      * CORRECTION POUR RapportService
      */
     public Contravention getTypeContravention() {
-        if (contraventionId == null) {
-            return null;
-        }
-
-        // Charge la contravention depuis la base de données
-        ContraventionDAO contraventionDAO = new ContraventionDAO();
-        return contraventionDAO.findById(contraventionId).orElse(null);
+        return getContravention();
     }
 
 // ALTERNATIVE: Si vous voulez garder le String, ajoutez une nouvelle méthode:
@@ -79,6 +73,7 @@ public class Affaire {
             return null;
         }
 
+        // Charge la contravention depuis la base de données
         ContraventionDAO contraventionDAO = new ContraventionDAO();
         return contraventionDAO.findById(contraventionId).orElse(null);
     }

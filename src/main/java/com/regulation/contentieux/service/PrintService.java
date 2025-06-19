@@ -13,6 +13,8 @@ import javafx.print.*;
 import javafx.scene.web.WebView;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import java.util.Arrays;
+import java.util.HashMap;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -232,6 +234,166 @@ public class PrintService {
 
         public int getTotalAffaires() { return totalAffaires; }
         public void setTotalAffaires(int totalAffaires) { this.totalAffaires = totalAffaires; }
+    }
+
+    /**
+     * Formate une période pour l'affichage
+     */
+    private String formatPeriode(LocalDate debut, LocalDate fin) {
+        if (debut.getYear() == fin.getYear() && debut.getMonth() == fin.getMonth()) {
+            return debut.getMonth().name() + " " + debut.getYear();
+        } else if (debut.getYear() == fin.getYear()) {
+            return "Du " + DateFormatter.formatDate(debut) + " au " + DateFormatter.formatDate(fin);
+        } else {
+            return "Du " + DateFormatter.formatDate(debut) + " au " + DateFormatter.formatDate(fin);
+        }
+    }
+
+    /**
+     * Détermine la direction départementale (indicatif pour l'instant)
+     */
+    private String determinerDirectionDepartementale(Affaire affaire) {
+        // TODO: Logique à implémenter plus tard
+        return "DD Centrale";
+    }
+
+    /**
+     * Valide les paramètres d'un rapport
+     */
+    public boolean validerParametresRapport(LocalDate dateDebut, LocalDate dateFin) {
+        if (dateDebut == null || dateFin == null) {
+            return false;
+        }
+
+        if (dateDebut.isAfter(dateFin)) {
+            return false;
+        }
+
+        if (dateDebut.isAfter(LocalDate.now())) {
+            return false;
+        }
+
+        // Limite à 5 ans en arrière
+        if (dateDebut.isBefore(LocalDate.now().minusYears(5))) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Génère l'aperçu d'un rapport de rétrocession
+     */
+    public WebView genererApercuRapport(RapportRepartitionDTO rapport) {
+        try {
+            // TODO: Implémenter la génération HTML du rapport
+            String htmlContent = genererHTMLRapport(rapport);
+
+            WebView webView = new WebView();
+            webView.getEngine().loadContent(htmlContent);
+
+            logger.info("Aperçu généré pour le rapport: {}", rapport.getPeriodeLibelle());
+            return webView;
+
+        } catch (Exception e) {
+            logger.error("Erreur lors de la génération de l'aperçu", e);
+            throw new RuntimeException("Impossible de générer l'aperçu: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Génère le contenu HTML pour un rapport
+     */
+    private String genererHTMLRapport(RapportRepartitionDTO rapport) {
+        StringBuilder html = new StringBuilder();
+
+        html.append("<!DOCTYPE html><html><head>");
+        html.append("<title>Rapport de Rétrocession</title>");
+        html.append("<style>body{font-family:Arial;margin:20px;}</style>");
+        html.append("</head><body>");
+
+        html.append("<h1>Rapport de Rétrocession</h1>");
+        html.append("<p>Période: ").append(rapport.getPeriodeLibelle()).append("</p>");
+        html.append("<p>Nombre d'affaires: ").append(rapport.getNombreAffaires()).append("</p>");
+        html.append("<p>Total encaissé: ").append(CurrencyFormatter.format(rapport.getTotalEncaisse())).append("</p>");
+
+        html.append("</body></html>");
+
+        return html.toString();
+    }
+
+    /**
+     * Imprime un rapport de rétrocession
+     */
+    public CompletableFuture<Boolean> imprimerRapport(RapportRepartitionDTO rapport) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                logger.info("Début de l'impression du rapport: {}", rapport.getPeriodeLibelle());
+
+                String htmlContent = genererHTMLRapport(rapport);
+
+                WebView webView = new WebView();
+                webView.getEngine().loadContent(htmlContent);
+
+                // Attendre que le contenu soit chargé avant d'imprimer
+                webView.getEngine().getLoadWorker().stateProperty().addListener((obs, oldState, newState) -> {
+                    if (newState == javafx.concurrent.Worker.State.SUCCEEDED) {
+                        javafx.application.Platform.runLater(() -> {
+                            try {
+                                executerImpression(webView);
+                            } catch (Exception e) {
+                                logger.error("Erreur lors de l'exécution de l'impression", e);
+                            }
+                        });
+                    }
+                });
+
+                return true;
+
+            } catch (Exception e) {
+                logger.error("Erreur lors de l'impression du rapport", e);
+                return false;
+            }
+        });
+    }
+
+    /**
+     * Exécute l'impression avec les paramètres par défaut
+     */
+    private void executerImpression(WebView webView) {
+        Printer defaultPrinter = Printer.getDefaultPrinter();
+        if (defaultPrinter == null) {
+            logger.warn("Aucune imprimante par défaut trouvée");
+            return;
+        }
+
+        PrinterJob printerJob = PrinterJob.createPrinterJob();
+        if (printerJob == null) {
+            logger.error("Impossible de créer le job d'impression");
+            return;
+        }
+
+        PageLayout pageLayout = defaultPrinter.createPageLayout(
+                Paper.A4,
+                PageOrientation.PORTRAIT,
+                Printer.MarginType.DEFAULT
+        );
+
+        printerJob.getJobSettings().setPageLayout(pageLayout);
+
+        boolean proceed = printerJob.showPrintDialog(webView.getScene().getWindow());
+
+        if (proceed) {
+            boolean success = printerJob.printPage(webView);
+            if (success) {
+                printerJob.endJob();
+                logger.info("Impression terminée avec succès");
+            } else {
+                logger.error("Échec de l'impression");
+            }
+        } else {
+            logger.info("Impression annulée par l'utilisateur");
+        }
     }
 
     /**

@@ -271,4 +271,43 @@ public class CurrencyFormatter {
     public static Locale getLocale() {
         return FRENCH_LOCALE;
     }
+
+    /**
+     * Formate un montant BigDecimal sans le symbole de devise
+     * MÉTHODE MANQUANTE POUR PrintService et ExportService
+     *
+     * @param amount Le montant BigDecimal à formater
+     * @return Le montant formaté sans symbole (ex: "1 500")
+     */
+    public static String formatWithoutSymbol(java.math.BigDecimal amount) {
+        if (amount == null) {
+            return "0";
+        }
+        return CURRENCY_FORMAT.format(amount.doubleValue());
+    }
+
+    /**
+     * Formate un montant Double sans le symbole de devise
+     * MÉTHODE MANQUANTE POUR PrintService et ExportService
+     *
+     * @param amount Le montant Double à formater
+     * @return Le montant formaté sans symbole (ex: "1 500")
+     */
+    public static String formatWithoutSymbol(Double amount) {
+        if (amount == null) {
+            return "0";
+        }
+        return CURRENCY_FORMAT.format(amount);
+    }
+
+    /**
+     * Formate un montant double sans le symbole de devise
+     * MÉTHODE MANQUANTE POUR PrintService et ExportService
+     *
+     * @param amount Le montant double à formater
+     * @return Le montant formaté sans symbole (ex: "1 500")
+     */
+    public static String formatWithoutSymbol(double amount) {
+        return CURRENCY_FORMAT.format(amount);
+    }
 }

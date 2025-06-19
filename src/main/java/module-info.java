@@ -54,5 +54,6 @@ module com.regulation.contentieux {
     opens com.regulation.contentieux.controller to javafx.fxml;
     opens com.regulation.contentieux.model to javafx.fxml, com.fasterxml.jackson.databind;
     opens com.regulation.contentieux.model.enums to javafx.fxml, com.fasterxml.jackson.databind;
+    opens com.regulation.contentieux.service to javafx.fxml;
     // SUPPRIMÉ: opens com.regulation.contentieux.view to javafx.fxml;
 }

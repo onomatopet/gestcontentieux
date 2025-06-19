@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import org.kordamp.ikonli.javafx.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx/17.0.2-ea" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.regulation.contentieux.controller.RapportController">
+    <top>
+        <VBox spacing="10.0" styleClass="header-section">
+            <padding>
+                <Insets bottom="10.0" left="20.0" right="20.0" top="20.0" />
+            </padding>
+
+            <!-- Titre principal -->
+            <HBox alignment="CENTER_LEFT" spacing="10.0">
+                <FontIcon iconLiteral="mdi2c-chart-line" iconSize="24" styleClass="header-icon" />
+                <Label styleClass="title-large" text="Génération des Rapports" />
+            </HBox>
+
+            <!-- Configuration du rapport -->
+            <GridPane hgap="15.0" vgap="10.0" styleClass="form-grid">
+                <columnConstraints>
+                    <ColumnConstraints minWidth="120.0" prefWidth="120.0" />
+                    <ColumnConstraints minWidth="200.0" prefWidth="200.0" />
+                    <ColumnConstraints minWidth="120.0" prefWidth="120.0" />
+                    <ColumnConstraints minWidth="200.0" prefWidth="200.0" />
+                    <ColumnConstraints minWidth="100.0" prefWidth="100.0" />
+                </columnConstraints>
+
+                <!-- Ligne 1: Type de rapport et période -->
+                <Label text="Type de rapport:" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+                <ComboBox fx:id="typeRapportComboBox" maxWidth="Infinity" GridPane.columnIndex="1" GridPane.rowIndex="0" />
+
+                <Label text="Type de période:" GridPane.columnIndex="2" GridPane.rowIndex="0" />
+                <ComboBox fx:id="periodeTypeComboBox" maxWidth="Infinity" GridPane.columnIndex="3" GridPane.rowIndex="0" />
+
+                <!-- Ligne 2: Paramètres de période -->
+                <Label text="Année:" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+                <ComboBox fx:id="anneeComboBox" maxWidth="Infinity" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+
+                <!-- Paramètres conditionnels selon le type de période -->
+                <VBox fx:id="parametresMoisBox" GridPane.columnIndex="2" GridPane.rowIndex="1" GridPane.columnSpan="2">
+                    <HBox spacing="10.0">
+                        <Label text="Mois:" />
+                        <ComboBox fx:id="moisComboBox" maxWidth="Infinity" HBox.hgrow="ALWAYS" />
+                    </HBox>
+                </VBox>
+
+                <VBox fx:id="parametresTrimestreBox" GridPane.columnIndex="2" GridPane.rowIndex="1" GridPane.columnSpan="2">
+                    <HBox spacing="10.0">
+                        <Label text="Trimestre:" />
+                        <ComboBox fx:id="trimestreComboBox" maxWidth="Infinity" HBox.hgrow="ALWAYS" />
+                    </HBox>
+                </VBox>
+
+                <VBox fx:id="parametresCustomBox" GridPane.columnIndex="2" GridPane.rowIndex="1" GridPane.columnSpan="2">
+                    <HBox spacing="10.0">
+                        <VBox spacing="5.0">
+                            <Label text="Date début:" />
+                            <DatePicker fx:id="dateDebutPicker" />
+                        </VBox>
+                        <VBox spacing="5.0">
+                            <Label text="Date fin:" />
+                            <DatePicker fx:id="dateFinPicker" />
+                        </VBox>
+                    </HBox>
+                </VBox>
+
+                <!-- Bouton de génération -->
+                <Button fx:id="genererButton" styleClass="button-primary" text="Générer le Rapport" GridPane.columnIndex="4" GridPane.rowIndex="1">
+                    <graphic>
+                        <FontIcon iconLiteral="mdi2p-play" iconSize="14" />
+                    </graphic>
+                </Button>
+            </GridPane>
+
+            <!-- Barre de progression -->
+            <HBox spacing="10.0" alignment="CENTER_LEFT">
+                <ProgressBar fx:id="progressBar" prefWidth="300.0" visible="false" />
+                <Label fx:id="statusLabel" text="Prêt à générer un rapport" styleClass="status-label" />
+            </HBox>
+        </VBox>
+    </top>
+
+    <center>
+        <VBox spacing="15.0">
+            <padding>
+                <Insets bottom="20.0" left="20.0" right="20.0" top="10.0" />
+            </padding>
+
+            <!-- Actions disponibles -->
+            <HBox spacing="10.0" alignment="CENTER_LEFT">
+                <Label text="Actions:" styleClass="section-title" />
+                <Separator orientation="VERTICAL" />
+
+                <Button fx:id="apercuButton" disable="true" styleClass="button-outline">
+                    <graphic>
+                        <FontIcon iconLiteral="mdi2e-eye" iconSize="14" />
+                    </graphic>
+                    <tooltip>
+                        <Tooltip text="Afficher l'aperçu du rapport" />
+                    </tooltip>
+                    Aperçu
+                </Button>
+
+                <Button fx:id="imprimerButton" disable="true" styleClass="button-success">
+                    <graphic>
+                        <FontIcon iconLiteral="mdi2p-printer" iconSize="14" />
+                    </graphic>
+                    <tooltip>
+                        <Tooltip text="Imprimer le rapport" />
+                    </tooltip>
+                    Imprimer
+                </Button>
+
+                <Separator orientation="VERTICAL" />
+
+                <Button fx:id="exportExcelButton" disable="true" styleClass="button-info">
+                    <graphic>
+                        <FontIcon iconLiteral="mdi2f-file-excel" iconSize="14" />
+                    </graphic>
+                    <tooltip>
+                        <Tooltip text="Exporter vers Excel" />
+                    </tooltip>
+                    Export Excel
+                </Button>
+
+                <Button fx:id="exportCSVButton" disable="true" styleClass="button-secondary">
+                    <graphic>
+                        <FontIcon iconLiteral="mdi2f-file-delimited" iconSize="14" />
+                    </graphic>
+                    <tooltip>
+                        <Tooltip text="Exporter vers CSV" />
+                    </tooltip>
+                    Export CSV
+                </Button>
+            </HBox>
+
+            <!-- Zone d'aperçu textuel -->
+            <VBox VBox.vgrow="ALWAYS">
+                <Label text="Aperçu du rapport:" styleClass="section-title" />
+                <TextArea fx:id="previewTextArea" editable="false" wrapText="true"
+                          prefRowCount="20" styleClass="preview-area" VBox.vgrow="ALWAYS">
+                    <promptText>Le résumé du rapport apparaîtra ici après génération...</promptText>
+                </TextArea>
+            </VBox>
+        </VBox>
+    </center>
+
+    <bottom>
+        <HBox alignment="CENTER_LEFT" spacing="10.0" styleClass="footer-section">
+            <padding>
+                <Insets bottom="10.0" left="20.0" right="20.0" top="10.0" />
+            </padding>
+
+            <FontIcon iconLiteral="mdi2i-information" iconSize="14" styleClass="info-icon" />
+            <Label text="Sélectionnez les paramètres ci-dessus et cliquez sur 'Générer le Rapport' pour commencer."
+                   styleClass="footer-text" />
+
+            <Region HBox.hgrow="ALWAYS" />
+
+            <!-- Indicateurs de statut -->
+            <HBox spacing="5.0" alignment="CENTER_RIGHT">
+                <FontIcon iconLiteral="mdi2d-database" iconSize="14" styleClass="success-icon" />
+                <Label text="Base de données connectée" styleClass="status-connected" />
+            </HBox>
+        </HBox>
+    </bottom>
+</BorderPane>

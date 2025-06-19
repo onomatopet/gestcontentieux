@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.*?>
+<?import javafx.scene.chart.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import org.kordamp.ikonli.javafx.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx/17.0.2-ea" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.regulation.contentieux.controller.RapportRepartitionController">
+    <top>
+        <VBox spacing="10.0" styleClass="header-section">
+            <padding>
+                <Insets bottom="15.0" left="20.0" right="20.0" top="15.0" />
+            </padding>
+
+            <!-- En-tête du rapport -->
+            <VBox alignment="CENTER" spacing="5.0">
+                <Label fx:id="titreLabel" styleClass="title-xlarge" text="Rapport de Rétrocession des Amendes" />
+                <Label fx:id="periodeLabel" styleClass="subtitle-large" text="Période: --" />
+                <Label fx:id="dateGenerationLabel" styleClass="subtitle-small" text="Généré le: --" />
+            </VBox>
+
+            <!-- Résumé exécutif -->
+            <VBox spacing="10.0" styleClass="summary-section">
+                <Label text="RÉSUMÉ EXÉCUTIF" styleClass="section-title" />
+
+                <GridPane hgap="20.0" vgap="10.0" styleClass="summary-grid">
+                    <columnConstraints>
+                        <ColumnConstraints />
+                        <ColumnConstraints />
+                        <ColumnConstraints />
+                        <ColumnConstraints />
+                        <ColumnConstraints />
+                    </columnConstraints>
+
+                    <!-- Indicateurs clés -->
+                    <VBox alignment="CENTER" styleClass="summary-card" GridPane.columnIndex="0" GridPane.rowIndex="0">
+                        <Label text="Affaires" styleClass="summary-label" />
+                        <Label fx:id="nombreAffairesLabel" styleClass="summary-value" text="--" />
+                    </VBox>
+
+                    <VBox alignment="CENTER" styleClass="summary-card" GridPane.columnIndex="1" GridPane.rowIndex="0">
+                        <Label text="Encaissements" styleClass="summary-label" />
+                        <Label fx:id="nombreEncaissementsLabel" styleClass="summary-value" text="--" />
+                    </VBox>
+
+                    <VBox alignment="CENTER" styleClass="summary-card" GridPane.columnIndex="2" GridPane.rowIndex="0">
+                        <Label text="Total Encaissé" styleClass="summary-label" />
+                        <Label fx:id="totalEncaisseLabel" styleClass="summary-value-currency" text="-- FCFA" />
+                    </VBox>
+
+                    <VBox alignment="CENTER" styleClass="summary-card" GridPane.columnIndex="3" GridPane.rowIndex="0">
+                        <Label text="Part État (60%)" styleClass="summary-label" />
+                        <Label fx:id="totalEtatLabel" styleClass="summary-value-currency" text="-- FCFA" />
+                    </VBox>
+
+                    <VBox alignment="CENTER" styleClass="summary-card" GridPane.columnIndex="4" GridPane.rowIndex="0">
+                        <Label text="Part Collectivités (40%)" styleClass="summary-label" />
+                        <Label fx:id="totalCollectiviteLabel" styleClass="summary-value-currency" text="-- FCFA" />
+                    </VBox>
+
+                    <!-- Taux de recouvrement -->
+                    <VBox alignment="CENTER" styleClass="summary-card-highlight" GridPane.columnIndex="2" GridPane.rowIndex="1">
+                        <Label text="Taux de Recouvrement" styleClass="summary-label" />
+                        <Label fx:id="tauxRecouvrementLabel" styleClass="summary-value-percent" text="-- %" />
+                    </VBox>
+                </GridPane>
+            </VBox>
+
+            <!-- Barre d'outils -->
+            <HBox spacing="10.0" alignment="CENTER_LEFT" styleClass="toolbar-section">
+                <Label text="Actions:" styleClass="toolbar-label" />
+                <Separator orientation="VERTICAL" />
+
+                <Button onAction="#actualiserRapport" styleClass="button-outline">
+                    <graphic>
+                        <FontIcon iconLiteral="mdi2r-refresh" iconSize="14" />
+                    </graphic>
+                    <tooltip>
+                        <Tooltip text="Actualiser les données" />
+                    </tooltip>
+                    Actualiser
+                </Button>
+
+                <Button onAction="#afficherStatistiquesAvancees" styleClass="button-info">
+                    <graphic>
+                        <FontIcon iconLiteral="mdi2c-chart-box" iconSize="14" />
+                    </graphic>
+                    <tooltip>
+                        <Tooltip text="Afficher les statistiques avancées" />
+                    </tooltip>
+                    Stats Avancées
+                </Button>
+
+                <Separator orientation="VERTICAL" />
+
+                <Button onAction="#exporterTableauPrincipal" styleClass="button-success">
+                    <graphic>
+                        <FontIcon iconLiteral="mdi2t-table-arrow-right" iconSize="14" />
+                    </graphic>
+                    <tooltip>
+                        <Tooltip text="Exporter le tableau principal" />
+                    </tooltip>
+                    Export Tableau
+                </Button>
+
+                <Button onAction="#copierVersPressPapiers" styleClass="button-secondary">
+                    <graphic>
+                        <FontIcon iconLiteral="mdi2c-content-copy" iconSize="14" />
+                    </graphic>
+                    <tooltip>
+                        <Tooltip text="Copier vers le presse-papiers" />
+                    </tooltip>
+                    Copier
+                </Button>
+
+                <Region HBox.hgrow="ALWAYS" />
+
+                <Button onAction="#reinitialiserFiltres" styleClass="button-outline">
+                    <graphic>
+                        <FontIcon iconLiteral="mdi2f-filter-off" iconSize="14" />
+                    </graphic>
+                    <tooltip>
+                        <Tooltip text="Réinitialiser tous les filtres" />
+                    </tooltip>
+                    Reset Filtres
+                </Button>
+            </HBox>
+        </VBox>
+    </top>
+
+    <center>
+        <TabPane styleClass="content-tabs" tabClosingPolicy="UNAVAILABLE">
+
+            <!-- Onglet: Détail des Affaires -->
+            <Tab text="Détail des Affaires">
+                <graphic>
+                    <FontIcon iconLiteral="mdi2t-table-large" iconSize="14" />
+                </graphic>
+
+                <VBox spacing="10.0">
+                    <padding>
+                        <Insets bottom="10.0" left="15.0" right="15.0" top="10.0" />
+                    </padding>
+
+                    <!-- Filtres et recherche -->
+                    <GridPane hgap="15.0" vgap="10.0" styleClass="filter-section">
+                        <columnConstraints>
+                            <ColumnConstraints minWidth="200.0" prefWidth="200.0" />
+                            <ColumnConstraints minWidth="150.0" prefWidth="150.0" />
+                            <ColumnConstraints minWidth="150.0" prefWidth="150.0" />
+                            <ColumnConstraints minWidth="200.0" prefWidth="200.0" />
+                        </columnConstraints>
+
+                        <VBox spacing="5.0" GridPane.columnIndex="0" GridPane.rowIndex="0">
+                            <Label text="Recherche:" styleClass="filter-label" />
+                            <TextField fx:id="rechercheField" promptText="N° affaire, contrevenant, type...">
+                                <graphic>
+                                    <FontIcon iconLiteral="mdi2m-magnify" iconSize="14" />
+                                </graphic>
+                            </TextField>
+                        </VBox>
+
+                        <VBox spacing="5.0" GridPane.columnIndex="1" GridPane.rowIndex="0">
+                            <Label text="Bureau:" styleClass="filter-label" />
+                            <ComboBox fx:id="filtreBureauComboBox" maxWidth="Infinity" />
+                        </VBox>
+
+                        <VBox spacing="5.0" GridPane.columnIndex="2" GridPane.rowIndex="0">
+                            <Label text="Agent:" styleClass="filter-label" />
+                            <ComboBox fx:id="filtreAgentComboBox" maxWidth="Infinity" />
+                        </VBox>
+
+                        <VBox spacing="5.0" GridPane.columnIndex="3" GridPane.rowIndex="0">
+                            <Label text="Options:" styleClass="filter-label" />
+                            <CheckBox fx:id="afficherSeulementEncaissesCheckBox" text="Seulement les encaissements" />
+                        </VBox>
+                    </GridPane>
+
+                    <!-- Tableau principal -->
+                    <TableView fx:id="affairesTableView" VBox.vgrow="ALWAYS" styleClass="data-table">
+                        <columns>
+                            <TableColumn fx:id="numeroColumn" text="N° Affaire" minWidth="100.0" prefWidth="120.0" />
+                            <TableColumn fx:id="dateColumn" text="Date" minWidth="80.0" prefWidth="100.0" />
+                            <TableColumn fx:id="contrevenantColumn" text="Contrevenant" minWidth="150.0" prefWidth="200.0" />
+                            <TableColumn fx:id="typeColumn" text="Type Contravention" minWidth="120.0" prefWidth="150.0" />
+                            <TableColumn fx:id="montantAmendeColumn" text="Montant Amende" minWidth="100.0" prefWidth="120.0" />
+                            <TableColumn fx:id="montantEncaisseColumn" text="Montant Encaissé" minWidth="100.0" prefWidth="120.0"

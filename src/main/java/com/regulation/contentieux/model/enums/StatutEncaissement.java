@@ -1,6 +1,7 @@
 package com.regulation.contentieux.model.enums;
 
 public enum StatutEncaissement {
+    BROUILLON("Brouillon", true, false, true, "#9E9E9E"),
     EN_ATTENTE("En attente", true, false, true, "#FF9800"),
     VALIDE("Validé", false, true, false, "#4CAF50"),
     REJETE("Rejeté", true, false, true, "#F44336"),

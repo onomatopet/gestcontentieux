@@ -446,4 +446,101 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
 
         return 0;
     }
+
+    /**
+     * Recherche des affaires avec pagination
+     * CORRIGER la signature pour correspondre aux appels
+     */
+    public List<Affaire> searchAffaires(String searchText, StatutAffaire statut,
+                                        LocalDate dateDebut, LocalDate dateFin,
+                                        Integer contrevenantId, int offset, int limit) {
+        StringBuilder query = new StringBuilder("SELECT * FROM affaires WHERE 1=1");
+        List<Object> params = new ArrayList<>();
+
+        if (searchText != null && !searchText.trim().isEmpty()) {
+            query.append(" AND (numero_affaire LIKE ? OR observations LIKE ?)");
+            params.add("%" + searchText + "%");
+            params.add("%" + searchText + "%");
+        }
+
+        if (statut != null) {
+            query.append(" AND statut = ?");
+            params.add(statut.name());
+        }
+
+        if (dateDebut != null) {
+            query.append(" AND date_creation >= ?");
+            params.add(dateDebut);
+        }
+
+        if (dateFin != null) {
+            query.append(" AND date_creation <= ?");
+            params.add(dateFin);
+        }
+
+        if (contrevenantId != null) {
+            query.append(" AND contrevenant_id = ?");
+            params.add(contrevenantId);
+        }
+
+        query.append(" ORDER BY date_creation DESC LIMIT ? OFFSET ?");
+        params.add(limit);
+        params.add(offset);
+
+        return executeQuery(query.toString(), params.toArray());
+    }
+
+    /**
+     * Compte les affaires correspondant aux critères de recherche
+     * CORRIGER la signature pour correspondre aux appels
+     */
+    public long countSearchAffaires(String searchText, StatutAffaire statut,
+                                    LocalDate dateDebut, LocalDate dateFin,
+                                    Integer contrevenantId) {
+        StringBuilder query = new StringBuilder("SELECT COUNT(*) FROM affaires WHERE 1=1");
+        List<Object> params = new ArrayList<>();
+
+        if (searchText != null && !searchText.trim().isEmpty()) {
+            query.append(" AND (numero_affaire LIKE ? OR observations LIKE ?)");
+            params.add("%" + searchText + "%");
+            params.add("%" + searchText + "%");
+        }
+
+        if (statut != null) {
+            query.append(" AND statut = ?");
+            params.add(statut.name());
+        }
+
+        if (dateDebut != null) {
+            query.append(" AND date_creation >= ?");
+            params.add(dateDebut);
+        }
+
+        if (dateFin != null) {
+            query.append(" AND date_creation <= ?");
+            params.add(dateFin);
+        }
+
+        if (contrevenantId != null) {
+            query.append(" AND contrevenant_id = ?");
+            params.add(contrevenantId);
+        }
+
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query.toString())) {
+
+            for (int i = 0; i < params.size(); i++) {
+                stmt.setObject(i + 1, params.get(i));
+            }
+
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                return rs.getLong(1);
+            }
+            return 0;
+        } catch (SQLException e) {
+            logger.error("Erreur lors du comptage des affaires", e);
+            return 0;
+        }
+    }
 }

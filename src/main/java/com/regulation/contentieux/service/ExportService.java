@@ -342,7 +342,7 @@ public class ExportService {
 
             // Calcul du pourcentage
             BigDecimal pourcentage = entry.getValue()
-                    .divide(rapport.getTotalEncaisse(), 4, BigDecimal.ROUND_HALF_UP)
+                    .divide(rapport.getTotalEncaisse(), 4, RoundingMode.HALF_UP)
                     .multiply(new BigDecimal("100"));
             row.createCell(2).setCellValue(pourcentage.doubleValue() + "%");
         }
@@ -394,7 +394,7 @@ public class ExportService {
                     montantCell.setCellStyle(currencyStyle);
 
                     BigDecimal pourcentage = entry.getValue()
-                            .divide(rapport.getTotalEncaisse(), 4, BigDecimal.ROUND_HALF_UP)
+                            .divide(rapport.getTotalEncaisse(), 4, RoundingMode.HALF_UP)
                             .multiply(new BigDecimal("100"));
                     row.createCell(2).setCellValue(pourcentage.doubleValue() + "%");
                 });

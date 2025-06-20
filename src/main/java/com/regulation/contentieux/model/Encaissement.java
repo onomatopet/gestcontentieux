@@ -192,4 +192,28 @@ public class Encaissement {
                 montantEncaisse != null ? montantEncaisse : 0.0,
                 statut != null ? statut.getLibelle() : "?");
     }
+
+    /**
+     * Retourne le libellé du mode de règlement
+     */
+    public String getModeReglementLibelle() {
+        return this.modeReglement != null ? this.modeReglement.getLibelle() : "Non défini";
+    }
+
+    /**
+     * Retourne le libellé du statut
+     */
+    public String getStatutLibelle() {
+        return this.statut != null ? this.statut.getLibelle() : "Non défini";
+    }
+
+    /**
+     * Vérifie si l'encaissement peut être annulé
+     */
+    public boolean peutEtreAnnule() {
+        return this.statut != null &&
+                (this.statut == StatutEncaissement.EN_ATTENTE ||
+                        this.statut == StatutEncaissement.VALIDE) &&
+                this.dateEncaissement.isAfter(LocalDate.now().minusDays(30));
+    }
 }

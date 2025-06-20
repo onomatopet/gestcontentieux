@@ -626,12 +626,311 @@ public class PrintService {
         """;
     }
 
+    // Ajouts à faire dans PrintService.java
+
+// Importer les DTOs depuis RapportService
+import com.regulation.contentieux.service.RapportService.*;
+
+// Ajouter ces méthodes dans PrintService.java :
+
+    /**
+     * Génère un aperçu de rapport pour affichage
+     */
+    public String genererApercuRapport(RapportRepartitionDTO rapport) {
+        try {
+            logger.info("Génération de l'aperçu du rapport de rétrocession");
+
+            StringBuilder html = new StringBuilder();
+            html.append("<div class='rapport-apercu'>");
+
+            // En-tête du rapport
+            html.append("<div class='rapport-header'>");
+            html.append("<h2>RAPPORT DE RÉTROCESSION</h2>");
+            html.append("<p>Période : ").append(rapport.getPeriodeLibelle()).append("</p>");
+            html.append("<p>Généré le : ").append(DateFormatter.formatDate(rapport.getDateGeneration())).append("</p>");
+            html.append("</div>");
+
+            // Résumé des totaux
+            html.append("<div class='rapport-totaux'>");
+            html.append("<h3>Résumé</h3>");
+            html.append("<table class='totaux-table'>");
+            html.append("<tr><td>Nombre d'affaires :</td><td>").append(rapport.getNombreAffaires()).append("</td></tr>");
+            html.append("<tr><td>Total encaissé :</td><td>").append(CurrencyFormatter.format(rapport.getTotalEncaisse())).append("</td></tr>");
+            html.append("<tr><td>Part État :</td><td>").append(CurrencyFormatter.format(rapport.getTotalEtat())).append("</td></tr>");
+            html.append("<tr><td>Part Collectivités :</td><td>").append(CurrencyFormatter.format(rapport.getTotalCollectivite())).append("</td></tr>");
+            html.append("</table>");
+            html.append("</div>");
+
+            // Tableau des affaires (aperçu des 10 premières)
+            html.append("<div class='rapport-affaires'>");
+            html.append("<h3>Affaires (aperçu - 10 premières)</h3>");
+            html.append("<table class='affaires-table'>");
+            html.append("<thead>");
+            html.append("<tr><th>N° Affaire</th><th>Date</th><th>Contrevenant</th><th>Montant</th><th>Statut</th></tr>");
+            html.append("</thead>");
+            html.append("<tbody>");
+
+            int count = 0;
+            for (AffaireRepartitionDTO affaire : rapport.getAffaires()) {
+                if (count >= 10) break;
+
+                html.append("<tr>");
+                html.append("<td>").append(escapeHtml(affaire.getNumeroAffaire())).append("</td>");
+                html.append("<td>").append(DateFormatter.formatDate(affaire.getDateCreation())).append("</td>");
+                html.append("<td>").append(escapeHtml(affaire.getContrevenantNom())).append("</td>");
+                html.append("<td>").append(CurrencyFormatter.format(affaire.getMontantAmende())).append("</td>");
+                html.append("<td>").append(escapeHtml(affaire.getStatut())).append("</td>");
+                html.append("</tr>");
+
+                count++;
+            }
+
+            if (rapport.getAffaires().size() > 10) {
+                html.append("<tr><td colspan='5'><em>... et ").append(rapport.getAffaires().size() - 10).append(" autres affaires</em></td></tr>");
+            }
+
+            html.append("</tbody>");
+            html.append("</table>");
+            html.append("</div>");
+
+            html.append("</div>");
+
+            return html.toString();
+
+        } catch (Exception e) {
+            logger.error("Erreur lors de la génération de l'aperçu du rapport", e);
+            return "<div class='error'>Erreur lors de la génération de l'aperçu</div>";
+        }
+    }
+
+    /**
+     * Imprime un rapport de rétrocession
+     */
+    public CompletableFuture<Boolean> imprimerRapport(RapportRepartitionDTO rapport) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                logger.info("Début de l'impression du rapport de rétrocession");
+
+                // Génération du HTML complet pour l'impression
+                String htmlContent = genererHTMLRapportComplet(rapport);
+
+                // Création de la page web pour l'impression
+                WebEngine webEngine = createPrintWebEngine();
+
+                final boolean[] success = {false};
+                final CountDownLatch latch = new CountDownLatch(1);
+
+                Platform.runLater(() -> {
+                    try {
+                        webEngine.loadContent(htmlContent);
+
+                        webEngine.getLoadWorker().stateProperty().addListener((obs, oldState, newState) -> {
+                            if (newState == Worker.State.SUCCEEDED) {
+                                try {
+                                    // Configuration de l'impression
+                                    Printer printer = Printer.getDefaultPrinter();
+                                    if (printer != null) {
+                                        PageLayout pageLayout = printer.createPageLayout(
+                                                Paper.A4,
+                                                PageOrientation.PORTRAIT,
+                                                Printer.MarginType.DEFAULT
+                                        );
+
+                                        PrinterJob job = PrinterJob.createPrinterJob();
+                                        if (job != null) {
+                                            job.showPrintDialog(null);
+                                            success[0] = job.printPage(pageLayout, webEngine.getScene().getRoot());
+                                            job.endJob();
+                                        }
+                                    }
+                                } catch (Exception e) {
+                                    logger.error("Erreur lors de l'impression", e);
+                                } finally {
+                                    latch.countDown();
+                                }
+                            }
+                        });
+                    } catch (Exception e) {
+                        logger.error("Erreur lors de la préparation de l'impression", e);
+                        latch.countDown();
+                    }
+                });
+
+                try {
+                    latch.await(30, TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    logger.error("Timeout lors de l'impression", e);
+                }
+
+                return success[0];
+
+            } catch (Exception e) {
+                logger.error("Erreur lors de l'impression du rapport", e);
+                return false;
+            }
+        });
+    }
+
+    /**
+     * Génère le HTML complet pour l'impression d'un rapport
+     */
+    private String genererHTMLRapportComplet(RapportRepartitionDTO rapport) {
+        StringBuilder html = new StringBuilder();
+
+        html.append("<!DOCTYPE html>");
+        html.append("<html><head>");
+        html.append("<meta charset='UTF-8'>");
+        html.append("<title>Rapport de Rétrocession</title>");
+        html.append("<style>");
+        html.append(getStylesImpression());
+        html.append("</style>");
+        html.append("</head><body>");
+
+        // En-tête officielle
+        html.append("<div class='header'>");
+        html.append("<h1>RAPPORT DE RÉTROCESSION</h1>");
+        html.append("<p>Période : ").append(rapport.getPeriodeLibelle()).append("</p>");
+        html.append("<p>Date de génération : ").append(DateFormatter.formatDateTime(LocalDateTime.now())).append("</p>");
+        html.append("</div>");
+
+        // Résumé exécutif
+        html.append("<div class='summary'>");
+        html.append("<h2>RÉSUMÉ EXÉCUTIF</h2>");
+        html.append("<table>");
+        html.append("<tr><td><strong>Nombre total d'affaires :</strong></td><td>").append(rapport.getNombreAffaires()).append("</td></tr>");
+        html.append("<tr><td><strong>Nombre d'encaissements :</strong></td><td>").append(rapport.getNombreEncaissements()).append("</td></tr>");
+        html.append("<tr><td><strong>Total encaissé :</strong></td><td><strong>").append(CurrencyFormatter.format(rapport.getTotalEncaisse())).append("</strong></td></tr>");
+        html.append("<tr><td><strong>Part État (60%) :</strong></td><td>").append(CurrencyFormatter.format(rapport.getTotalEtat())).append("</td></tr>");
+        html.append("<tr><td><strong>Part Collectivités (40%) :</strong></td><td>").append(CurrencyFormatter.format(rapport.getTotalCollectivite())).append("</td></tr>");
+        html.append("</table>");
+        html.append("</div>");
+
+        // Détail des affaires
+        html.append("<div class='details'>");
+        html.append("<h2>DÉTAIL DES AFFAIRES</h2>");
+        html.append("<table class='affaires-table'>");
+        html.append("<thead>");
+        html.append("<tr>");
+        html.append("<th>N° Affaire</th>");
+        html.append("<th>Date</th>");
+        html.append("<th>Contrevenant</th>");
+        html.append("<th>Type</th>");
+        html.append("<th>Montant Amende</th>");
+        html.append("<th>Part État</th>");
+        html.append("<th>Part Collectivité</th>");
+        html.append("<th>Chef Dossier</th>");
+        html.append("<th>Bureau</th>");
+        html.append("</tr>");
+        html.append("</thead>");
+        html.append("<tbody>");
+
+        for (AffaireRepartitionDTO affaire : rapport.getAffaires()) {
+            html.append("<tr>");
+            html.append("<td>").append(escapeHtml(affaire.getNumeroAffaire())).append("</td>");
+            html.append("<td>").append(DateFormatter.formatDate(affaire.getDateCreation())).append("</td>");
+            html.append("<td>").append(escapeHtml(affaire.getContrevenantNom())).append("</td>");
+            html.append("<td>").append(escapeHtml(affaire.getContraventionType())).append("</td>");
+            html.append("<td class='montant'>").append(CurrencyFormatter.format(affaire.getMontantAmende())).append("</td>");
+            html.append("<td class='montant'>").append(CurrencyFormatter.format(affaire.getPartEtat())).append("</td>");
+            html.append("<td class='montant'>").append(CurrencyFormatter.format(affaire.getPartCollectivite())).append("</td>");
+            html.append("<td>").append(escapeHtml(affaire.getChefDossier())).append("</td>");
+            html.append("<td>").append(escapeHtml(affaire.getBureau())).append("</td>");
+            html.append("</tr>");
+        }
+
+        html.append("</tbody>");
+        html.append("</table>");
+        html.append("</div>");
+
+        // Pied de page
+        html.append("<div class='footer'>");
+        html.append("<p>Rapport généré par le système de gestion contentieuse - ").append(LocalDateTime.now().getYear()).append("</p>");
+        html.append("</div>");
+
+        html.append("</body></html>");
+
+        return html.toString();
+    }
+
+    /**
+     * Retourne les styles CSS pour l'impression
+     */
+    private String getStylesImpression() {
+        return """
+        @page { 
+            size: A4; 
+            margin: 2cm; 
+        }
+        body { 
+            font-family: Arial, sans-serif; 
+            font-size: 12px; 
+            line-height: 1.4; 
+        }
+        .header { 
+            text-align: center; 
+            border-bottom: 2px solid #000; 
+            padding-bottom: 10px; 
+            margin-bottom: 20px; 
+        }
+        .header h1 { 
+            margin: 0; 
+            font-size: 18px; 
+            font-weight: bold; 
+        }
+        .summary { 
+            margin-bottom: 20px; 
+        }
+        .summary table { 
+            width: 100%; 
+            border-collapse: collapse; 
+        }
+        .summary td { 
+            padding: 5px; 
+            border-bottom: 1px solid #ddd; 
+        }
+        .affaires-table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            font-size: 10px; 
+        }
+        .affaires-table th, .affaires-table td { 
+            border: 1px solid #000; 
+            padding: 4px; 
+            text-align: left; 
+        }
+        .affaires-table th { 
+            background-color: #f0f0f0; 
+            font-weight: bold; 
+        }
+        .montant { 
+            text-align: right; 
+        }
+        .footer { 
+            margin-top: 30px; 
+            text-align: center; 
+            font-size: 10px; 
+            color: #666; 
+        }
+        """;
+    }
+
     // ==================== UTILITAIRES ====================
 
     /**
-     * Vérifie si une imprimante est disponible
+     * Crée un WebEngine pour l'impression
      */
-    public boolean isImpressionDisponible() {
+    private WebEngine createPrintWebEngine() {
+        WebView webView = new WebView();
+        return webView.getEngine();
+    }
+
+// NOTE: Cette méthode isImprimanteDisponible() existe déjà dans PrintService
+// mais je la mentionne ici pour la completude
+    /**
+     * Vérifie la disponibilité des imprimantes
+     */
+    public boolean isImprimanteDisponible() {
         return Printer.getDefaultPrinter() != null;
     }
 

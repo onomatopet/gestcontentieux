@@ -77,31 +77,7 @@ public class UtilisateurDAO {
     /**
      * Trouve tous les utilisateurs actifs
      */
-    public List<Utilisateur> findAll() {
-        String sql = """
-            SELECT id, username, password_hash, nom_complet, role, 
-                   created_at, updated_at, last_login_at, actif 
-            FROM utilisateurs 
-            WHERE actif = 1 
-            ORDER BY nom_complet
-        """;
-
-        List<Utilisateur> utilisateurs = new ArrayList<>();
-
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql);
-             ResultSet rs = pstmt.executeQuery()) {
-
-            while (rs.next()) {
-                utilisateurs.add(mapResultSetToUtilisateur(rs));
-            }
-
-        } catch (SQLException e) {
-            logger.error("Erreur lors de la récupération des utilisateurs", e);
-        }
-
-        return utilisateurs;
-    }
+    findAll
 
     /**
      * Sauvegarde un nouvel utilisateur
@@ -278,5 +254,64 @@ public class UtilisateurDAO {
         }
 
         return utilisateur;
+    }
+
+    /**
+     * Trouve un utilisateur par son login
+     */
+    public Utilisateur findByLogin(String login) {
+        String query = "SELECT * FROM utilisateurs WHERE login = ?";
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+
+            stmt.setString(1, login);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                return mapResultSetToEntity(rs);
+            }
+            return null;
+        } catch (SQLException e) {
+            logger.error("Erreur lors de la recherche par login: {}", login, e);
+            return null;
+        }
+    }
+
+    /**
+     * Supprime un utilisateur par son login
+     */
+    public boolean deleteByLogin(String login) {
+        String query = "DELETE FROM utilisateurs WHERE login = ?";
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+
+            stmt.setString(1, login);
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            logger.error("Erreur lors de la suppression par login: {}", login, e);
+            return false;
+        }
+    }
+
+    /**
+     * Trouve tous les utilisateurs
+     */
+    public List<Utilisateur> findAll() {
+        String query = "SELECT * FROM utilisateurs ORDER BY nom, prenom";
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+
+            ResultSet rs = stmt.executeQuery();
+            List<Utilisateur> utilisateurs = new ArrayList<>();
+
+            while (rs.next()) {
+                utilisateurs.add(mapResultSetToEntity(rs));
+            }
+
+            return utilisateurs;
+        } catch (SQLException e) {
+            logger.error("Erreur lors de la récupération de tous les utilisateurs", e);
+            return new ArrayList<>();
+        }
     }
 }

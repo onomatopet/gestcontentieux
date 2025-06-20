@@ -336,4 +336,62 @@ public class AffaireFormController implements Initializable {
         public RoleSurAffaire getRole() { return role; }
         public LocalDateTime getDateAssignation() { return dateAssignation; }
     }
+
+    /**
+     * Définit les valeurs par défaut pour une nouvelle affaire
+     */
+    public void setDefaultValues(String numeroAffaire, Contrevenant contrevenant) {
+        if (numeroAffaireField != null && numeroAffaire != null) {
+            numeroAffaireField.setText(numeroAffaire);
+        }
+
+        if (contrevenantComboBox != null && contrevenant != null) {
+            contrevenantComboBox.setValue(contrevenant);
+        }
+
+        if (dateCreationPicker != null) {
+            dateCreationPicker.setValue(LocalDate.now());
+        }
+
+        if (statutComboBox != null) {
+            statutComboBox.setValue(StatutAffaire.OUVERTE);
+        }
+    }
+
+    /**
+     * Définit l'affaire à éditer
+     */
+    public void setAffaireToEdit(Affaire affaire) {
+        if (affaire == null) return;
+
+        this.currentAffaire = affaire;
+        this.isEditMode = true;
+
+        // Remplissage des champs
+        if (numeroAffaireField != null) {
+            numeroAffaireField.setText(affaire.getNumeroAffaire());
+        }
+
+        if (dateCreationPicker != null) {
+            dateCreationPicker.setValue(affaire.getDateCreation());
+        }
+
+        if (montantAmendeField != null) {
+            montantAmendeField.setText(String.valueOf(affaire.getMontantAmende()));
+        }
+
+        if (statutComboBox != null) {
+            statutComboBox.setValue(affaire.getStatut());
+        }
+
+        // Charger le contrevenant
+        if (contrevenantComboBox != null && affaire.getContrevenantId() != null) {
+            try {
+                Contrevenant contrevenant = contrevenantDAO.findById(affaire.getContrevenantId());
+                contrevenantComboBox.setValue(contrevenant);
+            } catch (Exception e) {
+                logger.error("Erreur lors du chargement du contrevenant", e);
+            }
+        }
+    }
 }

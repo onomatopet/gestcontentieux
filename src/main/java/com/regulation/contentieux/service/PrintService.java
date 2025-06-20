@@ -1,9 +1,22 @@
 package com.regulation.contentieux.service;
 
+import javafx.scene.web.WebView;
+import javafx.scene.web.WebEngine;
+import javafx.print.Printer;
+import javafx.print.PrinterJob;
+import javafx.print.PageLayout;
+import javafx.print.PageOrientation;
+import javafx.print.Paper;
+import javafx.concurrent.Worker;
+import javafx.application.Platform;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
 import com.regulation.contentieux.dao.AffaireDAO;
 import com.regulation.contentieux.dao.EncaissementDAO;
 import com.regulation.contentieux.model.Affaire;
 import com.regulation.contentieux.model.Encaissement;
+import com.regulation.contentieux.service.RapportService.*;
 import com.regulation.contentieux.model.enums.StatutEncaissement;
 import com.regulation.contentieux.service.RapportService.*;
 import com.regulation.contentieux.util.CurrencyFormatter;
@@ -626,13 +639,6 @@ public class PrintService {
         """;
     }
 
-    // Ajouts à faire dans PrintService.java
-
-// Importer les DTOs depuis RapportService
-import com.regulation.contentieux.service.RapportService.*;
-
-// Ajouter ces méthodes dans PrintService.java :
-
     /**
      * Génère un aperçu de rapport pour affichage
      */
@@ -925,8 +931,18 @@ import com.regulation.contentieux.service.RapportService.*;
         return webView.getEngine();
     }
 
-// NOTE: Cette méthode isImprimanteDisponible() existe déjà dans PrintService
-// mais je la mentionne ici pour la completude
+    /**
+     * Échappe les caractères HTML
+     */
+    private String escapeHtml(String text) {
+        if (text == null) return "";
+        return text.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#x27;");
+    }
+
     /**
      * Vérifie la disponibilité des imprimantes
      */

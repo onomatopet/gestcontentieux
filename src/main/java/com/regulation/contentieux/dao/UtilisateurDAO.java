@@ -51,10 +51,10 @@ public class UtilisateurDAO {
      */
     public Optional<Utilisateur> findById(Long id) {
         String sql = """
-            SELECT id, username, password_hash, nom_complet, role, 
-                   created_at, updated_at, last_login_at, actif 
-            FROM utilisateurs 
-            WHERE id = ?
+        SELECT id, username, password_hash, nom_complet, role, 
+               created_at, updated_at, last_login_at, actif 
+        FROM utilisateurs 
+        WHERE id = ?
         """;
 
         try (Connection conn = DatabaseConfig.getSQLiteConnection();
@@ -77,15 +77,14 @@ public class UtilisateurDAO {
     /**
      * Trouve tous les utilisateurs actifs
      */
-    findAll
 
     /**
      * Sauvegarde un nouvel utilisateur
      */
     public Utilisateur save(Utilisateur utilisateur) {
         String sql = """
-            INSERT INTO utilisateurs (username, password_hash, nom_complet, role, actif) 
-            VALUES (?, ?, ?, ?, ?)
+        INSERT INTO utilisateurs (username, password_hash, nom_complet, role, actif) 
+        VALUES (?, ?, ?, ?, ?)
         """;
 
         try (Connection conn = DatabaseConfig.getSQLiteConnection();
@@ -162,7 +161,9 @@ public class UtilisateurDAO {
      * Supprime (désactive) un utilisateur
      */
     public void delete(Long id) {
-        String sql = "UPDATE utilisateurs SET actif = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?";
+        String sql = """
+        UPDATE utilisateurs SET actif = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?
+        """;
 
         try (Connection conn = DatabaseConfig.getSQLiteConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {

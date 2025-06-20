@@ -1,23 +1,25 @@
 package com.regulation.contentieux.service;
 
 import java.math.RoundingMode;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.List;
+import java.util.ArrayList;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.stream.Collectors;
 
 import com.regulation.contentieux.dao.AffaireDAO;
 import com.regulation.contentieux.dao.EncaissementDAO;
 import com.regulation.contentieux.dao.AgentDAO;
-import com.regulation.contentieux.dao.ContraventionDAO;
 import com.regulation.contentieux.model.Affaire;
-import com.regulation.contentieux.model.Contravention;
 import com.regulation.contentieux.model.Encaissement;
-import com.regulation.contentieux.model.Agent;
-import com.regulation.contentieux.model.enums.StatutAffaire;
 import com.regulation.contentieux.model.enums.StatutEncaissement;
 import com.regulation.contentieux.util.CurrencyFormatter;
-import com.regulation.contentieux.util.DateFormatter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -652,13 +654,13 @@ public class RapportService {
         public String getPeriodeLibelle() { return periodeLibelle; }
         public void setPeriodeLibelle(String periodeLibelle) { this.periodeLibelle = periodeLibelle; }
 
-        public BigDecimal getTotalEncaisse() { return totalEncaisse; }
+        public Double getTotalEncaisse() { return totalEncaisse; }
         public void setTotalEncaisse(BigDecimal totalEncaisse) { this.totalEncaisse = totalEncaisse; }
 
-        public BigDecimal getTotalEtat() { return totalEtat; }
+        public Double getTotalEtat() { return totalEtat; }
         public void setTotalEtat(BigDecimal totalEtat) { this.totalEtat = totalEtat; }
 
-        public BigDecimal getTotalCollectivite() { return totalCollectivite; }
+        public Double getTotalCollectivite() { return totalCollectivite; }
         public void setTotalCollectivite(BigDecimal totalCollectivite) { this.totalCollectivite = totalCollectivite; }
 
         public int getNombreAffaires() { return nombreAffaires; }
@@ -773,6 +775,56 @@ public class RapportService {
 
         public int getTotalAffaires() { return totalAffaires; }
         public void setTotalAffaires(int totalAffaires) { this.totalAffaires = totalAffaires; }
+    }
+
+    /**
+     * Crée un DTO d'affaire complet pour les rapports détaillés
+     */
+    private AffaireRepartitionCompleteDTO createAffaireRepartitionCompleteDTO(Affaire affaire, Encaissement encaissement) {
+        AffaireRepartitionCompleteDTO dto = new AffaireRepartitionCompleteDTO();
+
+        dto.setNumeroEncaissement(encaissement.getReference());
+        dto.setDateEncaissement(encaissement.getDateEncaissement());
+        dto.setNumeroAffaire(affaire.getNumeroAffaire());
+        dto.setDateAffaire(affaire.getDateCreation());
+
+        BigDecimal produitDisponible = BigDecimal.valueOf(encaissement.getMontant());
+        dto.setProduitDisponible(produitDisponible);
+
+        // Calculs de répartition - Exemple de logique
+        dto.setIndicateur(produitDisponible.multiply(new BigDecimal("0.05")));
+        dto.setProduitNet(produitDisponible.multiply(new BigDecimal("0.95")));
+        dto.setFlcf(dto.getProduitNet().multiply(new BigDecimal("0.10")));
+        dto.setTresor(dto.getProduitNet().multiply(POURCENTAGE_ETAT.divide(BigDecimal.valueOf(100))));
+
+        dto.setDirectionDepartementale("DD " + affaire.getId() % 5);
+
+        return dto;
+    }
+
+    /**
+     * Crée un DTO d'affaire pour les indicateurs
+     */
+    private AffaireIndicateurDTO createAffaireIndicateurDTO(Affaire affaire, LocalDate dateDebut, LocalDate dateFin) {
+        AffaireIndicateurDTO dto = new AffaireIndicateurDTO();
+
+        dto.setNumeroAffaire(affaire.getNumeroAffaire());
+        dto.setDateAffaire(affaire.getDateCreation());
+        dto.setNomContrevenant("Contrevenant " + affaire.getId());
+        dto.setNomContravention("Contravention " + affaire.getId());
+
+        // Calcul du montant encaissé pour cette affaire sur la période
+        List<Encaissement> encaissements = encaissementDAO.findByAffaireAndPeriod(affaire.getId(), dateDebut, dateFin);
+        BigDecimal montantEncaisse = encaissements.stream()
+                .filter(enc -> enc.getStatut() == StatutEncaissement.VALIDE)
+                .map(enc -> BigDecimal.valueOf(enc.getMontant()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        dto.setMontantEncaissement(montantEncaisse);
+        dto.setPartIndicateur(montantEncaisse.multiply(new BigDecimal("0.05")));
+        dto.setObservations("");
+
+        return dto;
     }
 
     /**
@@ -1371,32 +1423,32 @@ public static class TableauAmendesParServicesDTO {
 /**
  * DTO pour une ligne du tableau des amendes par service
  */
-public static class ServiceAmendeDTO {
-    private String nomService;
-    private int nombreAffaires;
-    private BigDecimal montantTotal;
-    private String observations;
+    public static class ServiceAmendeDTO {
+        private String nomService;
+        private int nombreAffaires;
+        private BigDecimal montantTotal;
+        private String observations;
 
-    public ServiceAmendeDTO() {}
+        public ServiceAmendeDTO() {}
 
-    public ServiceAmendeDTO(String nomService, int nombreAffaires, BigDecimal montantTotal) {
-        this.nomService = nomService;
-        this.nombreAffaires = nombreAffaires;
-        this.montantTotal = montantTotal;
-        this.observations = "";
+        public ServiceAmendeDTO(String nomService, int nombreAffaires, BigDecimal montantTotal) {
+            this.nomService = nomService;
+            this.nombreAffaires = nombreAffaires;
+            this.montantTotal = montantTotal;
+            this.observations = "";
+        }
+
+        // Getters et setters
+        public String getNomService() { return nomService; }
+        public void setNomService(String nomService) { this.nomService = nomService; }
+
+        public int getNombreAffaires() { return nombreAffaires; }
+        public void setNombreAffaires(int nombreAffaires) { this.nombreAffaires = nombreAffaires; }
+
+        public BigDecimal getMontantTotal() { return montantTotal; }
+        public void setMontantTotal(BigDecimal montantTotal) { this.montantTotal = montantTotal; }
+
+        public String getObservations() { return observations; }
+        public void setObservations(String observations) { this.observations = observations; }
     }
-
-    // Getters et setters
-    public String getNomService() { return nomService; }
-    public void setNomService(String nomService) { this.nomService = nomService; }
-
-    public int getNombreAffaires() { return nombreAffaires; }
-    public void setNombreAffaires(int nombreAffaires) { this.nombreAffaires = nombreAffaires; }
-
-    public BigDecimal getMontantTotal() { return montantTotal; }
-    public void setMontantTotal(BigDecimal montantTotal) { this.montantTotal = montantTotal; }
-
-    public String getObservations() { return observations; }
-    public void setObservations(String observations) { this.observations = observations; }
-}
 }

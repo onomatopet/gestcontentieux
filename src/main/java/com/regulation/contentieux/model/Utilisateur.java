@@ -9,6 +9,7 @@ import java.util.Objects;
 
 /**
  * Entité représentant un utilisateur du système
+ * Gère l'authentification et les autorisations
  */
 public class Utilisateur {
     private Long id;
@@ -17,8 +18,11 @@ public class Utilisateur {
     @JsonIgnore
     private String passwordHash;
 
-    private String nomComplet;
+    private String nom;
+    private String prenom;
+    private String email;
     private RoleUtilisateur role;
+    private Boolean actif;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
@@ -29,47 +33,59 @@ public class Utilisateur {
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime lastLoginAt;
 
-    private Boolean actif;
+    private String createdBy;
+    private String updatedBy;
 
     // Constructeurs
     public Utilisateur() {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
         this.actif = true;
+        this.role = RoleUtilisateur.GESTIONNAIRE;
     }
 
-    public Utilisateur(String username, String passwordHash, String nomComplet, RoleUtilisateur role) {
+    public Utilisateur(String username, String nom, String prenom, RoleUtilisateur role) {
         this();
         this.username = username;
-        this.passwordHash = passwordHash;
-        this.nomComplet = nomComplet;
+        this.nom = nom;
+        this.prenom = prenom;
         this.role = role;
     }
 
     // Méthodes métier
-    public boolean isAdmin() {
-        return role != null && role.isAdmin();
+    public String getNomComplet() {
+        return prenom + " " + nom;
     }
 
-    public boolean isSuperAdmin() {
-        return role != null && role.isSuperAdmin();
+    public String getDisplayName() {
+        if (prenom != null && nom != null) {
+            return prenom + " " + nom.toUpperCase();
+        }
+        return username;
     }
 
     public boolean isActif() {
         return actif != null && actif;
     }
 
-    public boolean hasPermission(RoleUtilisateur.Permission permission) {
+    public boolean isSuperAdmin() {
+        return role == RoleUtilisateur.SUPER_ADMIN;
+    }
+
+    public boolean isAdmin() {
+        return role == RoleUtilisateur.ADMIN || isSuperAdmin();
+    }
+
+    public boolean isGestionnaire() {
+        return role == RoleUtilisateur.GESTIONNAIRE;
+    }
+
+    public boolean hasPermission(String permission) {
         return role != null && role.hasPermission(permission);
     }
 
     public void updateLastLogin() {
         this.lastLoginAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    public String getDisplayRole() {
-        return role != null ? role.getDisplayName() : "Aucun rôle";
     }
 
     // Getters et Setters
@@ -82,14 +98,20 @@ public class Utilisateur {
     public String getPasswordHash() { return passwordHash; }
     public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
 
-    public String getNomComplet() { return nomComplet; }
-    public void setNomComplet(String nomComplet) { this.nomComplet = nomComplet; }
+    public String getNom() { return nom; }
+    public void setNom(String nom) { this.nom = nom; }
+
+    public String getPrenom() { return prenom; }
+    public void setPrenom(String prenom) { this.prenom = prenom; }
+
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
 
     public RoleUtilisateur getRole() { return role; }
-    public void setRole(RoleUtilisateur role) {
-        this.role = role;
-        this.updatedAt = LocalDateTime.now();
-    }
+    public void setRole(RoleUtilisateur role) { this.role = role; }
+
+    public Boolean getActif() { return actif; }
+    public void setActif(Boolean actif) { this.actif = actif; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
@@ -100,187 +122,19 @@ public class Utilisateur {
     public LocalDateTime getLastLoginAt() { return lastLoginAt; }
     public void setLastLoginAt(LocalDateTime lastLoginAt) { this.lastLoginAt = lastLoginAt; }
 
-    public Boolean getActif() { return actif; }
-    public void setActif(Boolean actif) {
-        this.actif = actif;
-        this.updatedAt = LocalDateTime.now();
+    public String getCreatedBy() { return createdBy; }
+    public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
+
+    public String getUpdatedBy() { return updatedBy; }
+    public void setUpdatedBy(String updatedBy) { this.updatedBy = updatedBy; }
+
+    // Méthodes helper pour l'interface
+    public LocalDateTime getDerniereConnexion() {
+        return lastLoginAt;
     }
 
-    public class Utilisateur {
-        // Champs existants...
-        private String login;
-        private String nom;
-        private String prenom;
-        private String email;
-        private String motDePasseHash;
-        private String motDePasse; // Champ temporaire pour la création/modification
-        private RoleUtilisateur role;
-        private boolean actif;
-        private LocalDateTime createdAt;
-        private String createdBy;
-        private LocalDateTime updatedAt;
-        private String updatedBy;
-        private LocalDateTime dateCreation; // Alias pour createdAt si nécessaire
-
-        // Getters et setters manquants :
-
-        public String getLogin() {
-            return login;
-        }
-
-        public void setLogin(String login) {
-            this.login = login;
-        }
-
-        public String getNom() {
-            return nom;
-        }
-
-        public void setNom(String nom) {
-            this.nom = nom;
-        }
-
-        public String getPrenom() {
-            return prenom;
-        }
-
-        public void setPrenom(String prenom) {
-            this.prenom = prenom;
-        }
-
-        public String getEmail() {
-            return email;
-        }
-
-        public void setEmail(String email) {
-            this.email = email;
-        }
-
-        public String getMotDePasse() {
-            return motDePasse;
-        }
-
-        public void setMotDePasse(String motDePasse) {
-            this.motDePasse = motDePasse;
-        }
-
-        public String getMotDePasseHash() {
-            return motDePasseHash;
-        }
-
-        public void setMotDePasseHash(String motDePasseHash) {
-            this.motDePasseHash = motDePasseHash;
-        }
-
-        public RoleUtilisateur getRole() {
-            return role;
-        }
-
-        public void setRole(RoleUtilisateur role) {
-            this.role = role;
-        }
-
-        public boolean isActif() {
-            return actif;
-        }
-
-        public void setActif(boolean actif) {
-            this.actif = actif;
-        }
-
-        public LocalDateTime getCreatedAt() {
-            return createdAt;
-        }
-
-        public void setCreatedAt(LocalDateTime createdAt) {
-            this.createdAt = createdAt;
-        }
-
-        public String getCreatedBy() {
-            return createdBy;
-        }
-
-        public void setCreatedBy(String createdBy) {
-            this.createdBy = createdBy;
-        }
-
-        public LocalDateTime getUpdatedAt() {
-            return updatedAt;
-        }
-
-        public void setUpdatedAt(LocalDateTime updatedAt) {
-            this.updatedAt = updatedAt;
-        }
-
-        public String getUpdatedBy() {
-            return updatedBy;
-        }
-
-        public void setUpdatedBy(String updatedBy) {
-            this.updatedBy = updatedBy;
-        }
-
-        /**
-         * Alias pour la compatibilité
-         */
-        public LocalDateTime getDateCreation() {
-            return this.createdAt;
-        }
-
-        public void setDateCreation(LocalDateTime dateCreation) {
-            this.createdAt = dateCreation;
-        }
-
-        // Méthodes utilitaires
-
-        /**
-         * Retourne le nom complet de l'utilisateur
-         */
-        public String getNomComplet() {
-            StringBuilder nomComplet = new StringBuilder();
-            if (prenom != null && !prenom.trim().isEmpty()) {
-                nomComplet.append(prenom.trim());
-            }
-            if (nom != null && !nom.trim().isEmpty()) {
-                if (nomComplet.length() > 0) {
-                    nomComplet.append(" ");
-                }
-                nomComplet.append(nom.trim());
-            }
-            return nomComplet.length() > 0 ? nomComplet.toString() : login;
-        }
-
-        /**
-         * Vérifie si l'utilisateur est un administrateur
-         */
-        public boolean isAdmin() {
-            return role != null && role == RoleUtilisateur.ADMIN;
-        }
-
-        /**
-         * Vérifie si l'utilisateur peut gérer d'autres utilisateurs
-         */
-        public boolean canManageUsers() {
-            return role != null && (role == RoleUtilisateur.ADMIN || role == RoleUtilisateur.SUPERVISEUR);
-        }
-
-        @Override
-        public String toString() {
-            return getNomComplet() + " (" + login + ")";
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            if (this == obj) return true;
-            if (obj == null || getClass() != obj.getClass()) return false;
-            Utilisateur that = (Utilisateur) obj;
-            return Objects.equals(login, that.login);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(login);
-        }
+    public String getLogin() {
+        return username;
     }
 
     @Override
@@ -298,183 +152,6 @@ public class Utilisateur {
 
     @Override
     public String toString() {
-        return username + " (" + nomComplet + ") - " + getDisplayRole();
-    }
-
-    public class Utilisateur {
-        // Champs existants...
-        private String login;
-        private String nom;
-        private String prenom;
-        private String email;
-        private String motDePasseHash;
-        private String motDePasse; // Champ temporaire pour la création/modification
-        private RoleUtilisateur role;
-        private boolean actif;
-        private LocalDateTime createdAt;
-        private String createdBy;
-        private LocalDateTime updatedAt;
-        private String updatedBy;
-        private LocalDateTime dateCreation; // Alias pour createdAt si nécessaire
-
-        // Getters et setters manquants :
-
-        public String getLogin() {
-            return login;
-        }
-
-        public void setLogin(String login) {
-            this.login = login;
-        }
-
-        public String getNom() {
-            return nom;
-        }
-
-        public void setNom(String nom) {
-            this.nom = nom;
-        }
-
-        public String getPrenom() {
-            return prenom;
-        }
-
-        public void setPrenom(String prenom) {
-            this.prenom = prenom;
-        }
-
-        public String getEmail() {
-            return email;
-        }
-
-        public void setEmail(String email) {
-            this.email = email;
-        }
-
-        public String getMotDePasse() {
-            return motDePasse;
-        }
-
-        public void setMotDePasse(String motDePasse) {
-            this.motDePasse = motDePasse;
-        }
-
-        public String getMotDePasseHash() {
-            return motDePasseHash;
-        }
-
-        public void setMotDePasseHash(String motDePasseHash) {
-            this.motDePasseHash = motDePasseHash;
-        }
-
-        public RoleUtilisateur getRole() {
-            return role;
-        }
-
-        public void setRole(RoleUtilisateur role) {
-            this.role = role;
-        }
-
-        public boolean isActif() {
-            return actif;
-        }
-
-        public void setActif(boolean actif) {
-            this.actif = actif;
-        }
-
-        public LocalDateTime getCreatedAt() {
-            return createdAt;
-        }
-
-        public void setCreatedAt(LocalDateTime createdAt) {
-            this.createdAt = createdAt;
-        }
-
-        public String getCreatedBy() {
-            return createdBy;
-        }
-
-        public void setCreatedBy(String createdBy) {
-            this.createdBy = createdBy;
-        }
-
-        public LocalDateTime getUpdatedAt() {
-            return updatedAt;
-        }
-
-        public void setUpdatedAt(LocalDateTime updatedAt) {
-            this.updatedAt = updatedAt;
-        }
-
-        public String getUpdatedBy() {
-            return updatedBy;
-        }
-
-        public void setUpdatedBy(String updatedBy) {
-            this.updatedBy = updatedBy;
-        }
-
-        /**
-         * Alias pour la compatibilité
-         */
-        public LocalDateTime getDateCreation() {
-            return this.createdAt;
-        }
-
-        public void setDateCreation(LocalDateTime dateCreation) {
-            this.createdAt = dateCreation;
-        }
-
-        // Méthodes utilitaires
-
-        /**
-         * Retourne le nom complet de l'utilisateur
-         */
-        public String getNomComplet() {
-            StringBuilder nomComplet = new StringBuilder();
-            if (prenom != null && !prenom.trim().isEmpty()) {
-                nomComplet.append(prenom.trim());
-            }
-            if (nom != null && !nom.trim().isEmpty()) {
-                if (nomComplet.length() > 0) {
-                    nomComplet.append(" ");
-                }
-                nomComplet.append(nom.trim());
-            }
-            return nomComplet.length() > 0 ? nomComplet.toString() : login;
-        }
-
-        /**
-         * Vérifie si l'utilisateur est un administrateur
-         */
-        public boolean isAdmin() {
-            return role != null && role == RoleUtilisateur.ADMIN;
-        }
-
-        /**
-         * Vérifie si l'utilisateur peut gérer d'autres utilisateurs
-         */
-        public boolean canManageUsers() {
-            return role != null && (role == RoleUtilisateur.ADMIN || role == RoleUtilisateur.SUPERVISEUR);
-        }
-
-        @Override
-        public String toString() {
-            return getNomComplet() + " (" + login + ")";
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            if (this == obj) return true;
-            if (obj == null || getClass() != obj.getClass()) return false;
-            Utilisateur that = (Utilisateur) obj;
-            return Objects.equals(login, that.login);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(login);
-        }
+        return username + " (" + getDisplayName() + ")";
     }
 }

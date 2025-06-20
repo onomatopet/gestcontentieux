@@ -1,23 +1,31 @@
 package com.regulation.contentieux.model;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 /**
  * Entité représentant un centre
- * HARMONISÉE AVEC ReferentielController
+ * Un centre regroupe plusieurs services
  */
 public class Centre {
     private Long id;
     private String codeCentre;
     private String nomCentre;
     private String description;
-    private boolean actif = true;
+    private String adresse;
+    private Boolean actif;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
+
+    // Relations
+    @JsonIgnore
+    private List<Service> services = new ArrayList<>();
 
     // Constructeurs
     public Centre() {
@@ -31,66 +39,36 @@ public class Centre {
         this.nomCentre = nomCentre;
     }
 
-    // ===== MÉTHODES REQUISES PAR ReferentielController =====
-
-    /**
-     * Méthode unifiée pour getCode() - REQUIS PAR ReferentielController
-     */
+    // Méthodes métier
     public String getCode() {
         return codeCentre;
     }
 
-    /**
-     * Méthode unifiée pour setCode() - REQUIS PAR ReferentielController
-     */
     public void setCode(String code) {
         this.codeCentre = code;
     }
 
-    /**
-     * Méthode unifiée pour getLibelle() - REQUIS PAR ReferentielController
-     */
     public String getLibelle() {
         return nomCentre;
     }
 
-    /**
-     * Méthode unifiée pour setLibelle() - REQUIS PAR ReferentielController
-     */
     public void setLibelle(String libelle) {
         this.nomCentre = libelle;
     }
 
-    /**
-     * Méthode pour getDescription() - REQUIS PAR ReferentielController
-     */
-    public String getDescription() {
-        return description;
-    }
-
-    /**
-     * Méthode pour setDescription() - REQUIS PAR ReferentielController
-     */
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-    /**
-     * Méthode pour isActif() - REQUIS PAR ReferentielController
-     */
     public boolean isActif() {
-        return actif;
+        return actif != null && actif;
     }
 
-    /**
-     * Méthode pour setActif() - REQUIS PAR ReferentielController
-     */
-    public void setActif(boolean actif) {
-        this.actif = actif;
+    public int getNombreServices() {
+        return services.size();
     }
 
-    // ===== GETTERS ET SETTERS CLASSIQUES =====
+    public String getDisplayName() {
+        return codeCentre + " - " + nomCentre;
+    }
 
+    // Getters et Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -100,8 +78,20 @@ public class Centre {
     public String getNomCentre() { return nomCentre; }
     public void setNomCentre(String nomCentre) { this.nomCentre = nomCentre; }
 
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+
+    public String getAdresse() { return adresse; }
+    public void setAdresse(String adresse) { this.adresse = adresse; }
+
+    public Boolean getActif() { return actif; }
+    public void setActif(Boolean actif) { this.actif = actif; }
+
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public List<Service> getServices() { return services; }
+    public void setServices(List<Service> services) { this.services = services; }
 
     @Override
     public boolean equals(Object o) {

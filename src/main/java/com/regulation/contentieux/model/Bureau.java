@@ -1,24 +1,34 @@
 package com.regulation.contentieux.model;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 /**
  * Entité représentant un bureau
- * HARMONISÉE AVEC ReferentielController
+ * Un bureau appartient à un service
  */
 public class Bureau {
     private Long id;
     private String codeBureau;
     private String nomBureau;
     private String description;
-    private boolean actif = true;
-    private Service service; // Relation parent
+    private Boolean actif;
+    private Long serviceId;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
+
+    // Relations
+    @JsonIgnore
+    private Service service;
+
+    @JsonIgnore
+    private List<Affaire> affaires = new ArrayList<>();
 
     // Constructeurs
     public Bureau() {
@@ -32,66 +42,36 @@ public class Bureau {
         this.nomBureau = nomBureau;
     }
 
-    // ===== MÉTHODES REQUISES PAR ReferentielController =====
-
-    /**
-     * Méthode unifiée pour getCode() - REQUIS PAR ReferentielController
-     */
+    // Méthodes métier
     public String getCode() {
         return codeBureau;
     }
 
-    /**
-     * Méthode unifiée pour setCode() - REQUIS PAR ReferentielController
-     */
     public void setCode(String code) {
         this.codeBureau = code;
     }
 
-    /**
-     * Méthode unifiée pour getLibelle() - REQUIS PAR ReferentielController
-     */
     public String getLibelle() {
         return nomBureau;
     }
 
-    /**
-     * Méthode unifiée pour setLibelle() - REQUIS PAR ReferentielController
-     */
     public void setLibelle(String libelle) {
         this.nomBureau = libelle;
     }
 
-    /**
-     * Méthode pour getDescription() - REQUIS PAR ReferentielController
-     */
-    public String getDescription() {
-        return description;
-    }
-
-    /**
-     * Méthode pour setDescription() - REQUIS PAR ReferentielController
-     */
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-    /**
-     * Méthode pour isActif() - REQUIS PAR ReferentielController
-     */
     public boolean isActif() {
-        return actif;
+        return actif != null && actif;
     }
 
-    /**
-     * Méthode pour setActif() - REQUIS PAR ReferentielController
-     */
-    public void setActif(boolean actif) {
-        this.actif = actif;
+    public int getNombreAffaires() {
+        return affaires.size();
     }
 
-    // ===== GETTERS ET SETTERS CLASSIQUES =====
+    public String getDisplayName() {
+        return codeBureau + " - " + nomBureau;
+    }
 
+    // Getters et Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -101,11 +81,28 @@ public class Bureau {
     public String getNomBureau() { return nomBureau; }
     public void setNomBureau(String nomBureau) { this.nomBureau = nomBureau; }
 
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+
+    public Boolean getActif() { return actif; }
+    public void setActif(Boolean actif) { this.actif = actif; }
+
+    public Long getServiceId() { return serviceId; }
+    public void setServiceId(Long serviceId) { this.serviceId = serviceId; }
+
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 
     public Service getService() { return service; }
-    public void setService(Service service) { this.service = service; }
+    public void setService(Service service) {
+        this.service = service;
+        if (service != null) {
+            this.serviceId = service.getId();
+        }
+    }
+
+    public List<Affaire> getAffaires() { return affaires; }
+    public void setAffaires(List<Affaire> affaires) { this.affaires = affaires; }
 
     @Override
     public boolean equals(Object o) {

@@ -8,157 +8,122 @@ import java.util.regex.Pattern;
 
 /**
  * Service de validation des données
- * Contient toutes les règles de validation métier
+ * Centralise toutes les règles de validation métier
  */
 public class ValidationService {
 
     private static final Logger logger = LoggerFactory.getLogger(ValidationService.class);
 
-    // Expressions régulières pour validation
+    // Patterns de validation
     private static final Pattern EMAIL_PATTERN = Pattern.compile(
-            "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
-    );
+            "^[a-zA-Z0-9_+&*-]+(?:\\.[a-zA-Z0-9_+&*-]+)*@(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,7}$");
 
     private static final Pattern PHONE_PATTERN = Pattern.compile(
-            "^[+]?[0-9\\s\\-()]{8,20}$"
-    );
+            "^\\+241\\s?[0-9]{2}\\s?[0-9]{2}\\s?[0-9]{2}\\s?[0-9]{2}$");
 
     private static final Pattern CODE_PATTERN = Pattern.compile(
-            "^[A-Z]{2}[0-9]{5}$"
-    );
+            "^[A-Z]{2,5}[0-9]{2,5}$");
 
-    private static final Pattern NUMERO_AFFAIRE_PATTERN = Pattern.compile(
-            "^[0-9]{4}[0-9]{4}$"
-    );
+    private static final Pattern NAME_PATTERN = Pattern.compile(
+            "^[a-zA-ZÀ-ÿ\\s\\-']{2,100}$");
 
-    /**
-     * Valide une chaîne de caractères
-     */
-    public boolean isValidString(String value, int minLength, int maxLength) {
-        if (value == null) {
-            return false;
-        }
-
-        String trimmed = value.trim();
-        return !trimmed.isEmpty() &&
-                trimmed.length() >= minLength &&
-                trimmed.length() <= maxLength;
-    }
+    private static final Pattern USERNAME_PATTERN = Pattern.compile(
+            "^[a-zA-Z0-9_-]{3,50}$");
 
     /**
-     * Valide un email
+     * Valide une adresse email
      */
     public boolean isValidEmail(String email) {
         if (email == null || email.trim().isEmpty()) {
             return false;
         }
-
         return EMAIL_PATTERN.matcher(email.trim()).matches();
     }
 
     /**
-     * Valide un numéro de téléphone
+     * Valide un numéro de téléphone (format Gabon)
      */
     public boolean isValidPhone(String phone) {
         if (phone == null || phone.trim().isEmpty()) {
             return false;
         }
-
         return PHONE_PATTERN.matcher(phone.trim()).matches();
     }
 
     /**
-     * Valide un code (format général: 2 lettres + 5 chiffres)
+     * Valide un code (affaire, contrevenant, etc.)
      */
     public boolean isValidCode(String code) {
         if (code == null || code.trim().isEmpty()) {
             return false;
         }
-
-        return CODE_PATTERN.matcher(code.trim().toUpperCase()).matches();
-    }
-
-    /**
-     * Valide un numéro d'affaire (format: YYMMNNNN)
-     */
-    public boolean isValidNumeroAffaire(String numeroAffaire) {
-        if (numeroAffaire == null || numeroAffaire.trim().isEmpty()) {
-            return false;
-        }
-
-        return NUMERO_AFFAIRE_PATTERN.matcher(numeroAffaire.trim()).matches();
-    }
-
-    /**
-     * Valide un montant
-     */
-    public boolean isValidMontant(Double montant) {
-        return montant != null && montant >= 0 && montant <= 999999999.99;
-    }
-
-    /**
-     * Valide une date
-     */
-    public boolean isValidDate(LocalDate date) {
-        if (date == null) {
-            return false;
-        }
-
-        // Vérifier que la date n'est pas trop ancienne (plus de 50 ans)
-        LocalDate minDate = LocalDate.now().minusYears(50);
-        // Vérifier que la date n'est pas trop dans le futur (plus de 10 ans)
-        LocalDate maxDate = LocalDate.now().plusYears(10);
-
-        return !date.isBefore(minDate) && !date.isAfter(maxDate);
-    }
-
-    /**
-     * Valide une date de naissance
-     */
-    public boolean isValidDateNaissance(LocalDate dateNaissance) {
-        if (dateNaissance == null) {
-            return false;
-        }
-
-        // Ne peut pas être dans le futur
-        if (dateNaissance.isAfter(LocalDate.now())) {
-            return false;
-        }
-
-        // Ne peut pas être trop ancienne (plus de 150 ans)
-        LocalDate minDate = LocalDate.now().minusYears(150);
-        return !dateNaissance.isBefore(minDate);
-    }
-
-    /**
-     * Valide une date de création d'affaire
-     */
-    public boolean isValidDateCreationAffaire(LocalDate dateCreation) {
-        if (dateCreation == null) {
-            return false;
-        }
-
-        // Ne peut pas être dans le futur
-        if (dateCreation.isAfter(LocalDate.now())) {
-            return false;
-        }
-
-        // Ne peut pas être trop ancienne (plus de 20 ans)
-        LocalDate minDate = LocalDate.now().minusYears(20);
-        return !dateCreation.isBefore(minDate);
+        return CODE_PATTERN.matcher(code.trim()).matches();
     }
 
     /**
      * Valide un nom de personne
      */
     public boolean isValidPersonName(String name) {
-        if (!isValidString(name, 2, 100)) {
+        if (name == null || name.trim().isEmpty()) {
+            return false;
+        }
+        return NAME_PATTERN.matcher(name.trim()).matches();
+    }
+
+    /**
+     * Valide un nom d'utilisateur
+     */
+    public boolean isValidUsername(String username) {
+        if (username == null || username.trim().isEmpty()) {
+            return false;
+        }
+        return USERNAME_PATTERN.matcher(username.trim()).matches();
+    }
+
+    /**
+     * Valide un montant
+     */
+    public boolean isValidAmount(Double amount) {
+        return amount != null && amount >= 0;
+    }
+
+    /**
+     * Valide un montant positif strict
+     */
+    public boolean isValidPositiveAmount(Double amount) {
+        return amount != null && amount > 0;
+    }
+
+    /**
+     * Valide une date (non nulle et pas dans le futur)
+     */
+    public boolean isValidDate(LocalDate date) {
+        if (date == null) {
+            return false;
+        }
+        return !date.isAfter(LocalDate.now());
+    }
+
+    /**
+     * Valide une plage de dates
+     */
+    public boolean isValidDateRange(LocalDate startDate, LocalDate endDate) {
+        if (startDate == null || endDate == null) {
+            return false;
+        }
+        return !startDate.isAfter(endDate) && !endDate.isAfter(LocalDate.now());
+    }
+
+    /**
+     * Valide une chaîne de caractères non vide
+     */
+    public boolean isValidString(String value, int minLength, int maxLength) {
+        if (value == null || value.trim().isEmpty()) {
             return false;
         }
 
-        // Vérifie que le nom ne contient que des lettres, espaces, tirets et apostrophes
-        Pattern namePattern = Pattern.compile("^[a-zA-ZÀ-ÿ\\s\\-']+$");
-        return namePattern.matcher(name.trim()).matches();
+        String trimmed = value.trim();
+        return trimmed.length() >= minLength && trimmed.length() <= maxLength;
     }
 
     /**
@@ -166,45 +131,34 @@ public class ValidationService {
      */
     public boolean isValidGrade(String grade) {
         if (grade == null || grade.trim().isEmpty()) {
-            return true; // Grade optionnel
-        }
-
-        return isValidString(grade, 2, 50);
-    }
-
-    /**
-     * Valide une adresse
-     */
-    public boolean isValidAdresse(String adresse) {
-        if (adresse == null || adresse.trim().isEmpty()) {
-            return true; // Adresse optionnelle
-        }
-
-        return isValidString(adresse, 5, 500);
-    }
-
-    /**
-     * Valide un nom d'utilisateur
-     */
-    public boolean isValidUsername(String username) {
-        if (!isValidString(username, 3, 50)) {
             return false;
         }
 
-        // Vérifie que le nom d'utilisateur ne contient que des lettres, chiffres et underscores
-        Pattern usernamePattern = Pattern.compile("^[a-zA-Z0-9_]+$");
-        return usernamePattern.matcher(username.trim()).matches();
+        // Liste des grades valides
+        String[] validGrades = {
+                "Inspecteur", "Inspecteur Principal", "Inspecteur en Chef",
+                "Contrôleur", "Contrôleur Principal", "Contrôleur en Chef",
+                "Agent", "Agent Principal", "Agent en Chef"
+        };
+
+        for (String validGrade : validGrades) {
+            if (validGrade.equalsIgnoreCase(grade.trim())) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
      * Valide un mot de passe
      */
     public boolean isValidPassword(String password) {
-        if (password == null || password.length() < 6) {
+        if (password == null || password.length() < 8) {
             return false;
         }
 
-        // Au moins 6 caractères, avec au moins une lettre et un chiffre
+        // Au moins une lettre et un chiffre
         boolean hasLetter = password.matches(".*[a-zA-Z].*");
         boolean hasDigit = password.matches(".*[0-9].*");
 
@@ -284,129 +238,49 @@ public class ValidationService {
         }
 
         String normalized = normalizeString(name);
-        if (normalized.isEmpty()) {
-            return normalized;
-        }
+        if (normalized.length() == 0) return name;
 
-        // Met la première lettre de chaque mot en majuscule
-        String[] words = normalized.toLowerCase().split("\\s+");
+        // Capitaliser chaque mot
+        String[] words = normalized.split(" ");
         StringBuilder result = new StringBuilder();
 
-        for (int i = 0; i < words.length; i++) {
-            if (i > 0) {
-                result.append(" ");
-            }
-
-            String word = words[i];
-            if (!word.isEmpty()) {
+        for (String word : words) {
+            if (word.length() > 0) {
                 result.append(Character.toUpperCase(word.charAt(0)));
                 if (word.length() > 1) {
-                    result.append(word.substring(1));
+                    result.append(word.substring(1).toLowerCase());
                 }
+                result.append(" ");
             }
         }
 
-        return result.toString();
+        return result.toString().trim();
     }
 
     /**
-     * Valide les règles métier pour une affaire
+     * Valide un numéro RCCM (pour personnes morales)
      */
-    public void validateAffaireBusinessRules(LocalDate dateCreation, Double montantAmende) {
-        // Règle 1: La date de création ne peut pas être dans le futur
-        if (dateCreation != null && dateCreation.isAfter(LocalDate.now())) {
-            throw new IllegalArgumentException("La date de création ne peut pas être dans le futur");
+    public boolean isValidRCCM(String rccm) {
+        if (rccm == null || rccm.trim().isEmpty()) {
+            return false;
         }
 
-        // Règle 2: Le montant de l'amende doit être positif
-        if (montantAmende != null && montantAmende <= 0) {
-            throw new IllegalArgumentException("Le montant de l'amende doit être positif");
-        }
-
-        // Règle 3: Le montant ne peut pas dépasser 100 millions
-        if (montantAmende != null && montantAmende > 100000000) {
-            throw new IllegalArgumentException("Le montant de l'amende ne peut pas dépasser 100 millions");
-        }
+        // Format RCCM: lettres et chiffres, 8 à 20 caractères
+        Pattern rccmPattern = Pattern.compile("^[A-Z0-9\\-/]{8,20}$");
+        return rccmPattern.matcher(rccm.trim().toUpperCase()).matches();
     }
 
     /**
-     * Valide les règles métier pour un encaissement
+     * Génère un nom de fichier sécurisé
      */
-    public void validateEncaissementBusinessRules(Double montantEncaisse, Double montantAffaire) {
-        // Règle 1: Le montant encaissé doit être positif
-        if (montantEncaisse <= 0) {
-            throw new IllegalArgumentException("Le montant encaissé doit être positif");
+    public String sanitizeFileName(String fileName) {
+        if (fileName == null) {
+            return "document";
         }
 
-        // Règle 2: Le montant encaissé ne peut pas dépasser le montant de l'affaire
-        if (montantAffaire != null && montantEncaisse > montantAffaire) {
-            throw new IllegalArgumentException("Le montant encaissé ne peut pas dépasser le montant de l'affaire");
-        }
-    }
-
-    /**
-     * Valide le format d'une référence d'encaissement selon le pattern YYMMRNNNN
-     * YY = année sur 2 chiffres (00-99)
-     * MM = mois sur 2 chiffres (01-12)
-     * R = lettre fixe "R" pour "recette"
-     * NNNN = numéro séquentiel sur 4 chiffres (0001-9999)
-     *
-     * Exemples valides: 2506R0001, 2412R0100, 2501R9999
-     *
-     * @param reference La référence à valider
-     * @return true si le format est valide
-     */
-    public boolean isValidEncaissementReference(String reference) {
-        if (reference == null || reference.trim().isEmpty()) {
-            return false;
-        }
-
-        String ref = reference.trim();
-
-        // Vérification de la longueur (doit être exactement 9 caractères)
-        if (ref.length() != 9) {
-            return false;
-        }
-
-        // Vérification du pattern YYMMRNNNN avec regex
-        if (!ref.matches("\\d{2}\\d{2}R\\d{4}")) {
-            return false;
-        }
-
-        try {
-            // Extraction et validation des composants
-            String yearStr = ref.substring(0, 2);
-            String monthStr = ref.substring(2, 4);
-            String letter = ref.substring(4, 5);
-            String numberStr = ref.substring(5, 9);
-
-            // Validation de l'année (00-99, accepté)
-            int year = Integer.parseInt(yearStr);
-            if (year < 0 || year > 99) {
-                return false;
-            }
-
-            // Validation du mois (01-12)
-            int month = Integer.parseInt(monthStr);
-            if (month < 1 || month > 12) {
-                return false;
-            }
-
-            // Validation de la lettre (doit être "R")
-            if (!"R".equals(letter)) {
-                return false;
-            }
-
-            // Validation du numéro séquentiel (0001-9999)
-            int number = Integer.parseInt(numberStr);
-            if (number < 1 || number > 9999) {
-                return false;
-            }
-
-            return true;
-
-        } catch (NumberFormatException e) {
-            return false;
-        }
+        // Remplacer les caractères interdits
+        return fileName.replaceAll("[^a-zA-Z0-9\\-_\\.]", "_")
+                .replaceAll("_{2,}", "_")
+                .toLowerCase();
     }
 }

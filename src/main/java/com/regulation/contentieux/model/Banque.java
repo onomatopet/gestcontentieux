@@ -1,23 +1,33 @@
 package com.regulation.contentieux.model;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 /**
  * Entité représentant une banque
- * HARMONISÉE AVEC ReferentielController
+ * Utilisée pour gérer les encaissements bancaires
  */
 public class Banque {
     private Long id;
     private String codeBanque;
     private String nomBanque;
     private String description;
-    private boolean actif = true;
+    private String adresse;
+    private String telephone;
+    private String email;
+    private Boolean actif;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
+
+    // Relations
+    @JsonIgnore
+    private List<Encaissement> encaissements = new ArrayList<>();
 
     // Constructeurs
     public Banque() {
@@ -31,66 +41,46 @@ public class Banque {
         this.nomBanque = nomBanque;
     }
 
-    // ===== MÉTHODES REQUISES PAR ReferentielController =====
-
-    /**
-     * Méthode unifiée pour getCode() - REQUIS PAR ReferentielController
-     */
+    // Méthodes métier
     public String getCode() {
         return codeBanque;
     }
 
-    /**
-     * Méthode unifiée pour setCode() - REQUIS PAR ReferentielController
-     */
     public void setCode(String code) {
         this.codeBanque = code;
     }
 
-    /**
-     * Méthode unifiée pour getLibelle() - REQUIS PAR ReferentielController
-     */
     public String getLibelle() {
         return nomBanque;
     }
 
-    /**
-     * Méthode unifiée pour setLibelle() - REQUIS PAR ReferentielController
-     */
     public void setLibelle(String libelle) {
         this.nomBanque = libelle;
     }
 
-    /**
-     * Méthode pour getDescription() - REQUIS PAR ReferentielController
-     */
-    public String getDescription() {
-        return description;
-    }
-
-    /**
-     * Méthode pour setDescription() - REQUIS PAR ReferentielController
-     */
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-    /**
-     * Méthode pour isActif() - REQUIS PAR ReferentielController
-     */
     public boolean isActif() {
-        return actif;
+        return actif != null && actif;
     }
 
-    /**
-     * Méthode pour setActif() - REQUIS PAR ReferentielController
-     */
-    public void setActif(boolean actif) {
-        this.actif = actif;
+    public int getNombreEncaissements() {
+        return encaissements.size();
     }
 
-    // ===== GETTERS ET SETTERS CLASSIQUES =====
+    public String getDisplayName() {
+        return codeBanque + " - " + nomBanque;
+    }
 
+    public String getContactInfo() {
+        StringBuilder info = new StringBuilder();
+        if (telephone != null) info.append("Tél: ").append(telephone);
+        if (email != null) {
+            if (info.length() > 0) info.append(" | ");
+            info.append("Email: ").append(email);
+        }
+        return info.toString();
+    }
+
+    // Getters et Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -100,8 +90,26 @@ public class Banque {
     public String getNomBanque() { return nomBanque; }
     public void setNomBanque(String nomBanque) { this.nomBanque = nomBanque; }
 
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+
+    public String getAdresse() { return adresse; }
+    public void setAdresse(String adresse) { this.adresse = adresse; }
+
+    public String getTelephone() { return telephone; }
+    public void setTelephone(String telephone) { this.telephone = telephone; }
+
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
+
+    public Boolean getActif() { return actif; }
+    public void setActif(Boolean actif) { this.actif = actif; }
+
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public List<Encaissement> getEncaissements() { return encaissements; }
+    public void setEncaissements(List<Encaissement> encaissements) { this.encaissements = encaissements; }
 
     @Override
     public boolean equals(Object o) {

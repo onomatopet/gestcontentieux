@@ -1,25 +1,24 @@
 package com.regulation.contentieux.service;
 
-import java.math.RoundingMode;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.List;
-import java.util.ArrayList;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import com.regulation.contentieux.dao.AffaireDAO;
 import com.regulation.contentieux.dao.EncaissementDAO;
 import com.regulation.contentieux.dao.AgentDAO;
+import com.regulation.contentieux.dao.ContraventionDAO;
 import com.regulation.contentieux.model.Affaire;
+import com.regulation.contentieux.model.Contravention;
 import com.regulation.contentieux.model.Encaissement;
+import com.regulation.contentieux.model.Agent;
+import com.regulation.contentieux.model.enums.StatutAffaire;
 import com.regulation.contentieux.model.enums.StatutEncaissement;
 import com.regulation.contentieux.util.CurrencyFormatter;
+import com.regulation.contentieux.util.DateFormatter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -136,119 +135,6 @@ public class RapportService {
         } catch (Exception e) {
             logger.error("Erreur lors de la génération du rapport de rétrocession", e);
             throw new RuntimeException("Impossible de générer le rapport: " + e.getMessage(), e);
-        }
-    }
-
-    // ==================== IMPRIMÉ 5: ETAT DE REPARTITION DU PRODUIT ====================
-
-    /**
-     * Génère l'état de répartition du produit des affaires contentieuses (Imprimé 5)
-     */
-    public EtatRepartitionProduitDTO genererEtatRepartitionProduit(LocalDate dateDebut, LocalDate dateFin) {
-        try {
-            logger.info("Génération de l'état de répartition du produit du {} au {}", dateDebut, dateFin);
-
-            EtatRepartitionProduitDTO etat = new EtatRepartitionProduitDTO();
-            etat.setDateDebut(dateDebut);
-            etat.setDateFin(dateFin);
-            etat.setPeriodeLibelle(formatPeriode(dateDebut, dateFin));
-
-            // Récupération des affaires avec encaissements
-            List<Affaire> affaires = affaireDAO.findAffairesWithEncaissementsByPeriod(dateDebut, dateFin);
-
-            List<ProduitAffaireDTO> affairesDTO = new ArrayList<>();
-            TotauxProduitDTO totaux = new TotauxProduitDTO();
-
-            for (Affaire affaire : affaires) {
-                List<Encaissement> encaissements = encaissementDAO.findByAffaireAndPeriod(
-                        affaire.getId(), dateDebut, dateFin);
-
-                for (Encaissement encaissement : encaissements) {
-                    ProduitAffaireDTO dto = new ProduitAffaireDTO();
-                    dto.setNumeroEncaissement(encaissement.getReference());
-                    dto.setDateEncaissement(encaissement.getDateEncaissement());
-                    dto.setNumeroAffaire(affaire.getNumeroAffaire());
-                    dto.setDateAffaire(affaire.getDateCreation());
-
-                    // Calcul des répartitions
-                    BigDecimal produitDisponible = BigDecimal.valueOf(encaissement.getMontant());
-                    dto.setProduitDisponible(produitDisponible);
-
-                    // Accumulation des totaux
-                    totaux.setTotalProduitDisponible(
-                            totaux.getTotalProduitDisponible().add(produitDisponible));
-
-                    affairesDTO.add(dto);
-                }
-            }
-
-            etat.setAffaires(affairesDTO);
-            etat.setTotaux(totaux);
-            etat.setTotalAffaires(affaires.size());
-
-            logger.info("État de répartition du produit généré: {} affaires", affaires.size());
-            return etat;
-
-        } catch (Exception e) {
-            logger.error("Erreur lors de la génération de l'état de répartition du produit", e);
-            throw new RuntimeException("Impossible de générer l'état: " + e.getMessage(), e);
-        }
-    }
-
-    // ==================== IMPRIMÉ 6: ETAT CUMULE PAR AGENT ====================
-
-    /**
-     * Génère l'état cumulé par agent (Imprimé 6)
-     */
-    public EtatCumuleParAgentDTO genererEtatCumuleParAgent(LocalDate dateDebut, LocalDate dateFin) {
-        try {
-            logger.info("Génération de l'état cumulé par agent du {} au {}", dateDebut, dateFin);
-
-            EtatCumuleParAgentDTO etat = new EtatCumuleParAgentDTO();
-            etat.setDateDebut(dateDebut);
-            etat.setDateFin(dateFin);
-            etat.setPeriodeLibelle(formatPeriode(dateDebut, dateFin));
-
-            // Récupération des affaires
-            List<Affaire> affaires = affaireDAO.findAffairesWithEncaissementsByPeriod(dateDebut, dateFin);
-
-            Map<String, AgentCumuleDTO> agentsMap = new HashMap<>();
-            BigDecimal totalGeneral = BigDecimal.ZERO;
-            int totalAffairesTraitees = 0;
-
-            for (Affaire affaire : affaires) {
-                String nomAgent = determinerAgentPrincipal(affaire);
-                if (nomAgent == null) continue;
-
-                AgentCumuleDTO agentDTO = agentsMap.computeIfAbsent(nomAgent,
-                        k -> new AgentCumuleDTO(k, "AGT" + k.hashCode()));
-
-                // Calcul des parts pour cet agent
-                BigDecimal montantAffaire = BigDecimal.valueOf(affaire.getMontantAmende());
-
-                // Exemple de répartition - à adapter selon la logique métier
-                agentDTO.setPartChef(agentDTO.getPartChef().add(montantAffaire.multiply(new BigDecimal("0.10"))));
-                agentDTO.setNombreAffairesChef(agentDTO.getNombreAffairesChef() + 1);
-
-                totalGeneral = totalGeneral.add(montantAffaire);
-                totalAffairesTraitees++;
-            }
-
-            // Calcul des totaux pour chaque agent
-            for (AgentCumuleDTO agent : agentsMap.values()) {
-                agent.calculerTotal();
-            }
-
-            etat.setAgents(new ArrayList<>(agentsMap.values()));
-            etat.setTotalGeneral(totalGeneral);
-            etat.setTotalAffairesTraitees(totalAffairesTraitees);
-
-            logger.info("État cumulé par agent généré: {} agents", agentsMap.size());
-            return etat;
-
-        } catch (Exception e) {
-            logger.error("Erreur lors de la génération de l'état cumulé par agent", e);
-            throw new RuntimeException("Impossible de générer l'état: " + e.getMessage(), e);
         }
     }
 
@@ -414,6 +300,119 @@ public class RapportService {
         }
     }
 
+    // ==================== IMPRIMÉ 5: ETAT DE REPARTITION DU PRODUIT ====================
+
+    /**
+     * Génère l'état de répartition du produit des affaires contentieuses (Imprimé 5)
+     */
+    public EtatRepartitionProduitDTO genererEtatRepartitionProduit(LocalDate dateDebut, LocalDate dateFin) {
+        try {
+            logger.info("Génération de l'état de répartition du produit du {} au {}", dateDebut, dateFin);
+
+            EtatRepartitionProduitDTO etat = new EtatRepartitionProduitDTO();
+            etat.setDateDebut(dateDebut);
+            etat.setDateFin(dateFin);
+            etat.setPeriodeLibelle(formatPeriode(dateDebut, dateFin));
+
+            // Récupération des affaires avec encaissements
+            List<Affaire> affaires = affaireDAO.findAffairesWithEncaissementsByPeriod(dateDebut, dateFin);
+
+            List<ProduitAffaireDTO> affairesDTO = new ArrayList<>();
+            TotauxProduitDTO totaux = new TotauxProduitDTO();
+
+            for (Affaire affaire : affaires) {
+                List<Encaissement> encaissements = encaissementDAO.findByAffaireAndPeriod(
+                        affaire.getId(), dateDebut, dateFin);
+
+                for (Encaissement encaissement : encaissements) {
+                    ProduitAffaireDTO dto = new ProduitAffaireDTO();
+                    dto.setNumeroEncaissement(encaissement.getReference());
+                    dto.setDateEncaissement(encaissement.getDateEncaissement());
+                    dto.setNumeroAffaire(affaire.getNumeroAffaire());
+                    dto.setDateAffaire(affaire.getDateCreation());
+
+                    // Calcul des répartitions
+                    BigDecimal produitDisponible = BigDecimal.valueOf(encaissement.getMontant());
+                    dto.setProduitDisponible(produitDisponible);
+
+                    // Accumulation des totaux
+                    totaux.setTotalProduitDisponible(
+                            totaux.getTotalProduitDisponible().add(produitDisponible));
+
+                    affairesDTO.add(dto);
+                }
+            }
+
+            etat.setAffaires(affairesDTO);
+            etat.setTotaux(totaux);
+            etat.setTotalAffaires(affaires.size());
+
+            logger.info("État de répartition du produit généré: {} affaires", affaires.size());
+            return etat;
+
+        } catch (Exception e) {
+            logger.error("Erreur lors de la génération de l'état de répartition du produit", e);
+            throw new RuntimeException("Impossible de générer l'état: " + e.getMessage(), e);
+        }
+    }
+
+    // ==================== IMPRIMÉ 6: ETAT CUMULE PAR AGENT ====================
+
+    /**
+     * Génère l'état cumulé par agent (Imprimé 6)
+     */
+    public EtatCumuleParAgentDTO genererEtatCumuleParAgent(LocalDate dateDebut, LocalDate dateFin) {
+        try {
+            logger.info("Génération de l'état cumulé par agent du {} au {}", dateDebut, dateFin);
+
+            EtatCumuleParAgentDTO etat = new EtatCumuleParAgentDTO();
+            etat.setDateDebut(dateDebut);
+            etat.setDateFin(dateFin);
+            etat.setPeriodeLibelle(formatPeriode(dateDebut, dateFin));
+
+            // Récupération des affaires
+            List<Affaire> affaires = affaireDAO.findAffairesWithEncaissementsByPeriod(dateDebut, dateFin);
+
+            Map<String, AgentCumuleDTO> agentsMap = new HashMap<>();
+            BigDecimal totalGeneral = BigDecimal.ZERO;
+            int totalAffairesTraitees = 0;
+
+            for (Affaire affaire : affaires) {
+                String nomAgent = determinerAgentPrincipal(affaire);
+                if (nomAgent == null) continue;
+
+                AgentCumuleDTO agentDTO = agentsMap.computeIfAbsent(nomAgent,
+                        k -> new AgentCumuleDTO(k, "AGT" + k.hashCode()));
+
+                // Calcul des parts pour cet agent
+                BigDecimal montantAffaire = BigDecimal.valueOf(affaire.getMontantAmende());
+
+                // Exemple de répartition - à adapter selon la logique métier
+                agentDTO.setPartChef(agentDTO.getPartChef().add(montantAffaire.multiply(new BigDecimal("0.10"))));
+                agentDTO.setNombreAffairesChef(agentDTO.getNombreAffairesChef() + 1);
+
+                totalGeneral = totalGeneral.add(montantAffaire);
+                totalAffairesTraitees++;
+            }
+
+            // Calcul des totaux pour chaque agent
+            for (AgentCumuleDTO agent : agentsMap.values()) {
+                agent.calculerTotal();
+            }
+
+            etat.setAgents(new ArrayList<>(agentsMap.values()));
+            etat.setTotalGeneral(totalGeneral);
+            etat.setTotalAffairesTraitees(totalAffairesTraitees);
+
+            logger.info("État cumulé par agent généré: {} agents", agentsMap.size());
+            return etat;
+
+        } catch (Exception e) {
+            logger.error("Erreur lors de la génération de l'état cumulé par agent", e);
+            throw new RuntimeException("Impossible de générer l'état: " + e.getMessage(), e);
+        }
+    }
+
     // ==================== IMPRIMÉ 7: TABLEAU DES AMENDES PAR SERVICES ====================
 
     /**
@@ -477,7 +476,176 @@ public class RapportService {
         }
     }
 
+    // ==================== AUTRES IMPRIMES ====================
+
+    /**
+     * Génère l'état de mandatement (Imprimé 2)
+     */
+    public EtatMandatementDTO genererEtatMandatement(LocalDate dateDebut, LocalDate dateFin) {
+        try {
+            logger.info("Génération de l'état de mandatement du {} au {}", dateDebut, dateFin);
+
+            EtatMandatementDTO etat = new EtatMandatementDTO();
+            etat.setDateDebut(dateDebut);
+            etat.setDateFin(dateFin);
+            etat.setPeriodeLibelle(formatPeriode(dateDebut, dateFin));
+
+            // TODO: Implémenter la logique de mandatement
+
+            logger.info("État de mandatement généré (placeholder)");
+            return etat;
+
+        } catch (Exception e) {
+            logger.error("Erreur lors de la génération de l'état de mandatement", e);
+            throw new RuntimeException("Impossible de générer l'état: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Génère l'état de centre de répartition (Imprimé 3)
+     */
+    public EtatCentreRepartitionDTO genererEtatCentreRepartition(LocalDate dateDebut, LocalDate dateFin) {
+        try {
+            logger.info("Génération de l'état par centre de répartition du {} au {}", dateDebut, dateFin);
+
+            EtatCentreRepartitionDTO etat = new EtatCentreRepartitionDTO();
+            etat.setDateDebut(dateDebut);
+            etat.setDateFin(dateFin);
+            etat.setPeriodeLibelle(formatPeriode(dateDebut, dateFin));
+
+            // TODO: Implémenter la logique des centres de répartition
+
+            logger.info("État cumulé par centre de répartition généré (placeholder)");
+            return etat;
+
+        } catch (Exception e) {
+            logger.error("Erreur lors de la génération de l'état par centre de répartition", e);
+            throw new RuntimeException("Impossible de générer l'état: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Génère l'état de mandatement agents (Imprimé 8)
+     */
+    public EtatMandatementDTO genererEtatMandatementAgents(LocalDate dateDebut, LocalDate dateFin) {
+        try {
+            logger.info("Génération de l'état de mandatement agents du {} au {}", dateDebut, dateFin);
+
+            EtatMandatementDTO etat = new EtatMandatementDTO();
+            etat.setDateDebut(dateDebut);
+            etat.setDateFin(dateFin);
+            etat.setPeriodeLibelle(formatPeriode(dateDebut, dateFin));
+            etat.setTypeEtat("AGENTS");
+
+            // TODO: Implémenter la logique spécifique aux agents
+
+            logger.info("État de mandatement agents généré (placeholder)");
+            return etat;
+
+        } catch (Exception e) {
+            logger.error("Erreur lors de la génération de l'état de mandatement agents", e);
+            throw new RuntimeException("Impossible de générer l'état: " + e.getMessage(), e);
+        }
+    }
+
+    // ==================== RAPPORTS PÉRIODIQUES ====================
+
+    /**
+     * Génère un rapport mensuel
+     */
+    public RapportRepartitionDTO genererRapportMensuel(int annee, int mois) {
+        LocalDate debut = LocalDate.of(annee, mois, 1);
+        LocalDate fin = debut.withDayOfMonth(debut.lengthOfMonth());
+        return genererRapportRepartition(debut, fin);
+    }
+
+    /**
+     * Génère un rapport trimestriel
+     */
+    public RapportRepartitionDTO genererRapportTrimestriel(int annee, int trimestre) {
+        int moisDebut = (trimestre - 1) * 3 + 1;
+        LocalDate debut = LocalDate.of(annee, moisDebut, 1);
+        LocalDate fin = debut.plusMonths(2).withDayOfMonth(debut.plusMonths(2).lengthOfMonth());
+        return genererRapportRepartition(debut, fin);
+    }
+
+    /**
+     * Génère un rapport annuel
+     */
+    public RapportRepartitionDTO genererRapportAnnuel(int annee) {
+        LocalDate debut = LocalDate.of(annee, 1, 1);
+        LocalDate fin = LocalDate.of(annee, 12, 31);
+        return genererRapportRepartition(debut, fin);
+    }
+
     // ==================== MÉTHODES UTILITAIRES ====================
+
+    /**
+     * Calcule les statistiques avancées pour un rapport
+     */
+    public Map<String, Object> calculerStatistiquesAvancees(RapportRepartitionDTO rapport) {
+        Map<String, Object> statistiques = new HashMap<>();
+
+        if (rapport == null || rapport.getAffaires().isEmpty()) {
+            return statistiques;
+        }
+
+        // Calculs de moyennes
+        BigDecimal moyenneMontant = rapport.getTotalEncaisse()
+                .divide(BigDecimal.valueOf(rapport.getNombreAffaires()), 2, RoundingMode.HALF_UP);
+
+        // Répartition par mois
+        Map<String, BigDecimal> repartitionMensuelle = new HashMap<>();
+        Map<String, Integer> evolutionStatuts = new HashMap<>();
+
+        for (AffaireRepartitionDTO affaire : rapport.getAffaires()) {
+            String mois = affaire.getDateCreation().getMonth().name();
+            repartitionMensuelle.merge(mois, affaire.getMontantAmende(), BigDecimal::add);
+            evolutionStatuts.merge(affaire.getStatut(), 1, Integer::sum);
+        }
+
+        statistiques.put("moyenneMontantParAffaire", moyenneMontant);
+        statistiques.put("repartitionMensuelle", repartitionMensuelle);
+        statistiques.put("evolutionStatuts", evolutionStatuts);
+
+        // Calcul du taux d'encaissement
+        if (rapport.getTotalEncaisse().compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal total = rapport.getTotalEncaisse().add(rapport.getTotalEtat());
+            if (total.compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal taux = rapport.getTotalEncaisse()
+                        .divide(total, 4, RoundingMode.HALF_UP)
+                        .multiply(BigDecimal.valueOf(100));
+                statistiques.put("tauxEncaissement", taux);
+            }
+        }
+
+        return statistiques;
+    }
+
+    /**
+     * Valide les paramètres d'un rapport
+     */
+    public boolean validerParametresRapport(LocalDate dateDebut, LocalDate dateFin) {
+        if (dateDebut == null || dateFin == null) {
+            return false;
+        }
+
+        if (dateDebut.isAfter(dateFin)) {
+            return false;
+        }
+
+        // Vérifier que la période n'est pas dans le futur
+        if (dateDebut.isAfter(LocalDate.now())) {
+            return false;
+        }
+
+        // Vérifier que la période n'est pas trop étendue (ex: plus de 2 ans)
+        if (dateDebut.plusYears(2).isBefore(dateFin)) {
+            return false;
+        }
+
+        return true;
+    }
 
     /**
      * Crée un DTO d'affaire pour les rapports
@@ -555,62 +723,66 @@ public class RapportService {
     }
 
     /**
-     * Calcule des statistiques avancées pour un rapport
+     * Détermine l'agent principal d'une affaire
      */
-    public Map<String, Object> calculerStatistiquesAvancees(RapportRepartitionDTO rapport) {
-        Map<String, Object> statistiques = new HashMap<>();
-
-        if (rapport == null || rapport.getAffaires().isEmpty()) {
-            return statistiques;
+    private String determinerAgentPrincipal(Affaire affaire) {
+        try {
+            // TODO: Logique à implémenter selon les règles métier
+            return "Agent Principal " + affaire.getId();
+        } catch (Exception e) {
+            logger.warn("Impossible de déterminer l'agent principal pour l'affaire {}", affaire.getNumeroAffaire());
+            return null;
         }
-
-        // Calculs de moyennes
-        BigDecimal moyenneMontant = rapport.getTotalEncaisse()
-                .divide(BigDecimal.valueOf(rapport.getNombreAffaires()), 2, RoundingMode.HALF_UP);
-
-        // Répartition par mois
-        Map<String, BigDecimal> repartitionMensuelle = new HashMap<>();
-        Map<String, Integer> evolutionStatuts = new HashMap<>();
-
-        for (AffaireRepartitionDTO affaire : rapport.getAffaires()) {
-            String mois = affaire.getDateCreation().getMonth().name();
-            repartitionMensuelle.merge(mois, affaire.getMontantAmende(), BigDecimal::add);
-            evolutionStatuts.merge(affaire.getStatut(), 1, Integer::sum);
-        }
-
-        statistiques.put("moyenneMontantParAffaire", moyenneMontant);
-        statistiques.put("repartitionMensuelle", repartitionMensuelle);
-        statistiques.put("evolutionStatuts", evolutionStatuts);
-        statistiques.put("tauxEncaissement", rapport.getTotalEncaisse()
-                .divide(rapport.getTotalEncaisse().add(rapport.getTotalEtat()), 4, RoundingMode.HALF_UP)
-                .multiply(BigDecimal.valueOf(100)));
-
-        return statistiques;
     }
 
     /**
-     * Valide les paramètres d'un rapport
+     * Crée un DTO d'affaire complet pour les rapports détaillés
      */
-    public boolean validerParametresRapport(LocalDate dateDebut, LocalDate dateFin) {
-        if (dateDebut == null || dateFin == null) {
-            return false;
-        }
+    private AffaireRepartitionCompleteDTO createAffaireRepartitionCompleteDTO(Affaire affaire, Encaissement encaissement) {
+        AffaireRepartitionCompleteDTO dto = new AffaireRepartitionCompleteDTO();
 
-        if (dateDebut.isAfter(dateFin)) {
-            return false;
-        }
+        dto.setNumeroEncaissement(encaissement.getReference());
+        dto.setDateEncaissement(encaissement.getDateEncaissement());
+        dto.setNumeroAffaire(affaire.getNumeroAffaire());
+        dto.setDateAffaire(affaire.getDateCreation());
 
-        // Vérifier que la période n'est pas dans le futur
-        if (dateDebut.isAfter(LocalDate.now())) {
-            return false;
-        }
+        BigDecimal produitDisponible = BigDecimal.valueOf(encaissement.getMontant());
+        dto.setProduitDisponible(produitDisponible);
 
-        // Vérifier que la période n'est pas trop étendue (ex: plus de 2 ans)
-        if (dateDebut.plusYears(2).isBefore(dateFin)) {
-            return false;
-        }
+        // Calculs de répartition - Exemple de logique
+        dto.setIndicateur(produitDisponible.multiply(new BigDecimal("0.05")));
+        dto.setProduitNet(produitDisponible.multiply(new BigDecimal("0.95")));
+        dto.setFlcf(dto.getProduitNet().multiply(new BigDecimal("0.10")));
+        dto.setTresor(dto.getProduitNet().multiply(POURCENTAGE_ETAT.divide(BigDecimal.valueOf(100))));
 
-        return true;
+        dto.setDirectionDepartementale("DD " + affaire.getId() % 5);
+
+        return dto;
+    }
+
+    /**
+     * Crée un DTO d'affaire pour les indicateurs
+     */
+    private AffaireIndicateurDTO createAffaireIndicateurDTO(Affaire affaire, LocalDate dateDebut, LocalDate dateFin) {
+        AffaireIndicateurDTO dto = new AffaireIndicateurDTO();
+
+        dto.setNumeroAffaire(affaire.getNumeroAffaire());
+        dto.setDateAffaire(affaire.getDateCreation());
+        dto.setNomContrevenant("Contrevenant " + affaire.getId());
+        dto.setNomContravention("Contravention " + affaire.getId());
+
+        // Calcul du montant encaissé pour cette affaire sur la période
+        List<Encaissement> encaissements = encaissementDAO.findByAffaireAndPeriod(affaire.getId(), dateDebut, dateFin);
+        BigDecimal montantEncaisse = encaissements.stream()
+                .filter(enc -> enc.getStatut() == StatutEncaissement.VALIDE)
+                .map(enc -> BigDecimal.valueOf(enc.getMontant()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        dto.setMontantEncaissement(montantEncaisse);
+        dto.setPartIndicateur(montantEncaisse.multiply(new BigDecimal("0.05")));
+        dto.setObservations("");
+
+        return dto;
     }
 
     // ==================== CLASSES DTO ====================
@@ -654,13 +826,13 @@ public class RapportService {
         public String getPeriodeLibelle() { return periodeLibelle; }
         public void setPeriodeLibelle(String periodeLibelle) { this.periodeLibelle = periodeLibelle; }
 
-        public Double getTotalEncaisse() { return totalEncaisse; }
+        public BigDecimal getTotalEncaisse() { return totalEncaisse; }
         public void setTotalEncaisse(BigDecimal totalEncaisse) { this.totalEncaisse = totalEncaisse; }
 
-        public Double getTotalEtat() { return totalEtat; }
+        public BigDecimal getTotalEtat() { return totalEtat; }
         public void setTotalEtat(BigDecimal totalEtat) { this.totalEtat = totalEtat; }
 
-        public Double getTotalCollectivite() { return totalCollectivite; }
+        public BigDecimal getTotalCollectivite() { return totalCollectivite; }
         public void setTotalCollectivite(BigDecimal totalCollectivite) { this.totalCollectivite = totalCollectivite; }
 
         public int getNombreAffaires() { return nombreAffaires; }
@@ -775,56 +947,6 @@ public class RapportService {
 
         public int getTotalAffaires() { return totalAffaires; }
         public void setTotalAffaires(int totalAffaires) { this.totalAffaires = totalAffaires; }
-    }
-
-    /**
-     * Crée un DTO d'affaire complet pour les rapports détaillés
-     */
-    private AffaireRepartitionCompleteDTO createAffaireRepartitionCompleteDTO(Affaire affaire, Encaissement encaissement) {
-        AffaireRepartitionCompleteDTO dto = new AffaireRepartitionCompleteDTO();
-
-        dto.setNumeroEncaissement(encaissement.getReference());
-        dto.setDateEncaissement(encaissement.getDateEncaissement());
-        dto.setNumeroAffaire(affaire.getNumeroAffaire());
-        dto.setDateAffaire(affaire.getDateCreation());
-
-        BigDecimal produitDisponible = BigDecimal.valueOf(encaissement.getMontant());
-        dto.setProduitDisponible(produitDisponible);
-
-        // Calculs de répartition - Exemple de logique
-        dto.setIndicateur(produitDisponible.multiply(new BigDecimal("0.05")));
-        dto.setProduitNet(produitDisponible.multiply(new BigDecimal("0.95")));
-        dto.setFlcf(dto.getProduitNet().multiply(new BigDecimal("0.10")));
-        dto.setTresor(dto.getProduitNet().multiply(POURCENTAGE_ETAT.divide(BigDecimal.valueOf(100))));
-
-        dto.setDirectionDepartementale("DD " + affaire.getId() % 5);
-
-        return dto;
-    }
-
-    /**
-     * Crée un DTO d'affaire pour les indicateurs
-     */
-    private AffaireIndicateurDTO createAffaireIndicateurDTO(Affaire affaire, LocalDate dateDebut, LocalDate dateFin) {
-        AffaireIndicateurDTO dto = new AffaireIndicateurDTO();
-
-        dto.setNumeroAffaire(affaire.getNumeroAffaire());
-        dto.setDateAffaire(affaire.getDateCreation());
-        dto.setNomContrevenant("Contrevenant " + affaire.getId());
-        dto.setNomContravention("Contravention " + affaire.getId());
-
-        // Calcul du montant encaissé pour cette affaire sur la période
-        List<Encaissement> encaissements = encaissementDAO.findByAffaireAndPeriod(affaire.getId(), dateDebut, dateFin);
-        BigDecimal montantEncaisse = encaissements.stream()
-                .filter(enc -> enc.getStatut() == StatutEncaissement.VALIDE)
-                .map(enc -> BigDecimal.valueOf(enc.getMontant()))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        dto.setMontantEncaissement(montantEncaisse);
-        dto.setPartIndicateur(montantEncaisse.multiply(new BigDecimal("0.05")));
-        dto.setObservations("");
-
-        return dto;
     }
 
     /**
@@ -967,7 +1089,6 @@ public class RapportService {
 
     /**
      * DTO pour l'état de répartition des indicateurs réels (Imprimé 4)
-     * Alias de compatibilité : EtatIndicateursReelsDTO = EtatRepartitionIndicateursReelsDTO
      */
     public static class EtatRepartitionIndicateursReelsDTO {
         private LocalDate dateDebut;
@@ -1011,13 +1132,6 @@ public class RapportService {
 
         public int getTotalGeneralAffaires() { return totalGeneralAffaires; }
         public void setTotalGeneralAffaires(int totalGeneralAffaires) { this.totalGeneralAffaires = totalGeneralAffaires; }
-    }
-
-    /**
-     * Alias pour la compatibilité avec PrintService
-     */
-    public static class EtatIndicateursReelsDTO extends EtatRepartitionIndicateursReelsDTO {
-        // Classe alias pour la compatibilité
     }
 
     /**
@@ -1124,305 +1238,310 @@ public class RapportService {
         public String getObservations() { return observations; }
         public void setObservations(String observations) { this.observations = observations; }
     }
-    private LocalDate dateDebut;
-    private LocalDate dateFin;
-    private LocalDate dateGeneration;
-    private String periodeLibelle;
-    private List<ProduitAffaireDTO> affaires;
-    private TotauxProduitDTO totaux;
-    private int totalAffaires;
-
-    public EtatRepartitionProduitDTO() {
-        this.affaires = new ArrayList<>();
-        this.dateGeneration = LocalDate.now();
-        this.totaux = new TotauxProduitDTO();
-        this.totalAffaires = 0;
-    }
-
-    // Getters et setters
-    public LocalDate getDateDebut() { return dateDebut; }
-    public void setDateDebut(LocalDate dateDebut) { this.dateDebut = dateDebut; }
-
-    public LocalDate getDateFin() { return dateFin; }
-    public void setDateFin(LocalDate dateFin) { this.dateFin = dateFin; }
-
-    public LocalDate getDateGeneration() { return dateGeneration; }
-    public void setDateGeneration(LocalDate dateGeneration) { this.dateGeneration = dateGeneration; }
-
-    public String getPeriodeLibelle() { return periodeLibelle; }
-    public void setPeriodeLibelle(String periodeLibelle) { this.periodeLibelle = periodeLibelle; }
-
-    public List<ProduitAffaireDTO> getAffaires() { return affaires; }
-    public void setAffaires(List<ProduitAffaireDTO> affaires) { this.affaires = affaires; }
-
-    public TotauxProduitDTO getTotaux() { return totaux; }
-    public void setTotaux(TotauxProduitDTO totaux) { this.totaux = totaux; }
-
-    public int getTotalAffaires() { return totalAffaires; }
-    public void setTotalAffaires(int totalAffaires) { this.totalAffaires = totalAffaires; }
-}
-
-/**
- * DTO pour une ligne de produit d'affaire
- */
-public static class ProduitAffaireDTO {
-    private String numeroEncaissement;
-    private LocalDate dateEncaissement;
-    private String numeroAffaire;
-    private LocalDate dateAffaire;
-    private String nomContrevenant;
-    private String nomContravention;
-    private BigDecimal produitDisponible;
-    private BigDecimal partIndicateur;
-    private BigDecimal partDirectionContentieux;
-    private BigDecimal partIndicateur2;
-    private BigDecimal flcf;
-    private BigDecimal montantTresor;
-    private BigDecimal montantGlobalAyantsDroits;
-
-    public ProduitAffaireDTO() {}
-
-    // Getters et setters
-    public String getNumeroEncaissement() { return numeroEncaissement; }
-    public void setNumeroEncaissement(String numeroEncaissement) { this.numeroEncaissement = numeroEncaissement; }
-
-    public LocalDate getDateEncaissement() { return dateEncaissement; }
-    public void setDateEncaissement(LocalDate dateEncaissement) { this.dateEncaissement = dateEncaissement; }
-
-    public String getNumeroAffaire() { return numeroAffaire; }
-    public void setNumeroAffaire(String numeroAffaire) { this.numeroAffaire = numeroAffaire; }
-
-    public LocalDate getDateAffaire() { return dateAffaire; }
-    public void setDateAffaire(LocalDate dateAffaire) { this.dateAffaire = dateAffaire; }
-
-    public String getNomContrevenant() { return nomContrevenant; }
-    public void setNomContrevenant(String nomContrevenant) { this.nomContrevenant = nomContrevenant; }
-
-    public String getNomContravention() { return nomContravention; }
-    public void setNomContravention(String nomContravention) { this.nomContravention = nomContravention; }
-
-    public BigDecimal getProduitDisponible() { return produitDisponible; }
-    public void setProduitDisponible(BigDecimal produitDisponible) { this.produitDisponible = produitDisponible; }
-
-    public BigDecimal getPartIndicateur() { return partIndicateur; }
-    public void setPartIndicateur(BigDecimal partIndicateur) { this.partIndicateur = partIndicateur; }
-
-    public BigDecimal getPartDirectionContentieux() { return partDirectionContentieux; }
-    public void setPartDirectionContentieux(BigDecimal partDirectionContentieux) { this.partDirectionContentieux = partDirectionContentieux; }
-
-    public BigDecimal getPartIndicateur2() { return partIndicateur2; }
-    public void setPartIndicateur2(BigDecimal partIndicateur2) { this.partIndicateur2 = partIndicateur2; }
-
-    public BigDecimal getFlcf() { return flcf; }
-    public void setFlcf(BigDecimal flcf) { this.flcf = flcf; }
-
-    public BigDecimal getMontantTresor() { return montantTresor; }
-    public void setMontantTresor(BigDecimal montantTresor) { this.montantTresor = montantTresor; }
-
-    public BigDecimal getMontantGlobalAyantsDroits() { return montantGlobalAyantsDroits; }
-    public void setMontantGlobalAyantsDroits(BigDecimal montantGlobalAyantsDroits) { this.montantGlobalAyantsDroits = montantGlobalAyantsDroits; }
-}
-
-/**
- * DTO pour les totaux de produit
- */
-public static class TotauxProduitDTO {
-    private BigDecimal totalProduitDisponible;
-    private BigDecimal totalPartIndicateur;
-    private BigDecimal totalPartDirectionContentieux;
-    private BigDecimal totalPartIndicateur2;
-    private BigDecimal totalFlcf;
-    private BigDecimal totalMontantTresor;
-    private BigDecimal totalMontantGlobalAyantsDroits;
-
-    public TotauxProduitDTO() {
-        this.totalProduitDisponible = BigDecimal.ZERO;
-        this.totalPartIndicateur = BigDecimal.ZERO;
-        this.totalPartDirectionContentieux = BigDecimal.ZERO;
-        this.totalPartIndicateur2 = BigDecimal.ZERO;
-        this.totalFlcf = BigDecimal.ZERO;
-        this.totalMontantTresor = BigDecimal.ZERO;
-        this.totalMontantGlobalAyantsDroits = BigDecimal.ZERO;
-    }
-
-    // Getters et setters
-    public BigDecimal getTotalProduitDisponible() { return totalProduitDisponible; }
-    public void setTotalProduitDisponible(BigDecimal totalProduitDisponible) { this.totalProduitDisponible = totalProduitDisponible; }
-
-    public BigDecimal getTotalPartIndicateur() { return totalPartIndicateur; }
-    public void setTotalPartIndicateur(BigDecimal totalPartIndicateur) { this.totalPartIndicateur = totalPartIndicateur; }
-
-    public BigDecimal getTotalPartDirectionContentieux() { return totalPartDirectionContentieux; }
-    public void setTotalPartDirectionContentieux(BigDecimal totalPartDirectionContentieux) { this.totalPartDirectionContentieux = totalPartDirectionContentieux; }
-
-    public BigDecimal getTotalPartIndicateur2() { return totalPartIndicateur2; }
-    public void setTotalPartIndicateur2(BigDecimal totalPartIndicateur2) { this.totalPartIndicateur2 = totalPartIndicateur2; }
-
-    public BigDecimal getTotalFlcf() { return totalFlcf; }
-    public void setTotalFlcf(BigDecimal totalFlcf) { this.totalFlcf = totalFlcf; }
-
-    public BigDecimal getTotalMontantTresor() { return totalMontantTresor; }
-    public void setTotalMontantTresor(BigDecimal totalMontantTresor) { this.totalMontantTresor = totalMontantTresor; }
-
-    public BigDecimal getTotalMontantGlobalAyantsDroits() { return totalMontantGlobalAyantsDroits; }
-    public void setTotalMontantGlobalAyantsDroits(BigDecimal totalMontantGlobalAyantsDroits) { this.totalMontantGlobalAyantsDroits = totalMontantGlobalAyantsDroits; }
-}
-
-/**
- * DTO pour l'état cumulé par agent
- */
-public static class EtatCumuleParAgentDTO {
-    private LocalDate dateDebut;
-    private LocalDate dateFin;
-    private LocalDate dateGeneration;
-    private String periodeLibelle;
-    private List<AgentCumuleDTO> agents;
-    private BigDecimal totalGeneral;
-    private int totalAffairesTraitees;
-
-    public EtatCumuleParAgentDTO() {
-        this.agents = new ArrayList<>();
-        this.dateGeneration = LocalDate.now();
-        this.totalGeneral = BigDecimal.ZERO;
-        this.totalAffairesTraitees = 0;
-    }
-
-    // Getters et setters
-    public LocalDate getDateDebut() { return dateDebut; }
-    public void setDateDebut(LocalDate dateDebut) { this.dateDebut = dateDebut; }
-
-    public LocalDate getDateFin() { return dateFin; }
-    public void setDateFin(LocalDate dateFin) { this.dateFin = dateFin; }
-
-    public LocalDate getDateGeneration() { return dateGeneration; }
-    public void setDateGeneration(LocalDate dateGeneration) { this.dateGeneration = dateGeneration; }
-
-    public String getPeriodeLibelle() { return periodeLibelle; }
-    public void setPeriodeLibelle(String periodeLibelle) { this.periodeLibelle = periodeLibelle; }
-
-    public List<AgentCumuleDTO> getAgents() { return agents; }
-    public void setAgents(List<AgentCumuleDTO> agents) { this.agents = agents; }
-
-    public BigDecimal getTotalGeneral() { return totalGeneral; }
-    public void setTotalGeneral(BigDecimal totalGeneral) { this.totalGeneral = totalGeneral; }
-
-    public int getTotalAffairesTraitees() { return totalAffairesTraitees; }
-    public void setTotalAffairesTraitees(int totalAffairesTraitees) { this.totalAffairesTraitees = totalAffairesTraitees; }
-}
-
-/**
- * DTO pour un agent dans l'état cumulé
- */
-public static class AgentCumuleDTO {
-    private String nomAgent;
-    private String codeAgent;
-    private BigDecimal partChef;
-    private BigDecimal partSaisissant;
-    private BigDecimal partDG;
-    private BigDecimal partDD;
-    private BigDecimal partTotaleAgent;
-    private int nombreAffairesChef;
-    private int nombreAffairesSaisissant;
-
-    public AgentCumuleDTO() {
-        this.partChef = BigDecimal.ZERO;
-        this.partSaisissant = BigDecimal.ZERO;
-        this.partDG = BigDecimal.ZERO;
-        this.partDD = BigDecimal.ZERO;
-        this.partTotaleAgent = BigDecimal.ZERO;
-        this.nombreAffairesChef = 0;
-        this.nombreAffairesSaisissant = 0;
-    }
-
-    public AgentCumuleDTO(String nomAgent, String codeAgent) {
-        this();
-        this.nomAgent = nomAgent;
-        this.codeAgent = codeAgent;
-    }
-
-    // Getters et setters
-    public String getNomAgent() { return nomAgent; }
-    public void setNomAgent(String nomAgent) { this.nomAgent = nomAgent; }
-
-    public String getCodeAgent() { return codeAgent; }
-    public void setCodeAgent(String codeAgent) { this.codeAgent = codeAgent; }
-
-    public BigDecimal getPartChef() { return partChef; }
-    public void setPartChef(BigDecimal partChef) { this.partChef = partChef; }
-
-    public BigDecimal getPartSaisissant() { return partSaisissant; }
-    public void setPartSaisissant(BigDecimal partSaisissant) { this.partSaisissant = partSaisissant; }
-
-    public BigDecimal getPartDG() { return partDG; }
-    public void setPartDG(BigDecimal partDG) { this.partDG = partDG; }
-
-    public BigDecimal getPartDD() { return partDD; }
-    public void setPartDD(BigDecimal partDD) { this.partDD = partDD; }
-
-    public BigDecimal getPartTotaleAgent() { return partTotaleAgent; }
-    public void setPartTotaleAgent(BigDecimal partTotaleAgent) { this.partTotaleAgent = partTotaleAgent; }
-
-    public int getNombreAffairesChef() { return nombreAffairesChef; }
-    public void setNombreAffairesChef(int nombreAffairesChef) { this.nombreAffairesChef = nombreAffairesChef; }
-
-    public int getNombreAffairesSaisissant() { return nombreAffairesSaisissant; }
-    public void setNombreAffairesSaisissant(int nombreAffairesSaisissant) { this.nombreAffairesSaisissant = nombreAffairesSaisissant; }
 
     /**
-     * Calcule le total de l'agent (somme de toutes ses parts)
+     * DTO pour l'état de répartition du produit des affaires contentieuses (Imprimé 5)
      */
-    public void calculerTotal() {
-        this.partTotaleAgent = this.partChef.add(this.partSaisissant)
-                .add(this.partDG)
-                .add(this.partDD);
+    public static class EtatRepartitionProduitDTO {
+        private LocalDate dateDebut;
+        private LocalDate dateFin;
+        private LocalDate dateGeneration;
+        private String periodeLibelle;
+        private List<ProduitAffaireDTO> affaires;
+        private TotauxProduitDTO totaux;
+        private int totalAffaires;
+
+        public EtatRepartitionProduitDTO() {
+            this.affaires = new ArrayList<>();
+            this.dateGeneration = LocalDate.now();
+            this.totaux = new TotauxProduitDTO();
+            this.totalAffaires = 0;
+        }
+
+        // Getters et setters
+        public LocalDate getDateDebut() { return dateDebut; }
+        public void setDateDebut(LocalDate dateDebut) { this.dateDebut = dateDebut; }
+
+        public LocalDate getDateFin() { return dateFin; }
+        public void setDateFin(LocalDate dateFin) { this.dateFin = dateFin; }
+
+        public LocalDate getDateGeneration() { return dateGeneration; }
+        public void setDateGeneration(LocalDate dateGeneration) { this.dateGeneration = dateGeneration; }
+
+        public String getPeriodeLibelle() { return periodeLibelle; }
+        public void setPeriodeLibelle(String periodeLibelle) { this.periodeLibelle = periodeLibelle; }
+
+        public List<ProduitAffaireDTO> getAffaires() { return affaires; }
+        public void setAffaires(List<ProduitAffaireDTO> affaires) { this.affaires = affaires; }
+
+        public TotauxProduitDTO getTotaux() { return totaux; }
+        public void setTotaux(TotauxProduitDTO totaux) { this.totaux = totaux; }
+
+        public int getTotalAffaires() { return totalAffaires; }
+        public void setTotalAffaires(int totalAffaires) { this.totalAffaires = totalAffaires; }
     }
-}
 
-/**
- * DTO pour le tableau des amendes par services
- */
-public static class TableauAmendesParServicesDTO {
-    private LocalDate dateDebut;
-    private LocalDate dateFin;
-    private LocalDate dateGeneration;
-    private String periodeLibelle;
-    private List<ServiceAmendeDTO> services;
-    private BigDecimal totalMontant;
-    private int totalAffaires;
+    /**
+     * DTO pour une ligne de produit d'affaire (Imprimé 5)
+     */
+    public static class ProduitAffaireDTO {
+        private String numeroEncaissement;
+        private LocalDate dateEncaissement;
+        private String numeroAffaire;
+        private LocalDate dateAffaire;
+        private String nomContrevenant;
+        private String nomContravention;
+        private BigDecimal produitDisponible;
+        private BigDecimal partIndicateur;
+        private BigDecimal partDirectionContentieux;
+        private BigDecimal partIndicateur2;
+        private BigDecimal flcf;
+        private BigDecimal montantTresor;
+        private BigDecimal montantGlobalAyantsDroits;
 
-    public TableauAmendesParServicesDTO() {
-        this.services = new ArrayList<>();
-        this.dateGeneration = LocalDate.now();
-        this.totalMontant = BigDecimal.ZERO;
-        this.totalAffaires = 0;
+        public ProduitAffaireDTO() {}
+
+        // Getters et setters
+        public String getNumeroEncaissement() { return numeroEncaissement; }
+        public void setNumeroEncaissement(String numeroEncaissement) { this.numeroEncaissement = numeroEncaissement; }
+
+        public LocalDate getDateEncaissement() { return dateEncaissement; }
+        public void setDateEncaissement(LocalDate dateEncaissement) { this.dateEncaissement = dateEncaissement; }
+
+        public String getNumeroAffaire() { return numeroAffaire; }
+        public void setNumeroAffaire(String numeroAffaire) { this.numeroAffaire = numeroAffaire; }
+
+        public LocalDate getDateAffaire() { return dateAffaire; }
+        public void setDateAffaire(LocalDate dateAffaire) { this.dateAffaire = dateAffaire; }
+
+        public String getNomContrevenant() { return nomContrevenant; }
+        public void setNomContrevenant(String nomContrevenant) { this.nomContrevenant = nomContrevenant; }
+
+        public String getNomContravention() { return nomContravention; }
+        public void setNomContravention(String nomContravention) { this.nomContravention = nomContravention; }
+
+        public BigDecimal getProduitDisponible() { return produitDisponible; }
+        public void setProduitDisponible(BigDecimal produitDisponible) { this.produitDisponible = produitDisponible; }
+
+        public BigDecimal getPartIndicateur() { return partIndicateur; }
+        public void setPartIndicateur(BigDecimal partIndicateur) { this.partIndicateur = partIndicateur; }
+
+        public BigDecimal getPartDirectionContentieux() { return partDirectionContentieux; }
+        public void setPartDirectionContentieux(BigDecimal partDirectionContentieux) { this.partDirectionContentieux = partDirectionContentieux; }
+
+        public BigDecimal getPartIndicateur2() { return partIndicateur2; }
+        public void setPartIndicateur2(BigDecimal partIndicateur2) { this.partIndicateur2 = partIndicateur2; }
+
+        public BigDecimal getFlcf() { return flcf; }
+        public void setFlcf(BigDecimal flcf) { this.flcf = flcf; }
+
+        public BigDecimal getMontantTresor() { return montantTresor; }
+        public void setMontantTresor(BigDecimal montantTresor) { this.montantTresor = montantTresor; }
+
+        public BigDecimal getMontantGlobalAyantsDroits() { return montantGlobalAyantsDroits; }
+        public void setMontantGlobalAyantsDroits(BigDecimal montantGlobalAyantsDroits) { this.montantGlobalAyantsDroits = montantGlobalAyantsDroits; }
     }
 
-    // Getters et setters
-    public LocalDate getDateDebut() { return dateDebut; }
-    public void setDateDebut(LocalDate dateDebut) { this.dateDebut = dateDebut; }
+    /**
+     * DTO pour les totaux de produit (Imprimé 5)
+     */
+    public static class TotauxProduitDTO {
+        private BigDecimal totalProduitDisponible;
+        private BigDecimal totalPartIndicateur;
+        private BigDecimal totalPartDirectionContentieux;
+        private BigDecimal totalPartIndicateur2;
+        private BigDecimal totalFlcf;
+        private BigDecimal totalMontantTresor;
+        private BigDecimal totalMontantGlobalAyantsDroits;
 
-    public LocalDate getDateFin() { return dateFin; }
-    public void setDateFin(LocalDate dateFin) { this.dateFin = dateFin; }
+        public TotauxProduitDTO() {
+            this.totalProduitDisponible = BigDecimal.ZERO;
+            this.totalPartIndicateur = BigDecimal.ZERO;
+            this.totalPartDirectionContentieux = BigDecimal.ZERO;
+            this.totalPartIndicateur2 = BigDecimal.ZERO;
+            this.totalFlcf = BigDecimal.ZERO;
+            this.totalMontantTresor = BigDecimal.ZERO;
+            this.totalMontantGlobalAyantsDroits = BigDecimal.ZERO;
+        }
 
-    public LocalDate getDateGeneration() { return dateGeneration; }
-    public void setDateGeneration(LocalDate dateGeneration) { this.dateGeneration = dateGeneration; }
+        // Getters et setters
+        public BigDecimal getTotalProduitDisponible() { return totalProduitDisponible; }
+        public void setTotalProduitDisponible(BigDecimal totalProduitDisponible) { this.totalProduitDisponible = totalProduitDisponible; }
 
-    public String getPeriodeLibelle() { return periodeLibelle; }
-    public void setPeriodeLibelle(String periodeLibelle) { this.periodeLibelle = periodeLibelle; }
+        public BigDecimal getTotalPartIndicateur() { return totalPartIndicateur; }
+        public void setTotalPartIndicateur(BigDecimal totalPartIndicateur) { this.totalPartIndicateur = totalPartIndicateur; }
 
-    public List<ServiceAmendeDTO> getServices() { return services; }
-    public void setServices(List<ServiceAmendeDTO> services) { this.services = services; }
+        public BigDecimal getTotalPartDirectionContentieux() { return totalPartDirectionContentieux; }
+        public void setTotalPartDirectionContentieux(BigDecimal totalPartDirectionContentieux) { this.totalPartDirectionContentieux = totalPartDirectionContentieux; }
 
-    public BigDecimal getTotalMontant() { return totalMontant; }
-    public void setTotalMontant(BigDecimal totalMontant) { this.totalMontant = totalMontant; }
+        public BigDecimal getTotalPartIndicateur2() { return totalPartIndicateur2; }
+        public void setTotalPartIndicateur2(BigDecimal totalPartIndicateur2) { this.totalPartIndicateur2 = totalPartIndicateur2; }
 
-    public int getTotalAffaires() { return totalAffaires; }
-    public void setTotalAffaires(int totalAffaires) { this.totalAffaires = totalAffaires; }
-}
+        public BigDecimal getTotalFlcf() { return totalFlcf; }
+        public void setTotalFlcf(BigDecimal totalFlcf) { this.totalFlcf = totalFlcf; }
 
-/**
- * DTO pour une ligne du tableau des amendes par service
- */
+        public BigDecimal getTotalMontantTresor() { return totalMontantTresor; }
+        public void setTotalMontantTresor(BigDecimal totalMontantTresor) { this.totalMontantTresor = totalMontantTresor; }
+
+        public BigDecimal getTotalMontantGlobalAyantsDroits() { return totalMontantGlobalAyantsDroits; }
+        public void setTotalMontantGlobalAyantsDroits(BigDecimal totalMontantGlobalAyantsDroits) { this.totalMontantGlobalAyantsDroits = totalMontantGlobalAyantsDroits; }
+    }
+
+    /**
+     * DTO pour l'état cumulé par agent (Imprimé 6)
+     */
+    public static class EtatCumuleParAgentDTO {
+        private LocalDate dateDebut;
+        private LocalDate dateFin;
+        private LocalDate dateGeneration;
+        private String periodeLibelle;
+        private List<AgentCumuleDTO> agents;
+        private BigDecimal totalGeneral;
+        private int totalAffairesTraitees;
+
+        public EtatCumuleParAgentDTO() {
+            this.agents = new ArrayList<>();
+            this.dateGeneration = LocalDate.now();
+            this.totalGeneral = BigDecimal.ZERO;
+            this.totalAffairesTraitees = 0;
+        }
+
+        // Getters et setters
+        public LocalDate getDateDebut() { return dateDebut; }
+        public void setDateDebut(LocalDate dateDebut) { this.dateDebut = dateDebut; }
+
+        public LocalDate getDateFin() { return dateFin; }
+        public void setDateFin(LocalDate dateFin) { this.dateFin = dateFin; }
+
+        public LocalDate getDateGeneration() { return dateGeneration; }
+        public void setDateGeneration(LocalDate dateGeneration) { this.dateGeneration = dateGeneration; }
+
+        public String getPeriodeLibelle() { return periodeLibelle; }
+        public void setPeriodeLibelle(String periodeLibelle) { this.periodeLibelle = periodeLibelle; }
+
+        public List<AgentCumuleDTO> getAgents() { return agents; }
+        public void setAgents(List<AgentCumuleDTO> agents) { this.agents = agents; }
+
+        public BigDecimal getTotalGeneral() { return totalGeneral; }
+        public void setTotalGeneral(BigDecimal totalGeneral) { this.totalGeneral = totalGeneral; }
+
+        public int getTotalAffairesTraitees() { return totalAffairesTraitees; }
+        public void setTotalAffairesTraitees(int totalAffairesTraitees) { this.totalAffairesTraitees = totalAffairesTraitees; }
+    }
+
+    /**
+     * DTO pour un agent dans l'état cumulé (Imprimé 6)
+     */
+    public static class AgentCumuleDTO {
+        private String nomAgent;
+        private String codeAgent;
+        private BigDecimal partChef;
+        private BigDecimal partSaisissant;
+        private BigDecimal partDG;
+        private BigDecimal partDD;
+        private BigDecimal partTotaleAgent;
+        private int nombreAffairesChef;
+        private int nombreAffairesSaisissant;
+
+        public AgentCumuleDTO() {
+            this.partChef = BigDecimal.ZERO;
+            this.partSaisissant = BigDecimal.ZERO;
+            this.partDG = BigDecimal.ZERO;
+            this.partDD = BigDecimal.ZERO;
+            this.partTotaleAgent = BigDecimal.ZERO;
+            this.nombreAffairesChef = 0;
+            this.nombreAffairesSaisissant = 0;
+        }
+
+        public AgentCumuleDTO(String nomAgent, String codeAgent) {
+            this();
+            this.nomAgent = nomAgent;
+            this.codeAgent = codeAgent;
+        }
+
+        // Getters et setters
+        public String getNomAgent() { return nomAgent; }
+        public void setNomAgent(String nomAgent) { this.nomAgent = nomAgent; }
+
+        public String getCodeAgent() { return codeAgent; }
+        public void setCodeAgent(String codeAgent) { this.codeAgent = codeAgent; }
+
+        public BigDecimal getPartChef() { return partChef; }
+        public void setPartChef(BigDecimal partChef) { this.partChef = partChef; }
+
+        public BigDecimal getPartSaisissant() { return partSaisissant; }
+        public void setPartSaisissant(BigDecimal partSaisissant) { this.partSaisissant = partSaisissant; }
+
+        public BigDecimal getPartDG() { return partDG; }
+        public void setPartDG(BigDecimal partDG) { this.partDG = partDG; }
+
+        public BigDecimal getPartDD() { return partDD; }
+        public void setPartDD(BigDecimal partDD) { this.partDD = partDD; }
+
+        public BigDecimal getPartTotaleAgent() { return partTotaleAgent; }
+        public void setPartTotaleAgent(BigDecimal partTotaleAgent) { this.partTotaleAgent = partTotaleAgent; }
+
+        public int getNombreAffairesChef() { return nombreAffairesChef; }
+        public void setNombreAffairesChef(int nombreAffairesChef) { this.nombreAffairesChef = nombreAffairesChef; }
+
+        public int getNombreAffairesSaisissant() { return nombreAffairesSaisissant; }
+        public void setNombreAffairesSaisissant(int nombreAffairesSaisissant) { this.nombreAffairesSaisissant = nombreAffairesSaisissant; }
+
+        /**
+         * Calcule le total de l'agent (somme de toutes ses parts)
+         */
+        public void calculerTotal() {
+            this.partTotaleAgent = this.partChef.add(this.partSaisissant)
+                    .add(this.partDG)
+                    .add(this.partDD);
+        }
+    }
+
+    /**
+     * DTO pour le tableau des amendes par services (Imprimé 7)
+     */
+    public static class TableauAmendesParServicesDTO {
+        private LocalDate dateDebut;
+        private LocalDate dateFin;
+        private LocalDate dateGeneration;
+        private String periodeLibelle;
+        private List<ServiceAmendeDTO> services;
+        private BigDecimal totalMontant;
+        private int totalAffaires;
+
+        public TableauAmendesParServicesDTO() {
+            this.services = new ArrayList<>();
+            this.dateGeneration = LocalDate.now();
+            this.totalMontant = BigDecimal.ZERO;
+            this.totalAffaires = 0;
+        }
+
+        // Getters et setters
+        public LocalDate getDateDebut() { return dateDebut; }
+        public void setDateDebut(LocalDate dateDebut) { this.dateDebut = dateDebut; }
+
+        public LocalDate getDateFin() { return dateFin; }
+        public void setDateFin(LocalDate dateFin) { this.dateFin = dateFin; }
+
+        public LocalDate getDateGeneration() { return dateGeneration; }
+        public void setDateGeneration(LocalDate dateGeneration) { this.dateGeneration = dateGeneration; }
+
+        public String getPeriodeLibelle() { return periodeLibelle; }
+        public void setPeriodeLibelle(String periodeLibelle) { this.periodeLibelle = periodeLibelle; }
+
+        public List<ServiceAmendeDTO> getServices() { return services; }
+        public void setServices(List<ServiceAmendeDTO> services) { this.services = services; }
+
+        public BigDecimal getTotalMontant() { return totalMontant; }
+        public void setTotalMontant(BigDecimal totalMontant) { this.totalMontant = totalMontant; }
+
+        public int getTotalAffaires() { return totalAffaires; }
+        public void setTotalAffaires(int totalAffaires) { this.totalAffaires = totalAffaires; }
+    }
+
+    /**
+     * DTO pour une ligne du tableau des amendes par service (Imprimé 7)
+     */
     public static class ServiceAmendeDTO {
         private String nomService;
         private int nombreAffaires;
@@ -1451,4 +1570,217 @@ public static class TableauAmendesParServicesDTO {
         public String getObservations() { return observations; }
         public void setObservations(String observations) { this.observations = observations; }
     }
+
+    /**
+     * DTO pour l'état de mandatement (Imprimés 2 et 8)
+     */
+    public static class EtatMandatementDTO {
+        private LocalDate dateDebut;
+        private LocalDate dateFin;
+        private LocalDate dateGeneration;
+        private String periodeLibelle;
+        private String typeEtat;
+        private List<MandatementDTO> mandatements;
+        private BigDecimal totalProduitNet;
+        private BigDecimal totalChefs;
+        private BigDecimal totalSaisissants;
+        private BigDecimal totalMutuelleNationale;
+        private BigDecimal totalMasseCommune;
+        private BigDecimal totalInteressement;
+        private BigDecimal totalDG;
+        private BigDecimal totalDD;
+
+        public EtatMandatementDTO() {
+            this.mandatements = new ArrayList<>();
+            this.dateGeneration = LocalDate.now();
+            this.totalProduitNet = BigDecimal.ZERO;
+            this.totalChefs = BigDecimal.ZERO;
+            this.totalSaisissants = BigDecimal.ZERO;
+            this.totalMutuelleNationale = BigDecimal.ZERO;
+            this.totalMasseCommune = BigDecimal.ZERO;
+            this.totalInteressement = BigDecimal.ZERO;
+            this.totalDG = BigDecimal.ZERO;
+            this.totalDD = BigDecimal.ZERO;
+        }
+
+        // Getters et setters
+        public LocalDate getDateDebut() { return dateDebut; }
+        public void setDateDebut(LocalDate dateDebut) { this.dateDebut = dateDebut; }
+
+        public LocalDate getDateFin() { return dateFin; }
+        public void setDateFin(LocalDate dateFin) { this.dateFin = dateFin; }
+
+        public LocalDate getDateGeneration() { return dateGeneration; }
+        public void setDateGeneration(LocalDate dateGeneration) { this.dateGeneration = dateGeneration; }
+
+        public String getPeriodeLibelle() { return periodeLibelle; }
+        public void setPeriodeLibelle(String periodeLibelle) { this.periodeLibelle = periodeLibelle; }
+
+        public String getTypeEtat() { return typeEtat; }
+        public void setTypeEtat(String typeEtat) { this.typeEtat = typeEtat; }
+
+        public List<MandatementDTO> getMandatements() { return mandatements; }
+        public void setMandatements(List<MandatementDTO> mandatements) { this.mandatements = mandatements; }
+
+        public BigDecimal getTotalProduitNet() { return totalProduitNet; }
+        public void setTotalProduitNet(BigDecimal totalProduitNet) { this.totalProduitNet = totalProduitNet; }
+
+        public BigDecimal getTotalChefs() { return totalChefs; }
+        public void setTotalChefs(BigDecimal totalChefs) { this.totalChefs = totalChefs; }
+
+        public BigDecimal getTotalSaisissants() { return totalSaisissants; }
+        public void setTotalSaisissants(BigDecimal totalSaisissants) { this.totalSaisissants = totalSaisissants; }
+
+        public BigDecimal getTotalMutuelleNationale() { return totalMutuelleNationale; }
+        public void setTotalMutuelleNationale(BigDecimal totalMutuelleNationale) { this.totalMutuelleNationale = totalMutuelleNationale; }
+
+        public BigDecimal getTotalMasseCommune() { return totalMasseCommune; }
+        public void setTotalMasseCommune(BigDecimal totalMasseCommune) { this.totalMasseCommune = totalMasseCommune; }
+
+        public BigDecimal getTotalInteressement() { return totalInteressement; }
+        public void setTotalInteressement(BigDecimal totalInteressement) { this.totalInteressement = totalInteressement; }
+
+        public BigDecimal getTotalDG() { return totalDG; }
+        public void setTotalDG(BigDecimal totalDG) { this.totalDG = totalDG; }
+
+        public BigDecimal getTotalDD() { return totalDD; }
+        public void setTotalDD(BigDecimal totalDD) { this.totalDD = totalDD; }
+    }
+
+    /**
+     * DTO pour une ligne de mandatement
+     */
+    public static class MandatementDTO {
+        private String numeroEncaissement;
+        private LocalDate dateEncaissement;
+        private String numeroAffaire;
+        private LocalDate dateAffaire;
+        private BigDecimal produitNet;
+        private BigDecimal partChefs;
+        private BigDecimal partSaisissants;
+        private BigDecimal partMutuelleNationale;
+        private BigDecimal partMasseCommune;
+        private BigDecimal partInteressement;
+        private BigDecimal partDG;
+        private BigDecimal partDD;
+
+        public MandatementDTO() {}
+
+        // Getters et setters
+        public String getNumeroEncaissement() { return numeroEncaissement; }
+        public void setNumeroEncaissement(String numeroEncaissement) { this.numeroEncaissement = numeroEncaissement; }
+
+        public LocalDate getDateEncaissement() { return dateEncaissement; }
+        public void setDateEncaissement(LocalDate dateEncaissement) { this.dateEncaissement = dateEncaissement; }
+
+        public String getNumeroAffaire() { return numeroAffaire; }
+        public void setNumeroAffaire(String numeroAffaire) { this.numeroAffaire = numeroAffaire; }
+
+        public LocalDate getDateAffaire() { return dateAffaire; }
+        public void setDateAffaire(LocalDate dateAffaire) { this.dateAffaire = dateAffaire; }
+
+        public BigDecimal getProduitNet() { return produitNet; }
+        public void setProduitNet(BigDecimal produitNet) { this.produitNet = produitNet; }
+
+        public BigDecimal getPartChefs() { return partChefs; }
+        public void setPartChefs(BigDecimal partChefs) { this.partChefs = partChefs; }
+
+        public BigDecimal getPartSaisissants() { return partSaisissants; }
+        public void setPartSaisissants(BigDecimal partSaisissants) { this.partSaisissants = partSaisissants; }
+
+        public BigDecimal getPartMutuelleNationale() { return partMutuelleNationale; }
+        public void setPartMutuelleNationale(BigDecimal partMutuelleNationale) { this.partMutuelleNationale = partMutuelleNationale; }
+
+        public BigDecimal getPartMasseCommune() { return partMasseCommune; }
+        public void setPartMasseCommune(BigDecimal partMasseCommune) { this.partMasseCommune = partMasseCommune; }
+
+        public BigDecimal getPartInteressement() { return partInteressement; }
+        public void setPartInteressement(BigDecimal partInteressement) { this.partInteressement = partInteressement; }
+
+        public BigDecimal getPartDG() { return partDG; }
+        public void setPartDG(BigDecimal partDG) { this.partDG = partDG; }
+
+        public BigDecimal getPartDD() { return partDD; }
+        public void setPartDD(BigDecimal partDD) { this.partDD = partDD; }
+    }
+
+    /**
+     * DTO pour l'état par centre de répartition (Imprimé 3)
+     */
+    public static class EtatCentreRepartitionDTO {
+        private LocalDate dateDebut;
+        private LocalDate dateFin;
+        private LocalDate dateGeneration;
+        private String periodeLibelle;
+        private List<CentreRepartitionDTO> centres;
+        private BigDecimal totalRepartitionBase;
+        private BigDecimal totalRepartitionIndicateurFictif;
+        private BigDecimal totalPartCentre;
+
+        public EtatCentreRepartitionDTO() {
+            this.centres = new ArrayList<>();
+            this.dateGeneration = LocalDate.now();
+            this.totalRepartitionBase = BigDecimal.ZERO;
+            this.totalRepartitionIndicateurFictif = BigDecimal.ZERO;
+            this.totalPartCentre = BigDecimal.ZERO;
+        }
+
+        // Getters et setters
+        public LocalDate getDateDebut() { return dateDebut; }
+        public void setDateDebut(LocalDate dateDebut) { this.dateDebut = dateDebut; }
+
+        public LocalDate getDateFin() { return dateFin; }
+        public void setDateFin(LocalDate dateFin) { this.dateFin = dateFin; }
+
+        public LocalDate getDateGeneration() { return dateGeneration; }
+        public void setDateGeneration(LocalDate dateGeneration) { this.dateGeneration = dateGeneration; }
+
+        public String getPeriodeLibelle() { return periodeLibelle; }
+        public void setPeriodeLibelle(String periodeLibelle) { this.periodeLibelle = periodeLibelle; }
+
+        public List<CentreRepartitionDTO> getCentres() { return centres; }
+        public void setCentres(List<CentreRepartitionDTO> centres) { this.centres = centres; }
+
+        public BigDecimal getTotalRepartitionBase() { return totalRepartitionBase; }
+        public void setTotalRepartitionBase(BigDecimal totalRepartitionBase) { this.totalRepartitionBase = totalRepartitionBase; }
+
+        public BigDecimal getTotalRepartitionIndicateurFictif() { return totalRepartitionIndicateurFictif; }
+        public void setTotalRepartitionIndicateurFictif(BigDecimal totalRepartitionIndicateurFictif) { this.totalRepartitionIndicateurFictif = totalRepartitionIndicateurFictif; }
+
+        public BigDecimal getTotalPartCentre() { return totalPartCentre; }
+        public void setTotalPartCentre(BigDecimal totalPartCentre) { this.totalPartCentre = totalPartCentre; }
+    }
+
+    /**
+     * DTO pour un centre de répartition
+     */
+    public static class CentreRepartitionDTO {
+        private String nomCentre;
+        private BigDecimal partRepartitionBase;
+        private BigDecimal partRepartitionIndicateurFictif;
+        private BigDecimal partTotaleCentre;
+
+        public CentreRepartitionDTO() {}
+
+        public CentreRepartitionDTO(String nomCentre) {
+            this.nomCentre = nomCentre;
+            this.partRepartitionBase = BigDecimal.ZERO;
+            this.partRepartitionIndicateurFictif = BigDecimal.ZERO;
+            this.partTotaleCentre = BigDecimal.ZERO;
+        }
+
+        // Getters et setters
+        public String getNomCentre() { return nomCentre; }
+        public void setNomCentre(String nomCentre) { this.nomCentre = nomCentre; }
+
+        public BigDecimal getPartRepartitionBase() { return partRepartitionBase; }
+        public void setPartRepartitionBase(BigDecimal partRepartitionBase) { this.partRepartitionBase = partRepartitionBase; }
+
+        public BigDecimal getPartRepartitionIndicateurFictif() { return partRepartitionIndicateurFictif; }
+        public void setPartRepartitionIndicateurFictif(BigDecimal partRepartitionIndicateurFictif) { this.partRepartitionIndicateurFictif = partRepartitionIndicateurFictif; }
+
+        public BigDecimal getPartTotaleCentre() { return partTotaleCentre; }
+        public void setPartTotaleCentre(BigDecimal partTotaleCentre) { this.partTotaleCentre = partTotaleCentre; }
+    }
+
 }

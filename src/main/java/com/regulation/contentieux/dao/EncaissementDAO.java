@@ -1,8 +1,10 @@
 package com.regulation.contentieux.dao;
 
 import com.regulation.contentieux.dao.impl.AbstractSQLiteDAO;
+import com.regulation.contentieux.model.Affaire;
 import com.regulation.contentieux.model.Encaissement;
 import com.regulation.contentieux.model.enums.ModeReglement;
+import com.regulation.contentieux.model.enums.StatutAffaire;
 import com.regulation.contentieux.model.enums.StatutEncaissement;
 import com.regulation.contentieux.config.DatabaseConfig;
 import org.slf4j.Logger;
@@ -14,6 +16,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+
+import static java.sql.DriverManager.getConnection;
 
 /**
  * DAO pour la gestion des encaissements - VERSION COMPLÈTE AVEC MÉTHODES MANQUANTES

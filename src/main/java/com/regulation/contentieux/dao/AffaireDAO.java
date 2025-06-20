@@ -520,4 +520,39 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
 
         return affaires;
     }
+
+    /**
+     * Trouve les affaires avec encaissements par période - MÉTHODE MANQUANTE AJOUTÉE
+     */
+    public List<Affaire> findAffairesWithEncaissementsByPeriod(LocalDate dateDebut, LocalDate dateFin) {
+        String sql = """
+            SELECT DISTINCT a.id, a.numero_affaire, a.date_creation, a.montant_amende_total, 
+                   a.statut, a.contrevenant_id, a.contravention_id, a.bureau_id, 
+                   a.service_id, a.created_at, a.updated_at, a.created_by, a.updated_by 
+            FROM affaires a
+            INNER JOIN encaissements e ON a.id = e.affaire_id
+            WHERE e.date_encaissement >= ? AND e.date_encaissement <= ?
+            AND e.statut = 'VALIDE'
+            ORDER BY a.created_at DESC
+        """;
+
+        List<Affaire> affaires = new ArrayList<>();
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setDate(1, Date.valueOf(dateDebut));
+            stmt.setDate(2, Date.valueOf(dateFin));
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                affaires.add(mapResultSetToEntity(rs));
+            }
+
+        } catch (SQLException e) {
+            logger.error("Erreur lors de la récupération des affaires avec encaissements par période", e);
+        }
+
+        return affaires;
+    }
 }

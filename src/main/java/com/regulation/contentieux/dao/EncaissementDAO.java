@@ -16,8 +16,7 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * DAO pour la gestion des encaissements - SUIT LE PATTERN ÉTABLI
- * Respecte exactement la structure de AffaireDAO et ContrevenantDAO
+ * DAO pour la gestion des encaissements - VERSION COMPLÈTE AVEC MÉTHODES MANQUANTES
  */
 public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
 
@@ -37,8 +36,8 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
     protected String getInsertQuery() {
         return """
             INSERT INTO encaissements (affaire_id, montant_encaisse, date_encaissement, 
-                                     mode_reglement, reference, banque_id, statut, created_by) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                                     mode_reglement, reference, banque_id, statut, observations, created_by) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """;
     }
 
@@ -48,7 +47,7 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
             UPDATE encaissements 
             SET affaire_id = ?, montant_encaisse = ?, date_encaissement = ?, 
                 mode_reglement = ?, reference = ?, banque_id = ?, statut = ?, 
-                updated_by = ?, updated_at = CURRENT_TIMESTAMP 
+                observations = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP 
             WHERE id = ?
         """;
     }
@@ -57,7 +56,8 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
     protected String getSelectAllQuery() {
         return """
             SELECT id, affaire_id, montant_encaisse, date_encaissement, mode_reglement, 
-                   reference, banque_id, statut, created_at, updated_at, created_by, updated_by 
+                   reference, banque_id, statut, observations, created_at, updated_at, 
+                   created_by, updated_by 
             FROM encaissements 
             ORDER BY created_at DESC
         """;
@@ -67,7 +67,8 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
     protected String getSelectByIdQuery() {
         return """
             SELECT id, affaire_id, montant_encaisse, date_encaissement, mode_reglement, 
-                   reference, banque_id, statut, created_at, updated_at, created_by, updated_by 
+                   reference, banque_id, statut, observations, created_at, updated_at, 
+                   created_by, updated_by 
             FROM encaissements 
             WHERE id = ?
         """;
@@ -81,50 +82,41 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
         encaissement.setAffaireId(rs.getLong("affaire_id"));
         encaissement.setMontantEncaisse(rs.getDouble("montant_encaisse"));
 
-        // Gestion de la date d'encaissement - COMME DANS AffaireDAO
-        try {
-            Date sqlDate = rs.getDate("date_encaissement");
-            if (sqlDate != null) {
-                encaissement.setDateEncaissement(sqlDate.toLocalDate());
-            }
-        } catch (SQLException e) {
-            logger.debug("Échec du parsing de date_encaissement pour l'encaissement {}", rs.getLong("id"));
-            encaissement.setDateEncaissement(LocalDate.now());
+        // Gestion de la date d'encaissement
+        Date dateEncaissement = rs.getDate("date_encaissement");
+        if (dateEncaissement != null) {
+            encaissement.setDateEncaissement(dateEncaissement.toLocalDate());
         }
 
-        // Conversion du mode de règlement
+        // Gestion du mode de règlement
         String modeReglementStr = rs.getString("mode_reglement");
         if (modeReglementStr != null) {
             try {
                 encaissement.setModeReglement(ModeReglement.valueOf(modeReglementStr));
             } catch (IllegalArgumentException e) {
-                logger.warn("Mode de règlement inconnu pour l'encaissement {}: {}",
-                        encaissement.getId(), modeReglementStr);
-                encaissement.setModeReglement(ModeReglement.ESPECES); // Valeur par défaut
+                logger.warn("Mode de règlement inconnu: {}", modeReglementStr);
             }
         }
 
         encaissement.setReference(rs.getString("reference"));
+        encaissement.setBanqueId(rs.getLong("banque_id"));
+        encaissement.setObservations(rs.getString("observations")); // AJOUT MANQUANT
 
-        // Gestion de la banque (nullable)
-        long banqueId = rs.getLong("banque_id");
-        if (!rs.wasNull()) {
-            encaissement.setBanqueId(banqueId);
-        }
-
-        // Conversion du statut
+        // Gestion du statut
         String statutStr = rs.getString("statut");
         if (statutStr != null) {
             try {
                 encaissement.setStatut(StatutEncaissement.valueOf(statutStr));
             } catch (IllegalArgumentException e) {
-                logger.warn("Statut inconnu pour l'encaissement {}: {}",
-                        encaissement.getId(), statutStr);
-                encaissement.setStatut(StatutEncaissement.EN_ATTENTE); // Valeur par défaut
+                logger.warn("Statut d'encaissement inconnu: {}", statutStr);
+                encaissement.setStatut(StatutEncaissement.EN_ATTENTE);
             }
         }
 
-        // Gestion des timestamps - COMME DANS AffaireDAO
+        encaissement.setCreatedBy(rs.getString("created_by"));
+        encaissement.setUpdatedBy(rs.getString("updated_by"));
+
+        // Gestion des timestamps
         try {
             Timestamp createdAt = rs.getTimestamp("created_at");
             if (createdAt != null) {
@@ -132,7 +124,6 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
             }
         } catch (SQLException e) {
             logger.debug("Échec du parsing de created_at pour l'encaissement {}", encaissement.getId());
-            encaissement.setCreatedAt(LocalDateTime.now());
         }
 
         try {
@@ -142,11 +133,7 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
             }
         } catch (SQLException e) {
             logger.debug("Échec du parsing de updated_at pour l'encaissement {}", encaissement.getId());
-            encaissement.setUpdatedAt(LocalDateTime.now());
         }
-
-        encaissement.setCreatedBy(rs.getString("created_by"));
-        encaissement.setUpdatedBy(rs.getString("updated_by"));
 
         return encaissement;
     }
@@ -154,38 +141,27 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
     @Override
     protected void setInsertParameters(PreparedStatement stmt, Encaissement encaissement) throws SQLException {
         stmt.setLong(1, encaissement.getAffaireId());
-        stmt.setDouble(2, encaissement.getMontantEncaisse());
-        stmt.setDate(3, Date.valueOf(encaissement.getDateEncaissement()));
-        stmt.setString(4, encaissement.getModeReglement().name());
-        stmt.setString(5, encaissement.getReference());
+        stmt.setDouble(2, encaissement.getMontantEncaisse() != null ? encaissement.getMontantEncaisse() : 0.0);
 
-        if (encaissement.getBanqueId() != null) {
-            stmt.setLong(6, encaissement.getBanqueId());
+        if (encaissement.getDateEncaissement() != null) {
+            stmt.setDate(3, Date.valueOf(encaissement.getDateEncaissement()));
         } else {
-            stmt.setNull(6, Types.BIGINT);
+            stmt.setNull(3, Types.DATE);
         }
 
-        stmt.setString(7, encaissement.getStatut().name());
-        stmt.setString(8, encaissement.getCreatedBy());
+        stmt.setString(4, encaissement.getModeReglement() != null ? encaissement.getModeReglement().name() : null);
+        stmt.setString(5, encaissement.getReference());
+        stmt.setObject(6, encaissement.getBanqueId(), Types.BIGINT);
+        stmt.setString(7, encaissement.getStatut() != null ? encaissement.getStatut().name() : StatutEncaissement.EN_ATTENTE.name());
+        stmt.setString(8, encaissement.getObservations()); // AJOUT MANQUANT
+        stmt.setString(9, encaissement.getCreatedBy());
     }
 
     @Override
     protected void setUpdateParameters(PreparedStatement stmt, Encaissement encaissement) throws SQLException {
-        stmt.setLong(1, encaissement.getAffaireId());
-        stmt.setDouble(2, encaissement.getMontantEncaisse());
-        stmt.setDate(3, Date.valueOf(encaissement.getDateEncaissement()));
-        stmt.setString(4, encaissement.getModeReglement().name());
-        stmt.setString(5, encaissement.getReference());
-
-        if (encaissement.getBanqueId() != null) {
-            stmt.setLong(6, encaissement.getBanqueId());
-        } else {
-            stmt.setNull(6, Types.BIGINT);
-        }
-
-        stmt.setString(7, encaissement.getStatut().name());
-        stmt.setString(8, encaissement.getUpdatedBy());
-        stmt.setLong(9, encaissement.getId());
+        setInsertParameters(stmt, encaissement);
+        stmt.setString(10, encaissement.getUpdatedBy());
+        stmt.setLong(11, encaissement.getId());
     }
 
     @Override
@@ -198,26 +174,46 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
         encaissement.setId(id);
     }
 
-    // Méthodes spécifiques aux encaissements - SUIT LE PATTERN ÉTABLI
+    // ========== MÉTHODES MANQUANTES AJOUTÉES ==========
 
     /**
-     * Trouve les encaissements par affaire
+     * Trouve les encaissements par affaire et période - MÉTHODE MANQUANTE AJOUTÉE
      */
-    public List<Encaissement> findByAffaireId(Long affaireId) {
-        String sql = """
-            SELECT id, affaire_id, montant_encaisse, date_encaissement, mode_reglement, 
-                   reference, banque_id, statut, created_at, updated_at, created_by, updated_by 
-            FROM encaissements 
-            WHERE affaire_id = ? 
-            ORDER BY date_encaissement DESC
-        """;
+    public List<Encaissement> findByAffaireAndPeriod(Long affaireId, LocalDate dateDebut, LocalDate dateFin) {
+        StringBuilder sql = new StringBuilder();
+        sql.append("SELECT id, affaire_id, montant_encaisse, date_encaissement, mode_reglement, ");
+        sql.append("reference, banque_id, statut, observations, created_at, updated_at, created_by, updated_by ");
+        sql.append("FROM encaissements WHERE affaire_id = ? ");
+
+        List<Object> parameters = new ArrayList<>();
+        parameters.add(affaireId);
+
+        if (dateDebut != null) {
+            sql.append("AND date_encaissement >= ? ");
+            parameters.add(dateDebut);
+        }
+
+        if (dateFin != null) {
+            sql.append("AND date_encaissement <= ? ");
+            parameters.add(dateFin);
+        }
+
+        sql.append("ORDER BY date_encaissement DESC");
 
         List<Encaissement> encaissements = new ArrayList<>();
 
         try (Connection conn = DatabaseConfig.getSQLiteConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+             PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
 
-            stmt.setLong(1, affaireId);
+            for (int i = 0; i < parameters.size(); i++) {
+                Object param = parameters.get(i);
+                if (param instanceof LocalDate) {
+                    stmt.setDate(i + 1, Date.valueOf((LocalDate) param));
+                } else {
+                    stmt.setObject(i + 1, param);
+                }
+            }
+
             ResultSet rs = stmt.executeQuery();
 
             while (rs.next()) {
@@ -225,22 +221,23 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
             }
 
         } catch (SQLException e) {
-            logger.error("Erreur lors de la recherche par affaire: " + affaireId, e);
+            logger.error("Erreur lors de la recherche des encaissements par affaire et période", e);
         }
 
         return encaissements;
     }
 
     /**
-     * Trouve les encaissements par statut
+     * Trouve les encaissements par statut - MÉTHODE MANQUANTE AJOUTÉE
      */
     public List<Encaissement> findByStatut(StatutEncaissement statut) {
         String sql = """
             SELECT id, affaire_id, montant_encaisse, date_encaissement, mode_reglement, 
-                   reference, banque_id, statut, created_at, updated_at, created_by, updated_by 
+                   reference, banque_id, statut, observations, created_at, updated_at, 
+                   created_by, updated_by 
             FROM encaissements 
-            WHERE statut = ? 
-            ORDER BY date_encaissement DESC
+            WHERE statut = ?
+            ORDER BY created_at DESC
         """;
 
         List<Encaissement> encaissements = new ArrayList<>();
@@ -256,42 +253,62 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
             }
 
         } catch (SQLException e) {
-            logger.error("Erreur lors de la recherche par statut: " + statut, e);
+            logger.error("Erreur lors de la recherche des encaissements par statut: " + statut, e);
         }
 
         return encaissements;
     }
 
     /**
-     * Trouve un encaissement par sa référence
+     * Calcule le total des encaissements par période - MÉTHODE MANQUANTE AJOUTÉE
      */
-    public Optional<Encaissement> findByReference(String reference) {
-        String sql = """
-            SELECT id, affaire_id, montant_encaisse, date_encaissement, mode_reglement, 
-                   reference, banque_id, statut, created_at, updated_at, created_by, updated_by 
-            FROM encaissements 
-            WHERE reference = ?
-        """;
+    public Double getTotalEncaissementsByPeriod(LocalDate dateDebut, LocalDate dateFin, StatutEncaissement statut) {
+        StringBuilder sql = new StringBuilder();
+        sql.append("SELECT SUM(montant_encaisse) as total FROM encaissements WHERE 1=1 ");
+
+        List<Object> parameters = new ArrayList<>();
+
+        if (dateDebut != null) {
+            sql.append("AND date_encaissement >= ? ");
+            parameters.add(dateDebut);
+        }
+
+        if (dateFin != null) {
+            sql.append("AND date_encaissement <= ? ");
+            parameters.add(dateFin);
+        }
+
+        if (statut != null) {
+            sql.append("AND statut = ? ");
+            parameters.add(statut.name());
+        }
 
         try (Connection conn = DatabaseConfig.getSQLiteConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+             PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
 
-            stmt.setString(1, reference);
+            for (int i = 0; i < parameters.size(); i++) {
+                Object param = parameters.get(i);
+                if (param instanceof LocalDate) {
+                    stmt.setDate(i + 1, Date.valueOf((LocalDate) param));
+                } else {
+                    stmt.setObject(i + 1, param);
+                }
+            }
+
             ResultSet rs = stmt.executeQuery();
-
             if (rs.next()) {
-                return Optional.of(mapResultSetToEntity(rs));
+                return rs.getDouble("total");
             }
 
         } catch (SQLException e) {
-            logger.error("Erreur lors de la recherche par référence: " + reference, e);
+            logger.error("Erreur lors du calcul du total des encaissements", e);
         }
 
-        return Optional.empty();
+        return 0.0;
     }
 
     /**
-     * Recherche d'encaissements avec critères multiples - COMME AffaireDAO
+     * Recherche d'encaissements avec critères multiples - MÉTHODE MANQUANTE AJOUTÉE
      */
     public List<Encaissement> searchEncaissements(String reference, StatutEncaissement statut,
                                                   ModeReglement modeReglement, LocalDate dateDebut,
@@ -299,7 +316,7 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
                                                   int offset, int limit) {
         StringBuilder sql = new StringBuilder();
         sql.append("SELECT id, affaire_id, montant_encaisse, date_encaissement, mode_reglement, ");
-        sql.append("reference, banque_id, statut, created_at, updated_at, created_by, updated_by ");
+        sql.append("reference, banque_id, statut, observations, created_at, updated_at, created_by, updated_by ");
         sql.append("FROM encaissements WHERE 1=1 ");
 
         List<Object> parameters = new ArrayList<>();
@@ -321,12 +338,12 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
 
         if (dateDebut != null) {
             sql.append("AND date_encaissement >= ? ");
-            parameters.add(Date.valueOf(dateDebut));
+            parameters.add(dateDebut);
         }
 
         if (dateFin != null) {
             sql.append("AND date_encaissement <= ? ");
-            parameters.add(Date.valueOf(dateFin));
+            parameters.add(dateFin);
         }
 
         if (affaireId != null) {
@@ -334,7 +351,7 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
             parameters.add(affaireId);
         }
 
-        sql.append("ORDER BY date_encaissement DESC LIMIT ? OFFSET ?");
+        sql.append("ORDER BY created_at DESC LIMIT ? OFFSET ?");
         parameters.add(limit);
         parameters.add(offset);
 
@@ -344,7 +361,12 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
              PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
 
             for (int i = 0; i < parameters.size(); i++) {
-                stmt.setObject(i + 1, parameters.get(i));
+                Object param = parameters.get(i);
+                if (param instanceof LocalDate) {
+                    stmt.setDate(i + 1, Date.valueOf((LocalDate) param));
+                } else {
+                    stmt.setObject(i + 1, param);
+                }
             }
 
             ResultSet rs = stmt.executeQuery();
@@ -361,7 +383,7 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
     }
 
     /**
-     * Compte les encaissements correspondant aux critères - COMME AffaireDAO
+     * Compte les encaissements correspondant aux critères - MÉTHODE MANQUANTE AJOUTÉE
      */
     public long countSearchEncaissements(String reference, StatutEncaissement statut,
                                          ModeReglement modeReglement, LocalDate dateDebut,
@@ -388,12 +410,12 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
 
         if (dateDebut != null) {
             sql.append("AND date_encaissement >= ? ");
-            parameters.add(Date.valueOf(dateDebut));
+            parameters.add(dateDebut);
         }
 
         if (dateFin != null) {
             sql.append("AND date_encaissement <= ? ");
-            parameters.add(Date.valueOf(dateFin));
+            parameters.add(dateFin);
         }
 
         if (affaireId != null) {
@@ -405,7 +427,12 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
              PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
 
             for (int i = 0; i < parameters.size(); i++) {
-                stmt.setObject(i + 1, parameters.get(i));
+                Object param = parameters.get(i);
+                if (param instanceof LocalDate) {
+                    stmt.setDate(i + 1, Date.valueOf((LocalDate) param));
+                } else {
+                    stmt.setObject(i + 1, param);
+                }
             }
 
             ResultSet rs = stmt.executeQuery();
@@ -418,286 +445,5 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
         }
 
         return 0;
-    }
-
-    /**
-     * Calcule le montant total encaissé pour une affaire
-     */
-    public Double getTotalEncaisseByAffaire(Long affaireId) {
-        String sql = """
-            SELECT SUM(montant_encaisse) as total 
-            FROM encaissements 
-            WHERE affaire_id = ? AND statut = 'VALIDE'
-        """;
-
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-            stmt.setLong(1, affaireId);
-            ResultSet rs = stmt.executeQuery();
-
-            if (rs.next()) {
-                return rs.getDouble("total");
-            }
-
-        } catch (SQLException e) {
-            logger.error("Erreur lors du calcul du total encaissé", e);
-        }
-
-        return 0.0;
-    }
-
-    /**
-     * Calcule le montant total des encaissements par période
-     */
-    public Double getTotalEncaissementsByPeriod(LocalDate dateDebut, LocalDate dateFin,
-                                                StatutEncaissement statut) {
-        StringBuilder sql = new StringBuilder();
-        sql.append("SELECT SUM(montant_encaisse) as total FROM encaissements WHERE 1=1 ");
-
-        List<Object> parameters = new ArrayList<>();
-
-        if (dateDebut != null) {
-            sql.append("AND date_encaissement >= ? ");
-            parameters.add(Date.valueOf(dateDebut));
-        }
-
-        if (dateFin != null) {
-            sql.append("AND date_encaissement <= ? ");
-            parameters.add(Date.valueOf(dateFin));
-        }
-
-        if (statut != null) {
-            sql.append("AND statut = ? ");
-            parameters.add(statut.name());
-        }
-
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
-
-            for (int i = 0; i < parameters.size(); i++) {
-                stmt.setObject(i + 1, parameters.get(i));
-            }
-
-            ResultSet rs = stmt.executeQuery();
-            if (rs.next()) {
-                return rs.getDouble("total");
-            }
-
-        } catch (SQLException e) {
-            logger.error("Erreur lors du calcul du total par période", e);
-        }
-
-        return 0.0;
-    }
-
-    /**
-     * Met à jour le statut d'un encaissement
-     */
-    public boolean updateStatut(Long encaissementId, StatutEncaissement nouveauStatut, String updatedBy) {
-        String sql = """
-            UPDATE encaissements 
-            SET statut = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP 
-            WHERE id = ?
-        """;
-
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-            stmt.setString(1, nouveauStatut.name());
-            stmt.setString(2, updatedBy);
-            stmt.setLong(3, encaissementId);
-
-            int rowsUpdated = stmt.executeUpdate();
-
-            if (rowsUpdated > 0) {
-                logger.info("Statut de l'encaissement {} mis à jour vers {} par {}",
-                        encaissementId, nouveauStatut, updatedBy);
-                return true;
-            }
-
-        } catch (SQLException e) {
-            logger.error("Erreur lors de la mise à jour du statut", e);
-        }
-
-        return false;
-    }
-
-    /**
-     * Vérifie si une référence existe déjà
-     */
-    public boolean existsByReference(String reference) {
-        String sql = "SELECT 1 FROM encaissements WHERE reference = ? LIMIT 1";
-
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-            stmt.setString(1, reference);
-            ResultSet rs = stmt.executeQuery();
-            return rs.next();
-
-        } catch (SQLException e) {
-            logger.error("Erreur lors de la vérification de la référence", e);
-            return false;
-        }
-    }
-
-    /**
-     * Encaissements récents pour tableau de bord - COMME AffaireDAO
-     */
-    public List<Encaissement> getRecentEncaissements(int limit) {
-        String sql = getSelectAllQuery() + " LIMIT ?";
-
-        List<Encaissement> encaissements = new ArrayList<>();
-
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-            stmt.setInt(1, limit);
-            ResultSet rs = stmt.executeQuery();
-
-            while (rs.next()) {
-                encaissements.add(mapResultSetToEntity(rs));
-            }
-
-        } catch (SQLException e) {
-            logger.error("Erreur lors de la récupération des encaissements récents", e);
-        }
-
-        return encaissements;
-    }
-
-    /**
-     * Génère le prochain numéro d'encaissement selon le format YYMMRNNNN
-     * YY = année sur 2 chiffres
-     * MM = mois sur 2 chiffres
-     * R = lettre fixe "R" pour "recette"
-     * NNNN = incrémentation du mois (0001, 0002, etc.)
-     *
-     * Exemples:
-     * - Premier encaissement de juin 2025: 2506R0001
-     * - Deuxième encaissement de juin 2025: 2506R0002
-     */
-    public String generateNextNumeroEncaissement() {
-        LocalDate today = LocalDate.now();
-        String yearMonth = String.format("%02d%02d", today.getYear() % 100, today.getMonthValue());
-        String prefix = yearMonth + "R";
-
-        // Rechercher le dernier numéro du mois en cours
-        String sql = """
-            SELECT reference FROM encaissements 
-            WHERE reference LIKE ? 
-            ORDER BY reference DESC 
-            LIMIT 1
-        """;
-
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-            stmt.setString(1, prefix + "%");
-            ResultSet rs = stmt.executeQuery();
-
-            if (rs.next()) {
-                String lastReference = rs.getString("reference");
-                return generateNextNumeroFromLast(lastReference, prefix);
-            } else {
-                // Premier numéro du mois
-                return prefix + "0001";
-            }
-
-        } catch (SQLException e) {
-            logger.error("Erreur lors de la génération du numéro d'encaissement", e);
-            return prefix + "0001"; // Fallback
-        }
-    }
-
-    /**
-     * Génère le numéro suivant basé sur le dernier numéro du mois
-     */
-    private String generateNextNumeroFromLast(String lastReference, String currentPrefix) {
-        try {
-            // Vérifier que la dernière référence correspond bien au mois en cours
-            if (lastReference != null && lastReference.length() == 9) { // YYMMRNNNN = 9 caractères
-                String lastPrefix = lastReference.substring(0, 5); // YYMMR
-
-                if (lastPrefix.equals(currentPrefix)) {
-                    // Même mois, incrémenter le compteur
-                    String compteurStr = lastReference.substring(5); // NNNN
-                    int compteur = Integer.parseInt(compteurStr);
-                    return currentPrefix + String.format("%04d", compteur + 1);
-                }
-            }
-
-            // Nouveau mois ou format invalide
-            return currentPrefix + "0001";
-
-        } catch (Exception e) {
-            logger.warn("Erreur lors du parsing de la dernière référence: {}", lastReference, e);
-            return currentPrefix + "0001";
-        }
-    }
-
-    /**
-     * Statistiques des encaissements par mode de règlement
-     */
-    public long countByModeReglement(ModeReglement modeReglement) {
-        String sql = "SELECT COUNT(*) FROM encaissements WHERE mode_reglement = ?";
-
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-            stmt.setString(1, modeReglement.name());
-            ResultSet rs = stmt.executeQuery();
-
-            if (rs.next()) {
-                return rs.getLong(1);
-            }
-
-        } catch (SQLException e) {
-            logger.error("Erreur lors du comptage par mode de règlement", e);
-        }
-
-        return 0;
-    }
-
-    // MÉTHODES À AJOUTER À LA FIN DE LA CLASSE EncaissementDAO
-
-    /**
-     * Trouve les encaissements d'une affaire spécifique dans une période donnée
-     * MÉTHODE MANQUANTE POUR RapportService
-     */
-    public List<Encaissement> findByAffaireAndPeriod(Long affaireId, LocalDate dateDebut, LocalDate dateFin) {
-        String sql = """
-        SELECT id, affaire_id, montant_encaisse, date_encaissement, mode_reglement, 
-               reference, banque_id, statut, created_at, updated_at, created_by, updated_by 
-        FROM encaissements 
-        WHERE affaire_id = ? 
-        AND date_encaissement BETWEEN ? AND ? 
-        AND statut = 'VALIDE'
-        ORDER BY date_encaissement DESC
-    """;
-
-        List<Encaissement> encaissements = new ArrayList<>();
-
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-            stmt.setLong(1, affaireId);
-            stmt.setDate(2, Date.valueOf(dateDebut));
-            stmt.setDate(3, Date.valueOf(dateFin));
-            ResultSet rs = stmt.executeQuery();
-
-            while (rs.next()) {
-                encaissements.add(mapResultSetToEntity(rs));
-            }
-
-            logger.debug("Trouvé {} encaissements pour l'affaire {} entre {} et {}",
-                    encaissements.size(), affaireId, dateDebut, dateFin);
-
-        } catch (SQLException e) {
-            logger.error("Erreur lors de la recherche d'encaissements par affaire et période", e);
-        }
-
-        return encaissements;
     }
 }

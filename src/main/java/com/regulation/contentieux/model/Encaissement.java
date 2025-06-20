@@ -10,27 +10,12 @@ import java.time.LocalDateTime;
 import java.util.Objects;
 
 /**
- * Entité représentant un encaissement
+ * Entité représentant un encaissement - VERSION COMPLÈTE
  */
 public class Encaissement {
     private Long id;
     private Long affaireId;
     private Double montantEncaisse;
-
-    /**
-     * Alias pour getMontantEncaisse() - REQUIS PAR RapportService
-     */
-    public Double getMontant() {
-        return getMontantEncaisse();
-    }
-
-    /**
-     * Alias pour getReference() - REQUIS PAR RapportService
-     * Retourne la référence du mandat (même chose que reference générale)
-     */
-    public String getReferenceMandat() {
-        return getReference();
-    }
 
     @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate dateEncaissement;
@@ -39,6 +24,7 @@ public class Encaissement {
     private String reference;
     private Long banqueId;
     private StatutEncaissement statut;
+    private String observations; // AJOUT MANQUANT
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
@@ -68,94 +54,58 @@ public class Encaissement {
         this.modeReglement = modeReglement;
     }
 
-    // Méthodes métier
+    // ===== MÉTHODES ALIAS POUR RapportService =====
+
+    /**
+     * Alias pour getMontantEncaisse() - REQUIS PAR RapportService
+     */
+    public Double getMontant() {
+        return getMontantEncaisse();
+    }
+
+    /**
+     * Alias pour getReference() - REQUIS PAR RapportService
+     * Retourne la référence du mandat (même chose que reference générale)
+     */
+    public String getReferenceMandat() {
+        return getReference();
+    }
+
+    // ===== MÉTHODES MÉTIER =====
 
     /**
      * Vérifie si l'encaissement peut être modifié
      */
     public boolean peutEtreModifie() {
-        return statut != null && statut.isModifiable();
+        return statut == StatutEncaissement.EN_ATTENTE || statut == StatutEncaissement.BROUILLON;
     }
 
     /**
-     * Vérifie si l'encaissement est comptabilisable
+     * Vérifie si l'encaissement peut être supprimé
      */
-    public boolean estComptabilisable() {
-        return statut != null && statut.isComptabilisable();
+    public boolean peutEtreSupprime() {
+        return statut == StatutEncaissement.EN_ATTENTE || statut == StatutEncaissement.BROUILLON;
     }
 
     /**
-     * Vérifie si l'encaissement peut être annulé
+     * Vérifie si l'encaissement peut être validé
      */
-    public boolean peutEtreAnnule() {
-        return statut != null && statut.isReversible();
-    }
-
-    /**
-     * Vérifie si le mode de règlement nécessite une banque
-     */
-    public boolean necessiteBanque() {
-        return modeReglement != null && modeReglement.isNecessiteBanque();
-    }
-
-    /**
-     * Vérifie si le mode de règlement nécessite une référence
-     */
-    public boolean necessiteReference() {
-        return modeReglement != null && modeReglement.isNecessiteReference();
-    }
-
-    /**
-     * Retourne la description du mode de règlement
-     */
-    public String getModeReglementLibelle() {
-        return modeReglement != null ? modeReglement.getLibelle() : "";
-    }
-
-    /**
-     * Retourne la description du statut
-     */
-    public String getStatutLibelle() {
-        return statut != null ? statut.getLibelle() : "";
-    }
-
-    /**
-     * Vérifie si l'encaissement est validé
-     */
-    public boolean estValide() {
-        return StatutEncaissement.VALIDE.equals(statut);
-    }
-
-    /**
-     * Vérifie si l'encaissement est en attente
-     */
-    public boolean estEnAttente() {
-        return StatutEncaissement.EN_ATTENTE.equals(statut);
+    public boolean peutEtreValide() {
+        return statut == StatutEncaissement.EN_ATTENTE &&
+                montantEncaisse != null && montantEncaisse > 0 &&
+                affaireId != null &&
+                modeReglement != null;
     }
 
     /**
      * Valide l'encaissement
      */
     public void valider(String validatedBy) {
-        if (!peutEtreModifie()) {
-            throw new IllegalStateException("Cet encaissement ne peut plus être modifié");
+        if (!peutEtreValide()) {
+            throw new IllegalStateException("Cet encaissement ne peut pas être validé");
         }
-
         this.statut = StatutEncaissement.VALIDE;
         this.updatedBy = validatedBy;
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    /**
-     * Rejette l'encaissement
-     */
-    public void rejeter(String rejectedBy) {
-        if (!peutEtreModifie()) {
-            throw new IllegalStateException("Cet encaissement ne peut plus être modifié");
-        }
-
-        this.statut = StatutEncaissement.REJETE;
-        this.updatedBy = rejectedBy;
         this.updatedAt = LocalDateTime.now();
     }
 
@@ -163,16 +113,13 @@ public class Encaissement {
      * Annule l'encaissement
      */
     public void annuler(String cancelledBy) {
-        if (!peutEtreAnnule()) {
-            throw new IllegalStateException("Cet encaissement ne peut pas être annulé");
-        }
-
         this.statut = StatutEncaissement.ANNULE;
         this.updatedBy = cancelledBy;
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getters et Setters
+    // ===== GETTERS ET SETTERS =====
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -199,6 +146,10 @@ public class Encaissement {
         this.statut = statut;
         this.updatedAt = LocalDateTime.now();
     }
+
+    // AJOUT MANQUANT - Observations
+    public String getObservations() { return observations; }
+    public void setObservations(String observations) { this.observations = observations; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

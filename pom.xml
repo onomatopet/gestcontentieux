@@ -8,25 +8,54 @@
     <artifactId>contentieux</artifactId>
     <version>1.0-SNAPSHOT</version>
     <name>contentieux</name>
+    <description>Application de gestion des affaires contentieuses</description>
 
     <properties>
+        <!-- Configuration projet -->
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <junit.version>5.10.2</junit.version>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
+
+        <!-- Versions des dépendances principales -->
         <javafx.version>21</javafx.version>
         <atlantafx.version>2.0.1</atlantafx.version>
+
+        <!-- Base de données -->
         <sqlite.version>3.45.1.0</sqlite.version>
         <mysql.version>8.3.0</mysql.version>
         <hikari.version>5.1.0</hikari.version>
+
+        <!-- Logging -->
         <logback.version>1.4.14</logback.version>
         <slf4j.version>2.0.12</slf4j.version>
+
+        <!-- Utilitaires -->
         <jackson.version>2.16.1</jackson.version>
-        <itext.version>8.0.3</itext.version>
         <poi.version>5.2.5</poi.version>
         <bcrypt.version>0.10.2</bcrypt.version>
+        <itext.version>8.0.3</itext.version>
+
+        <!-- Contrôles étendus -->
+        <controlsfx.version>11.2.1</controlsfx.version>
+        <formsfx.version>11.6.0</formsfx.version>
+        <validatorfx.version>0.5.0</validatorfx.version>
+        <ikonli.version>12.3.1</ikonli.version>
+
+        <!-- Tests -->
+        <junit.version>5.10.2</junit.version>
+        <testfx.version>4.0.18</testfx.version>
+
+        <!-- Plugins -->
+        <maven.compiler.plugin.version>3.13.0</maven.compiler.plugin.version>
+        <javafx.maven.plugin.version>0.0.8</javafx.maven.plugin.version>
+        <jlink.maven.plugin.version>3.2.0</jlink.maven.plugin.version>
+        <surefire.maven.plugin.version>3.2.5</surefire.maven.plugin.version>
+        <shade.maven.plugin.version>3.5.1</shade.maven.plugin.version>
+        <versions.maven.plugin.version>2.16.2</versions.maven.plugin.version>
     </properties>
 
     <dependencies>
-        <!-- JavaFX -->
+        <!-- ==================== JAVAFX ==================== -->
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-controls</artifactId>
@@ -53,14 +82,14 @@
             <version>${javafx.version}</version>
         </dependency>
 
-        <!-- AtlantaFX Theme -->
+        <!-- ==================== THÈME UI ==================== -->
         <dependency>
             <groupId>io.github.mkpaz</groupId>
             <artifactId>atlantafx-base</artifactId>
             <version>${atlantafx.version}</version>
         </dependency>
 
-        <!-- Base de données -->
+        <!-- ==================== BASE DE DONNÉES ==================== -->
         <dependency>
             <groupId>org.xerial</groupId>
             <artifactId>sqlite-jdbc</artifactId>
@@ -77,7 +106,7 @@
             <version>${hikari.version}</version>
         </dependency>
 
-        <!-- Logging -->
+        <!-- ==================== LOGGING ==================== -->
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
@@ -89,16 +118,14 @@
             <version>${slf4j.version}</version>
         </dependency>
 
-        <!-- Sécurité - COMMENTÉ TEMPORAIREMENT -->
-        <!--
+        <!-- ==================== SÉCURITÉ ==================== -->
         <dependency>
-          <groupId>at.favre.lib</groupId>
-          <artifactId>bcrypt</artifactId>
-          <version>${bcrypt.version}</version>
+            <groupId>at.favre.lib</groupId>
+            <artifactId>bcrypt</artifactId>
+            <version>${bcrypt.version}</version>
         </dependency>
-        -->
 
-        <!-- JSON -->
+        <!-- ==================== JSON ==================== -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
@@ -110,20 +137,7 @@
             <version>${jackson.version}</version>
         </dependency>
 
-        <!-- PDF - COMMENTÉ TEMPORAIREMENT -->
-        <!--
-        <dependency>
-          <groupId>com.itextpdf</groupId>
-          <artifactId>itext-core</artifactId>
-          <version>${itext.version}</version>
-          <type>pom</type>
-        </dependency>
-        <dependency>
-          <groupId>com.itextpdf</groupId>
-          <artifactId>html2pdf</artifactId>
-          <version>${itext.version}</version>
-        </dependency>
-        -->
+        <!-- ==================== DOCUMENTS ==================== -->
 
         <!-- Excel -->
         <dependency>
@@ -137,16 +151,29 @@
             <version>${poi.version}</version>
         </dependency>
 
-        <!-- Contrôles JavaFX étendus -->
+        <!-- PDF - Activé pour les rapports -->
+        <dependency>
+            <groupId>com.itextpdf</groupId>
+            <artifactId>itext-core</artifactId>
+            <version>${itext.version}</version>
+            <type>pom</type>
+        </dependency>
+        <dependency>
+            <groupId>com.itextpdf</groupId>
+            <artifactId>html2pdf</artifactId>
+            <version>${itext.version}</version>
+        </dependency>
+
+        <!-- ==================== CONTRÔLES JAVAFX ÉTENDUS ==================== -->
         <dependency>
             <groupId>org.controlsfx</groupId>
             <artifactId>controlsfx</artifactId>
-            <version>11.2.1</version>
+            <version>${controlsfx.version}</version>
         </dependency>
         <dependency>
             <groupId>com.dlsc.formsfx</groupId>
             <artifactId>formsfx-core</artifactId>
-            <version>11.6.0</version>
+            <version>${formsfx.version}</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.openjfx</groupId>
@@ -157,7 +184,7 @@
         <dependency>
             <groupId>net.synedra</groupId>
             <artifactId>validatorfx</artifactId>
-            <version>0.5.0</version>
+            <version>${validatorfx.version}</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.openjfx</groupId>
@@ -166,24 +193,24 @@
             </exclusions>
         </dependency>
 
-        <!-- Icônes -->
+        <!-- ==================== ICÔNES ==================== -->
         <dependency>
             <groupId>org.kordamp.ikonli</groupId>
             <artifactId>ikonli-javafx</artifactId>
-            <version>12.3.1</version>
+            <version>${ikonli.version}</version>
         </dependency>
         <dependency>
             <groupId>org.kordamp.ikonli</groupId>
             <artifactId>ikonli-material2-pack</artifactId>
-            <version>12.3.1</version>
+            <version>${ikonli.version}</version>
         </dependency>
         <dependency>
             <groupId>org.kordamp.ikonli</groupId>
             <artifactId>ikonli-feather-pack</artifactId>
-            <version>12.3.1</version>
+            <version>${ikonli.version}</version>
         </dependency>
 
-        <!-- Tests -->
+        <!-- ==================== TESTS ==================== -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
@@ -199,60 +226,104 @@
         <dependency>
             <groupId>org.testfx</groupId>
             <artifactId>testfx-core</artifactId>
-            <version>4.0.18</version>
+            <version>${testfx.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.testfx</groupId>
             <artifactId>testfx-junit5</artifactId>
-            <version>4.0.18</version>
+            <version>${testfx.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
 
     <build>
         <plugins>
+            <!-- ==================== COMPILATION ==================== -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.13.0</version>
+                <version>${maven.compiler.plugin.version}</version>
                 <configuration>
                     <source>21</source>
                     <target>21</target>
+                    <encoding>UTF-8</encoding>
+                    <compilerArgs>
+                        <arg>--enable-preview</arg>
+                    </compilerArgs>
                 </configuration>
             </plugin>
 
+            <!-- ==================== JAVAFX ==================== -->
             <plugin>
                 <groupId>org.openjfx</groupId>
                 <artifactId>javafx-maven-plugin</artifactId>
-                <version>0.0.8</version>
+                <version>${javafx.maven.plugin.version}</version>
                 <configuration>
                     <mainClass>com.regulation.contentieux.Main</mainClass>
                     <launcher>contentieux</launcher>
+                    <commandlineArgs>
+                        <commandlineArg>--add-opens</commandlineArg>
+                        <commandlineArg>javafx.controls/javafx.scene.control.skin=ALL-UNNAMED</commandlineArg>
+                        <commandlineArg>--add-opens</commandlineArg>
+                        <commandlineArg>javafx.controls/javafx.scene.control=ALL-UNNAMED</commandlineArg>
+                        <commandlineArg>--add-opens</commandlineArg>
+                        <commandlineArg>javafx.base/javafx.beans.property=ALL-UNNAMED</commandlineArg>
+                    </commandlineArgs>
+                </configuration>
+            </plugin>
+
+            <!-- ==================== JLINK (Distribution native) ==================== -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jlink-plugin</artifactId>
+                <version>${jlink.maven.plugin.version}</version>
+                <configuration>
+                    <launcher>contentieux=com.regulation.contentieux/com.regulation.contentieux.Main</launcher>
                     <jlinkZipName>contentieux</jlinkZipName>
                     <jlinkImageName>contentieux</jlinkImageName>
                     <noManPages>true</noManPages>
                     <stripDebug>true</stripDebug>
                     <noHeaderFiles>true</noHeaderFiles>
+                    <bindServices>true</bindServices>
+                    <ignoreSigningInformation>true</ignoreSigningInformation>
+                    <addModules>
+                        <addModule>java.base</addModule>
+                        <addModule>java.logging</addModule>
+                        <addModule>java.sql</addModule>
+                        <addModule>java.desktop</addModule>
+                        <addModule>javafx.controls</addModule>
+                        <addModule>javafx.fxml</addModule>
+                        <addModule>javafx.web</addModule>
+                        <addModule>javafx.swing</addModule>
+                    </addModules>
                 </configuration>
             </plugin>
 
+            <!-- ==================== TESTS ==================== -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.2.5</version>
+                <version>${surefire.maven.plugin.version}</version>
                 <configuration>
                     <includes>
                         <include>**/*Test.java</include>
+                        <include>**/*Tests.java</include>
                     </includes>
+                    <argLine>
+                        --add-opens java.base/java.lang=ALL-UNNAMED
+                        --add-opens java.base/java.util=ALL-UNNAMED
+                        --add-opens javafx.graphics/javafx.stage=ALL-UNNAMED
+                        --add-opens javafx.controls/javafx.scene.control=ALL-UNNAMED
+                    </argLine>
                 </configuration>
             </plugin>
 
-            <!-- Plugin pour créer un JAR exécutable -->
+            <!-- ==================== JAR EXÉCUTABLE (Fat JAR) ==================== -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.5.1</version>
+                <version>${shade.maven.plugin.version}</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -260,22 +331,136 @@
                             <goal>shade</goal>
                         </goals>
                         <configuration>
+                            <shadedArtifactAttached>true</shadedArtifactAttached>
+                            <shadedClassifierName>fat</shadedClassifierName>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <mainClass>com.regulation.contentieux.Main</mainClass>
                                 </transformer>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                             </transformers>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                        <exclude>META-INF/DEPENDENCIES</exclude>
+                                        <exclude>META-INF/LICENSE*</exclude>
+                                        <exclude>META-INF/NOTICE*</exclude>
+                                        <exclude>META-INF/MANIFEST.MF</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
                         </configuration>
                     </execution>
                 </executions>
             </plugin>
 
-            <!-- Plugin pour la gestion des versions -->
+            <!-- ==================== GESTION DES VERSIONS ==================== -->
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>versions-maven-plugin</artifactId>
-                <version>2.16.2</version>
+                <version>${versions.maven.plugin.version}</version>
+                <configuration>
+                    <generateBackupPoms>false</generateBackupPoms>
+                </configuration>
+            </plugin>
+
+            <!-- ==================== RESSOURCES ==================== -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <version>3.3.1</version>
+                <configuration>
+                    <encoding>UTF-8</encoding>
+                </configuration>
+            </plugin>
+
+            <!-- ==================== CLEAN ==================== -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-clean-plugin</artifactId>
+                <version>3.3.2</version>
             </plugin>
         </plugins>
     </build>
+
+    <!-- ==================== PROFILS ==================== -->
+    <profiles>
+        <!-- Profil de développement -->
+        <profile>
+            <id>dev</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <properties>
+                <maven.compiler.debug>true</maven.compiler.debug>
+                <maven.compiler.optimize>false</maven.compiler.optimize>
+            </properties>
+        </profile>
+
+        <!-- Profil de production -->
+        <profile>
+            <id>prod</id>
+            <properties>
+                <maven.compiler.debug>false</maven.compiler.debug>
+                <maven.compiler.optimize>true</maven.compiler.optimize>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <configuration>
+                            <debug>false</debug>
+                            <optimize>true</optimize>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- Profil pour tests GUI -->
+        <profile>
+            <id>gui-tests</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/*UITest.java</include>
+                                <include>**/*GUITest.java</include>
+                            </includes>
+                            <systemPropertyVariables>
+                                <testfx.robot>glass</testfx.robot>
+                                <testfx.headless>true</testfx.headless>
+                                <prism.order>sw</prism.order>
+                                <prism.text>t2k</prism.text>
+                                <java.awt.headless>true</java.awt.headless>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
+    <!-- ==================== INFORMATIONS DU PROJET ==================== -->
+    <developers>
+        <developer>
+            <name>Équipe Développement</name>
+            <email>dev@regulation.ga</email>
+            <organization>Direction Générale de la Concurrence et de la Consommation</organization>
+            <organizationUrl>https://economie.gouv.ga</organizationUrl>
+        </developer>
+    </developers>
+
+    <organization>
+        <name>République Gabonaise - Ministère de l'Économie</name>
+        <url>https://economie.gouv.ga</url>
+    </organization>
 </project>

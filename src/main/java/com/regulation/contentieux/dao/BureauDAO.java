@@ -2,6 +2,7 @@ package com.regulation.contentieux.dao;
 
 import com.regulation.contentieux.dao.impl.AbstractSQLiteDAO;
 import com.regulation.contentieux.model.Bureau;
+import com.regulation.contentieux.model.Service;
 import com.regulation.contentieux.config.DatabaseConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,8 +14,8 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * DAO pour la gestion des bureaux - SUIT LE PATTERN ÉTABLI
- * Respecte exactement la structure des autres DAOs
+ * DAO pour la gestion des bureaux - MISE À JOUR POUR COMPATIBILITÉ
+ * Compatible avec le modèle Bureau harmonisé
  */
 public class BureauDAO extends AbstractSQLiteDAO<Bureau, Long> {
 
@@ -33,8 +34,8 @@ public class BureauDAO extends AbstractSQLiteDAO<Bureau, Long> {
     @Override
     protected String getInsertQuery() {
         return """
-            INSERT INTO bureaux (code_bureau, nom_bureau) 
-            VALUES (?, ?)
+            INSERT INTO bureaux (code_bureau, nom_bureau, description, actif, service_id) 
+            VALUES (?, ?, ?, ?, ?)
         """;
     }
 
@@ -42,7 +43,7 @@ public class BureauDAO extends AbstractSQLiteDAO<Bureau, Long> {
     protected String getUpdateQuery() {
         return """
             UPDATE bureaux 
-            SET code_bureau = ?, nom_bureau = ? 
+            SET code_bureau = ?, nom_bureau = ?, description = ?, actif = ?, service_id = ?
             WHERE id = ?
         """;
     }
@@ -50,18 +51,22 @@ public class BureauDAO extends AbstractSQLiteDAO<Bureau, Long> {
     @Override
     protected String getSelectAllQuery() {
         return """
-            SELECT id, code_bureau, nom_bureau, created_at 
-            FROM bureaux 
-            ORDER BY nom_bureau ASC
+            SELECT b.id, b.code_bureau, b.nom_bureau, b.description, b.actif, b.service_id, b.created_at,
+                   s.code_service, s.nom_service
+            FROM bureaux b
+            LEFT JOIN services s ON b.service_id = s.id
+            ORDER BY b.nom_bureau ASC
         """;
     }
 
     @Override
     protected String getSelectByIdQuery() {
         return """
-            SELECT id, code_bureau, nom_bureau, created_at 
-            FROM bureaux 
-            WHERE id = ?
+            SELECT b.id, b.code_bureau, b.nom_bureau, b.description, b.actif, b.service_id, b.created_at,
+                   s.code_service, s.nom_service
+            FROM bureaux b
+            LEFT JOIN services s ON b.service_id = s.id
+            WHERE b.id = ?
         """;
     }
 
@@ -72,8 +77,30 @@ public class BureauDAO extends AbstractSQLiteDAO<Bureau, Long> {
         bureau.setId(rs.getLong("id"));
         bureau.setCodeBureau(rs.getString("code_bureau"));
         bureau.setNomBureau(rs.getString("nom_bureau"));
+        bureau.setDescription(rs.getString("description"));
 
-        // Gestion des timestamps - COMME DANS LES AUTRES DAOs
+        // Gestion du boolean actif
+        try {
+            bureau.setActif(rs.getBoolean("actif"));
+        } catch (SQLException e) {
+            bureau.setActif(true); // Valeur par défaut
+        }
+
+        // Gestion du service parent
+        try {
+            Long serviceId = rs.getLong("service_id");
+            if (serviceId != null && serviceId > 0) {
+                Service service = new Service();
+                service.setId(serviceId);
+                service.setCodeService(rs.getString("code_service"));
+                service.setNomService(rs.getString("nom_service"));
+                bureau.setService(service);
+            }
+        } catch (SQLException e) {
+            logger.debug("Pas de service associé pour le bureau {}", bureau.getId());
+        }
+
+        // Gestion des timestamps
         try {
             Timestamp createdAt = rs.getTimestamp("created_at");
             if (createdAt != null) {
@@ -91,13 +118,21 @@ public class BureauDAO extends AbstractSQLiteDAO<Bureau, Long> {
     protected void setInsertParameters(PreparedStatement stmt, Bureau bureau) throws SQLException {
         stmt.setString(1, bureau.getCodeBureau());
         stmt.setString(2, bureau.getNomBureau());
+        stmt.setString(3, bureau.getDescription());
+        stmt.setBoolean(4, bureau.isActif());
+
+        // Service parent
+        if (bureau.getService() != null && bureau.getService().getId() != null) {
+            stmt.setLong(5, bureau.getService().getId());
+        } else {
+            stmt.setNull(5, Types.BIGINT);
+        }
     }
 
     @Override
     protected void setUpdateParameters(PreparedStatement stmt, Bureau bureau) throws SQLException {
-        stmt.setString(1, bureau.getCodeBureau());
-        stmt.setString(2, bureau.getNomBureau());
-        stmt.setLong(3, bureau.getId());
+        setInsertParameters(stmt, bureau);
+        stmt.setLong(6, bureau.getId());
     }
 
     @Override
@@ -110,16 +145,25 @@ public class BureauDAO extends AbstractSQLiteDAO<Bureau, Long> {
         bureau.setId(id);
     }
 
-    // Méthodes spécifiques aux bureaux
+    // ========== MÉTHODES SPÉCIFIQUES AUX BUREAUX ==========
 
     /**
-     * Trouve un bureau par son code
+     * Trouve un bureau par son code - COMPATIBLE AVEC ReferentielController
+     */
+    public Optional<Bureau> findByCode(String code) {
+        return findByCodeBureau(code);
+    }
+
+    /**
+     * Trouve un bureau par son code bureau
      */
     public Optional<Bureau> findByCodeBureau(String codeBureau) {
         String sql = """
-            SELECT id, code_bureau, nom_bureau, created_at 
-            FROM bureaux 
-            WHERE code_bureau = ?
+            SELECT b.id, b.code_bureau, b.nom_bureau, b.description, b.actif, b.service_id, b.created_at,
+                   s.code_service, s.nom_service
+            FROM bureaux b
+            LEFT JOIN services s ON b.service_id = s.id
+            WHERE b.code_bureau = ?
         """;
 
         try (Connection conn = DatabaseConfig.getSQLiteConnection();
@@ -140,23 +184,31 @@ public class BureauDAO extends AbstractSQLiteDAO<Bureau, Long> {
     }
 
     /**
-     * Recherche de bureaux avec critères multiples
+     * Recherche de bureaux avec critères multiples - POUR ReferentielController
      */
-    public List<Bureau> searchBureaux(String nomOuCode, int offset, int limit) {
+    public List<Bureau> searchBureaux(String nomOuCode, Boolean actifOnly, int offset, int limit) {
         StringBuilder sql = new StringBuilder();
-        sql.append("SELECT id, code_bureau, nom_bureau, created_at ");
-        sql.append("FROM bureaux WHERE 1=1 ");
+        sql.append("SELECT b.id, b.code_bureau, b.nom_bureau, b.description, b.actif, b.service_id, b.created_at, ");
+        sql.append("s.code_service, s.nom_service ");
+        sql.append("FROM bureaux b ");
+        sql.append("LEFT JOIN services s ON b.service_id = s.id ");
+        sql.append("WHERE 1=1 ");
 
         List<Object> parameters = new ArrayList<>();
 
         if (nomOuCode != null && !nomOuCode.trim().isEmpty()) {
-            sql.append("AND (nom_bureau LIKE ? OR code_bureau LIKE ?) ");
+            sql.append("AND (b.nom_bureau LIKE ? OR b.code_bureau LIKE ?) ");
             String searchPattern = "%" + nomOuCode.trim() + "%";
             parameters.add(searchPattern);
             parameters.add(searchPattern);
         }
 
-        sql.append("ORDER BY nom_bureau ASC LIMIT ? OFFSET ?");
+        if (actifOnly != null) {
+            sql.append("AND b.actif = ? ");
+            parameters.add(actifOnly);
+        }
+
+        sql.append("ORDER BY b.nom_bureau ASC LIMIT ? OFFSET ?");
         parameters.add(limit);
         parameters.add(offset);
 
@@ -183,38 +235,66 @@ public class BureauDAO extends AbstractSQLiteDAO<Bureau, Long> {
     }
 
     /**
-     * Compte les bureaux correspondant aux critères
+     * Trouve tous les bureaux actifs - POUR LES COMBOBOX
      */
-    public long countSearchBureaux(String nomOuCode) {
-        StringBuilder sql = new StringBuilder();
-        sql.append("SELECT COUNT(*) FROM bureaux WHERE 1=1 ");
+    public List<Bureau> findAllActive() {
+        String sql = """
+            SELECT b.id, b.code_bureau, b.nom_bureau, b.description, b.actif, b.service_id, b.created_at,
+                   s.code_service, s.nom_service
+            FROM bureaux b
+            LEFT JOIN services s ON b.service_id = s.id
+            WHERE b.actif = 1
+            ORDER BY b.nom_bureau ASC
+        """;
 
-        List<Object> parameters = new ArrayList<>();
-
-        if (nomOuCode != null && !nomOuCode.trim().isEmpty()) {
-            sql.append("AND (nom_bureau LIKE ? OR code_bureau LIKE ?) ");
-            String searchPattern = "%" + nomOuCode.trim() + "%";
-            parameters.add(searchPattern);
-            parameters.add(searchPattern);
-        }
+        List<Bureau> bureaux = new ArrayList<>();
 
         try (Connection conn = DatabaseConfig.getSQLiteConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
-
-            for (int i = 0; i < parameters.size(); i++) {
-                stmt.setObject(i + 1, parameters.get(i));
-            }
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             ResultSet rs = stmt.executeQuery();
-            if (rs.next()) {
-                return rs.getLong(1);
+
+            while (rs.next()) {
+                bureaux.add(mapResultSetToEntity(rs));
             }
 
         } catch (SQLException e) {
-            logger.error("Erreur lors du comptage des bureaux", e);
+            logger.error("Erreur lors de la récupération des bureaux actifs", e);
         }
 
-        return 0;
+        return bureaux;
+    }
+
+    /**
+     * Trouve les bureaux par service
+     */
+    public List<Bureau> findByServiceId(Long serviceId) {
+        String sql = """
+            SELECT b.id, b.code_bureau, b.nom_bureau, b.description, b.actif, b.service_id, b.created_at,
+                   s.code_service, s.nom_service
+            FROM bureaux b
+            LEFT JOIN services s ON b.service_id = s.id
+            WHERE b.service_id = ?
+            ORDER BY b.nom_bureau ASC
+        """;
+
+        List<Bureau> bureaux = new ArrayList<>();
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setLong(1, serviceId);
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                bureaux.add(mapResultSetToEntity(rs));
+            }
+
+        } catch (SQLException e) {
+            logger.error("Erreur lors de la récupération des bureaux par service: " + serviceId, e);
+        }
+
+        return bureaux;
     }
 
     /**

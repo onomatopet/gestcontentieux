@@ -10,312 +10,285 @@ import com.regulation.contentieux.util.CurrencyFormatter;
 import com.regulation.contentieux.util.DateFormatter;
 import javafx.concurrent.Task;
 import javafx.print.*;
+import javafx.scene.Node;
+import javafx.scene.web.WebEngine;
 import javafx.scene.web.WebView;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import java.util.Arrays;
-import java.util.HashMap;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Service d'impression des rapports de rétrocession
- * Gère la génération HTML et l'impression des 8 imprimés
+ * Service d'impression pour les rapports et documents - VERSION CORRIGÉE
+ * Gestion de l'impression PDF et directe
  */
 public class PrintService {
 
     private static final Logger logger = LoggerFactory.getLogger(PrintService.class);
 
-    // VARIABLES D'INSTANCE À AJOUTER EN HAUT DE LA CLASSE
-    private AffaireDAO affaireDAO;
-    private EncaissementDAO encaissementDAO;
-    private String partIndicateur = "15.0"; // Pourcentage par défaut pour les indicateurs
+    private final RapportService rapportService;
+    private final AffaireDAO affaireDAO;
+    private final EncaissementDAO encaissementDAO;
 
-    // CONSTRUCTEUR À AJOUTER OU MODIFIER
     public PrintService() {
+        this.rapportService = new RapportService();
         this.affaireDAO = new AffaireDAO();
         this.encaissementDAO = new EncaissementDAO();
     }
 
-    // ==================== TEMPLATE HTML DE BASE ====================
+    // ==================== IMPRESSION DIRECTE ====================
 
     /**
-     * Template HTML de base pour tous les imprimés
+     * Imprime un rapport de rétrocession
      */
-    private static final String BASE_TEMPLATE = """
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <title>{{TITRE}}</title>
-            <style>
-                body { 
-                    font-family: 'Arial', sans-serif; 
-                    margin: 15px; 
-                    font-size: 12px;
-                    line-height: 1.3;
-                }
-                .header { 
-                    text-align: center; 
-                    margin-bottom: 25px; 
-                    border-bottom: 2px solid #000;
-                    padding-bottom: 15px;
-                }
-                .title { 
-                    font-size: 16px; 
-                    font-weight: bold; 
-                    margin-bottom: 8px;
-                    text-transform: uppercase;
-                }
-                .subtitle { 
-                    font-size: 14px; 
-                    margin-bottom: 5px;
-                }
-                .period { 
-                    font-size: 12px; 
-                    color: #666; 
-                }
-                
-                table { 
-                    width: 100%; 
-                    border-collapse: collapse; 
-                    margin-bottom: 20px;
-                    font-size: 10px;
-                }
-                th, td { 
-                    padding: 4px 6px; 
-                    text-align: left; 
-                    border: 1px solid #000;
-                    vertical-align: middle;
-                }
-                th { 
-                    background-color: #f0f0f0; 
-                    font-weight: bold;
-                    text-align: center;
-                }
-                .currency { 
-                    text-align: right; 
-                    font-family: 'Courier New', monospace;
-                }
-                .center { 
-                    text-align: center; 
-                }
-                .total-row { 
-                    font-weight: bold; 
-                    background-color: #f9f9f9; 
-                }
-                .section-header {
-                    background-color: #e0e0e0;
-                    font-weight: bold;
-                    text-align: center;
-                }
-                .sub-section-header {
-                    background-color: #f0f0f0;
-                    font-weight: bold;
-                    font-style: italic;
-                }
-                
-                .footer { 
-                    margin-top: 30px; 
-                    text-align: center; 
-                    font-size: 10px; 
-                    color: #666;
-                    border-top: 1px solid #ccc;
-                    padding-top: 10px;
-                }
-                
-                @media print {
-                    body { margin: 0; font-size: 11px; }
-                    .page-break { page-break-before: always; }
-                    table { font-size: 9px; }
-                    th, td { padding: 3px 5px; }
-                }
-            </style>
-        </head>
-        <body>
-            {{HEADER}}
-            {{CONTENT}}
-            {{FOOTER}}
-        </body>
-        </html>
-        """;
+    public CompletableFuture<Boolean> printRapportRetrocession(LocalDate dateDebut, LocalDate dateFin) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                logger.info("Génération du rapport de rétrocession: {} à {}", dateDebut, dateFin);
 
-    // ==================== MÉTHODES UTILITAIRES ====================
+                // Génération des données
+                EtatRepartitionAffairesDTO rapport = rapportService.genererEtatRepartitionAffaires(dateDebut, dateFin);
 
-    /**
-     * Génère l'en-tête standard pour tous les imprimés
-     */
-    private String genererEnteteStandard(String titre, String periode, LocalDateTime dateGeneration) {
-        return String.format("""
-            <div class="header">
-                <div class="title">%s</div>
-                <div class="subtitle">Période: %s</div>
-                <div class="period">Généré le: %s</div>
-            </div>
-            """,
-                titre,
-                periode,
-                DateFormatter.formatDateTime(dateGeneration)
-        );
+                // Création du contenu HTML
+                String htmlContent = generateHtmlRapportRetrocession(rapport);
+
+                // Impression
+                return printHtmlContent(htmlContent, "Rapport de Rétrocession");
+
+            } catch (Exception e) {
+                logger.error("Erreur lors de l'impression du rapport de rétrocession", e);
+                return false;
+            }
+        });
     }
 
     /**
-     * Génère le pied de page standard
+     * Imprime un état des indicateurs réels
      */
-    private String genererPiedPageStandard() {
-        return String.format("""
-            <div class="footer">
-                Document généré automatiquement le %s par l'application de gestion des affaires contentieuses
-            </div>
-            """,
-                DateFormatter.formatDateTime(LocalDateTime.now())
-        );
+    public CompletableFuture<Boolean> printEtatIndicateurs(LocalDate dateDebut, LocalDate dateFin) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                logger.info("Génération de l'état des indicateurs: {} à {}", dateDebut, dateFin);
+
+                // Génération des données
+                EtatIndicateursReelsDTO etat = rapportService.genererEtatIndicateursReels(dateDebut, dateFin);
+
+                // Création du contenu HTML
+                String htmlContent = generateHtmlEtatIndicateurs(etat);
+
+                // Impression
+                return printHtmlContent(htmlContent, "État des Indicateurs Réels");
+
+            } catch (Exception e) {
+                logger.error("Erreur lors de l'impression de l'état des indicateurs", e);
+                return false;
+            }
+        });
     }
 
     /**
-     * Échapper les caractères HTML
+     * Imprime un reçu d'encaissement
      */
-    private String escapeHtml(String text) {
-        if (text == null) return "";
-        return text.replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
-                .replace("\"", "&quot;")
-                .replace("'", "&#x27;");
-    }
+    public CompletableFuture<Boolean> printRecuEncaissement(Long encaissementId) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                logger.info("Génération du reçu d'encaissement: {}", encaissementId);
 
-    // ==================== DTO 1: ETAT DE REPARTITION DES AFFAIRES CONTENTIEUSES ====================
+                // Récupération de l'encaissement
+                Encaissement encaissement = encaissementDAO.findById(encaissementId)
+                        .orElseThrow(() -> new IllegalArgumentException("Encaissement non trouvé: " + encaissementId));
 
-    /**
-     * DTO pour l'imprimé 1: "ETAT DE REPARTITION DES AFFAIRES CONTENTIEUSE"
-     * Le plus complexe avec toutes les colonnes de répartition
-     */
-    public static class EtatRepartitionAffairesDTO {
-        private LocalDate dateDebut;
-        private LocalDate dateFin;
-        private LocalDate dateGeneration;
-        private String periodeLibelle;
-        private List<AffaireRepartitionCompleteDTO> affaires;
-        private TotauxRepartitionDTO totaux;
-        private int totalAffaires;
+                // Récupération de l'affaire
+                Affaire affaire = affaireDAO.findById(encaissement.getAffaireId())
+                        .orElseThrow(() -> new IllegalArgumentException("Affaire non trouvée: " + encaissement.getAffaireId()));
 
-        public EtatRepartitionAffairesDTO() {
-            this.affaires = new ArrayList<>();
-            this.dateGeneration = LocalDate.now();
-            this.totaux = new TotauxRepartitionDTO();
-            this.totalAffaires = 0;
-        }
+                // Création du contenu HTML
+                String htmlContent = generateHtmlRecuEncaissement(encaissement, affaire);
 
-        // Getters et setters
-        public LocalDate getDateDebut() { return dateDebut; }
-        public void setDateDebut(LocalDate dateDebut) { this.dateDebut = dateDebut; }
+                // Impression
+                return printHtmlContent(htmlContent, "Reçu d'Encaissement");
 
-        public LocalDate getDateFin() { return dateFin; }
-        public void setDateFin(LocalDate dateFin) { this.dateFin = dateFin; }
-
-        public LocalDate getDateGeneration() { return dateGeneration; }
-        public void setDateGeneration(LocalDate dateGeneration) { this.dateGeneration = dateGeneration; }
-
-        public String getPeriodeLibelle() { return periodeLibelle; }
-        public void setPeriodeLibelle(String periodeLibelle) { this.periodeLibelle = periodeLibelle; }
-
-        public List<AffaireRepartitionCompleteDTO> getAffaires() { return affaires; }
-        public void setAffaires(List<AffaireRepartitionCompleteDTO> affaires) { this.affaires = affaires; }
-
-        public TotauxRepartitionDTO getTotaux() { return totaux; }
-        public void setTotaux(TotauxRepartitionDTO totaux) { this.totaux = totaux; }
-
-        public int getTotalAffaires() { return totalAffaires; }
-        public void setTotalAffaires(int totalAffaires) { this.totalAffaires = totalAffaires; }
+            } catch (Exception e) {
+                logger.error("Erreur lors de l'impression du reçu d'encaissement", e);
+                return false;
+            }
+        });
     }
 
     /**
-     * Formate une période pour l'affichage
+     * Imprime une liste d'affaires
      */
-    private String formatPeriode(LocalDate debut, LocalDate fin) {
-        if (debut.getYear() == fin.getYear() && debut.getMonth() == fin.getMonth()) {
-            return debut.getMonth().name() + " " + debut.getYear();
-        } else if (debut.getYear() == fin.getYear()) {
-            return "Du " + DateFormatter.formatDate(debut) + " au " + DateFormatter.formatDate(fin);
-        } else {
-            return "Du " + DateFormatter.formatDate(debut) + " au " + DateFormatter.formatDate(fin);
-        }
+    public CompletableFuture<Boolean> printListeAffaires(List<Affaire> affaires, String titre) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                logger.info("Impression d'une liste de {} affaires", affaires.size());
+
+                // Création du contenu HTML
+                String htmlContent = generateHtmlListeAffaires(affaires, titre);
+
+                // Impression
+                return printHtmlContent(htmlContent, titre);
+
+            } catch (Exception e) {
+                logger.error("Erreur lors de l'impression de la liste d'affaires", e);
+                return false;
+            }
+        });
     }
 
-    /**
-     * Détermine la direction départementale (indicatif pour l'instant)
-     */
-    private String determinerDirectionDepartementale(Affaire affaire) {
-        // TODO: Logique à implémenter plus tard
-        return "DD Centrale";
-    }
+    // ==================== IMPRESSION HTML ====================
 
     /**
-     * Valide les paramètres d'un rapport
+     * Imprime du contenu HTML
      */
-    public boolean validerParametresRapport(LocalDate dateDebut, LocalDate dateFin) {
-        if (dateDebut == null || dateFin == null) {
-            return false;
-        }
-
-        if (dateDebut.isAfter(dateFin)) {
-            return false;
-        }
-
-        if (dateDebut.isAfter(LocalDate.now())) {
-            return false;
-        }
-
-        // Limite à 5 ans en arrière
-        if (dateDebut.isBefore(LocalDate.now().minusYears(5))) {
-            return false;
-        }
-
-        return true;
-    }
-
-    /**
-     * Génère l'aperçu d'un rapport de rétrocession
-     */
-    public WebView genererApercuRapport(RapportRepartitionDTO rapport) {
+    private boolean printHtmlContent(String htmlContent, String jobName) {
         try {
-            // TODO: Implémenter la génération HTML du rapport
-            String htmlContent = genererHTMLRapport(rapport);
-
+            // Création de la WebView pour le rendu
             WebView webView = new WebView();
-            webView.getEngine().loadContent(htmlContent);
+            WebEngine webEngine = webView.getEngine();
 
-            logger.info("Aperçu généré pour le rapport: {}", rapport.getPeriodeLibelle());
-            return webView;
+            // Chargement du contenu HTML
+            webEngine.loadContent(htmlContent);
+
+            // Attendre que le contenu soit chargé
+            webEngine.getLoadWorker().stateProperty().addListener((obs, oldState, newState) -> {
+                if (newState == javafx.concurrent.Worker.State.SUCCEEDED) {
+                    // Lancer l'impression
+                    printNode(webView, jobName);
+                }
+            });
+
+            return true;
 
         } catch (Exception e) {
-            logger.error("Erreur lors de la génération de l'aperçu", e);
-            throw new RuntimeException("Impossible de générer l'aperçu: " + e.getMessage(), e);
+            logger.error("Erreur lors de l'impression HTML", e);
+            return false;
         }
     }
 
     /**
-     * Génère le contenu HTML pour un rapport
+     * Imprime un nœud JavaFX
      */
-    private String genererHTMLRapport(RapportRepartitionDTO rapport) {
+    private boolean printNode(Node node, String jobName) {
+        try {
+            // Configuration de l'imprimante
+            Printer printer = Printer.getDefaultPrinter();
+            if (printer == null) {
+                logger.error("Aucune imprimante disponible");
+                return false;
+            }
+
+            // Configuration du job d'impression
+            PrinterJob job = PrinterJob.createPrinterJob(printer);
+            if (job == null) {
+                logger.error("Impossible de créer le job d'impression");
+                return false;
+            }
+
+            job.getJobSettings().setJobName(jobName);
+
+            // Configuration de la page
+            PageLayout pageLayout = printer.createPageLayout(
+                    Paper.A4,
+                    PageOrientation.PORTRAIT,
+                    Printer.MarginType.DEFAULT
+            );
+            job.getJobSettings().setPageLayout(pageLayout);
+
+            // Impression
+            boolean success = job.printPage(node);
+            if (success) {
+                job.endJob();
+                logger.info("Impression réussie: {}", jobName);
+            } else {
+                logger.error("Échec de l'impression: {}", jobName);
+            }
+
+            return success;
+
+        } catch (Exception e) {
+            logger.error("Erreur lors de l'impression du nœud", e);
+            return false;
+        }
+    }
+
+    // ==================== GÉNÉRATION HTML ====================
+
+    /**
+     * Génère le HTML pour le rapport de rétrocession
+     */
+    private String generateHtmlRapportRetrocession(EtatRepartitionAffairesDTO rapport) {
         StringBuilder html = new StringBuilder();
 
         html.append("<!DOCTYPE html><html><head>");
+        html.append("<meta charset='UTF-8'>");
         html.append("<title>Rapport de Rétrocession</title>");
-        html.append("<style>body{font-family:Arial;margin:20px;}</style>");
+        html.append(getDefaultStyles());
         html.append("</head><body>");
 
-        html.append("<h1>Rapport de Rétrocession</h1>");
-        html.append("<p>Période: ").append(rapport.getPeriodeLibelle()).append("</p>");
-        html.append("<p>Nombre d'affaires: ").append(rapport.getNombreAffaires()).append("</p>");
-        html.append("<p>Total encaissé: ").append(CurrencyFormatter.format(rapport.getTotalEncaisse())).append("</p>");
+        // En-tête
+        html.append("<div class='header'>");
+        html.append("<h1>RÉPUBLIQUE GABONAISE</h1>");
+        html.append("<h2>MINISTÈRE DE L'ÉCONOMIE ET DE LA RELANCE</h2>");
+        html.append("<h3>DIRECTION GÉNÉRALE DE LA CONCURRENCE ET DE LA CONSOMMATION</h3>");
+        html.append("<br><h2>RAPPORT DE RÉTROCESSION</h2>");
+        html.append("<p>Période du ").append(DateFormatter.formatDate(rapport.getDateDebut()));
+        html.append(" au ").append(DateFormatter.formatDate(rapport.getDateFin())).append("</p>");
+        html.append("</div>");
+
+        // Tableau des affaires
+        html.append("<table class='data-table'>");
+        html.append("<thead>");
+        html.append("<tr>");
+        html.append("<th>N° Encaissement</th>");
+        html.append("<th>Date</th>");
+        html.append("<th>N° Affaire</th>");
+        html.append("<th>Produit Disponible</th>");
+        html.append("<th>Direction</th>");
+        html.append("<th>Indicateur</th>");
+        html.append("<th>Produit Net</th>");
+        html.append("<th>FLCF</th>");
+        html.append("<th>Trésor</th>");
+        html.append("</tr>");
+        html.append("</thead>");
+        html.append("<tbody>");
+
+        for (AffaireRepartitionCompleteDTO affaire : rapport.getAffaires()) {
+            html.append("<tr>");
+            html.append("<td>").append(affaire.getNumeroEncaissement()).append("</td>");
+            html.append("<td>").append(DateFormatter.formatDate(affaire.getDateEncaissement())).append("</td>");
+            html.append("<td>").append(affaire.getNumeroAffaire()).append("</td>");
+            html.append("<td class='amount'>").append(CurrencyFormatter.format(affaire.getProduitDisponible())).append("</td>");
+            html.append("<td>").append(affaire.getDirectionDepartementale()).append("</td>");
+            html.append("<td class='amount'>").append(CurrencyFormatter.format(affaire.getIndicateur())).append("</td>");
+            html.append("<td class='amount'>").append(CurrencyFormatter.format(affaire.getProduitNet())).append("</td>");
+            html.append("<td class='amount'>").append(CurrencyFormatter.format(affaire.getFlcf())).append("</td>");
+            html.append("<td class='amount'>").append(CurrencyFormatter.format(affaire.getTresor())).append("</td>");
+            html.append("</tr>");
+        }
+
+        html.append("</tbody>");
+        html.append("<tfoot>");
+        html.append("<tr class='total-row'>");
+        html.append("<td colspan='3'><strong>TOTAUX</strong></td>");
+        html.append("<td class='amount'><strong>").append(CurrencyFormatter.format(rapport.getTotaux().getTotalProduitDisponible())).append("</strong></td>");
+        html.append("<td></td>");
+        html.append("<td class='amount'><strong>").append(CurrencyFormatter.format(rapport.getTotaux().getTotalIndicateur())).append("</strong></td>");
+        html.append("<td class='amount'><strong>").append(CurrencyFormatter.format(rapport.getTotaux().getTotalProduitNet())).append("</strong></td>");
+        html.append("<td class='amount'><strong>").append(CurrencyFormatter.format(rapport.getTotaux().getTotalFlcf())).append("</strong></td>");
+        html.append("<td class='amount'><strong>").append(CurrencyFormatter.format(rapport.getTotaux().getTotalTresor())).append("</strong></td>");
+        html.append("</tr>");
+        html.append("</tfoot>");
+        html.append("</table>");
+
+        // Pied de page
+        html.append("<div class='footer'>");
+        html.append("<p>Rapport généré le ").append(DateFormatter.formatDateTime(rapport.getDateGeneration().atStartOfDay())).append("</p>");
+        html.append("<p>Total des affaires: ").append(rapport.getTotalAffaires()).append("</p>");
+        html.append("</div>");
 
         html.append("</body></html>");
 
@@ -323,1218 +296,356 @@ public class PrintService {
     }
 
     /**
-     * Imprime un rapport de rétrocession
+     * Génère le HTML pour l'état des indicateurs
      */
-    public CompletableFuture<Boolean> imprimerRapport(RapportRepartitionDTO rapport) {
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                logger.info("Début de l'impression du rapport: {}", rapport.getPeriodeLibelle());
-
-                String htmlContent = genererHTMLRapport(rapport);
-
-                WebView webView = new WebView();
-                webView.getEngine().loadContent(htmlContent);
-
-                // Attendre que le contenu soit chargé avant d'imprimer
-                webView.getEngine().getLoadWorker().stateProperty().addListener((obs, oldState, newState) -> {
-                    if (newState == javafx.concurrent.Worker.State.SUCCEEDED) {
-                        javafx.application.Platform.runLater(() -> {
-                            try {
-                                executerImpression(webView);
-                            } catch (Exception e) {
-                                logger.error("Erreur lors de l'exécution de l'impression", e);
-                            }
-                        });
-                    }
-                });
-
-                return true;
-
-            } catch (Exception e) {
-                logger.error("Erreur lors de l'impression du rapport", e);
-                return false;
-            }
-        });
-    }
-
-    /**
-     * Exécute l'impression avec les paramètres par défaut
-     */
-    private void executerImpression(WebView webView) {
-        Printer defaultPrinter = Printer.getDefaultPrinter();
-        if (defaultPrinter == null) {
-            logger.warn("Aucune imprimante par défaut trouvée");
-            return;
-        }
-
-        PrinterJob printerJob = PrinterJob.createPrinterJob();
-        if (printerJob == null) {
-            logger.error("Impossible de créer le job d'impression");
-            return;
-        }
-
-        PageLayout pageLayout = defaultPrinter.createPageLayout(
-                Paper.A4,
-                PageOrientation.PORTRAIT,
-                Printer.MarginType.DEFAULT
-        );
-
-        printerJob.getJobSettings().setPageLayout(pageLayout);
-
-        boolean proceed = printerJob.showPrintDialog(webView.getScene().getWindow());
-
-        if (proceed) {
-            boolean success = printerJob.printPage(webView);
-            if (success) {
-                printerJob.endJob();
-                logger.info("Impression terminée avec succès");
-            } else {
-                logger.error("Échec de l'impression");
-            }
-        } else {
-            logger.info("Impression annulée par l'utilisateur");
-        }
-    }
-
-    /**
-     * DTO pour une ligne complète de répartition d'affaire
-     */
-    public static class AffaireRepartitionCompleteDTO {
-        private String numeroEncaissement;
-        private LocalDate dateEncaissement;
-        private String numeroAffaire;
-        private LocalDate dateAffaire;
-        private BigDecimal produitDisponible;
-        private String directionDepartementale;
-        private BigDecimal indicateur;
-        private BigDecimal produitNet;
-        private BigDecimal flcf;
-        private BigDecimal tresor;
-        private BigDecimal produitNetAyantsDroits;
-        private BigDecimal chefs;
-        private BigDecimal saisissants;
-        private BigDecimal mutuelleNationale;
-        private BigDecimal masseCommune;
-        private BigDecimal interessement;
-
-        public AffaireRepartitionCompleteDTO() {}
-
-        // Getters et setters
-        public String getNumeroEncaissement() { return numeroEncaissement; }
-        public void setNumeroEncaissement(String numeroEncaissement) { this.numeroEncaissement = numeroEncaissement; }
-
-        public LocalDate getDateEncaissement() { return dateEncaissement; }
-        public void setDateEncaissement(LocalDate dateEncaissement) { this.dateEncaissement = dateEncaissement; }
-
-        public String getNumeroAffaire() { return numeroAffaire; }
-        public void setNumeroAffaire(String numeroAffaire) { this.numeroAffaire = numeroAffaire; }
-
-        public LocalDate getDateAffaire() { return dateAffaire; }
-        public void setDateAffaire(LocalDate dateAffaire) { this.dateAffaire = dateAffaire; }
-
-        public BigDecimal getProduitDisponible() { return produitDisponible; }
-        public void setProduitDisponible(BigDecimal produitDisponible) { this.produitDisponible = produitDisponible; }
-
-        public String getDirectionDepartementale() { return directionDepartementale; }
-        public void setDirectionDepartementale(String directionDepartementale) { this.directionDepartementale = directionDepartementale; }
-
-        public BigDecimal getIndicateur() { return indicateur; }
-        public void setIndicateur(BigDecimal indicateur) { this.indicateur = indicateur; }
-
-        public BigDecimal getProduitNet() { return produitNet; }
-        public void setProduitNet(BigDecimal produitNet) { this.produitNet = produitNet; }
-
-        public BigDecimal getFlcf() { return flcf; }
-        public void setFlcf(BigDecimal flcf) { this.flcf = flcf; }
-
-        public BigDecimal getTresor() { return tresor; }
-        public void setTresor(BigDecimal tresor) { this.tresor = tresor; }
-
-        public BigDecimal getProduitNetAyantsDroits() { return produitNetAyantsDroits; }
-        public void setProduitNetAyantsDroits(BigDecimal produitNetAyantsDroits) { this.produitNetAyantsDroits = produitNetAyantsDroits; }
-
-        public BigDecimal getChefs() { return chefs; }
-        public void setChefs(BigDecimal chefs) { this.chefs = chefs; }
-
-        public BigDecimal getSaisissants() { return saisissants; }
-        public void setSaisissants(BigDecimal saisissants) { this.saisissants = saisissants; }
-
-        public BigDecimal getMutuelleNationale() { return mutuelleNationale; }
-        public void setMutuelleNationale(BigDecimal mutuelleNationale) { this.mutuelleNationale = mutuelleNationale; }
-
-        public BigDecimal getMasseCommune() { return masseCommune; }
-        public void setMasseCommune(BigDecimal masseCommune) { this.masseCommune = masseCommune; }
-
-        public BigDecimal getInteressement() { return interessement; }
-        public void setInteressement(BigDecimal interessement) { this.interessement = interessement; }
-    }
-
-    /**
-     * DTO pour les totaux de répartition
-     */
-    public static class TotauxRepartitionDTO {
-        private BigDecimal totalProduitDisponible;
-        private BigDecimal totalIndicateur;
-        private BigDecimal totalProduitNet;
-        private BigDecimal totalFlcf;
-        private BigDecimal totalTresor;
-        private BigDecimal totalProduitNetAyantsDroits;
-        private BigDecimal totalChefs;
-        private BigDecimal totalSaisissants;
-        private BigDecimal totalMutuelleNationale;
-        private BigDecimal totalMasseCommune;
-        private BigDecimal totalInteressement;
-
-        public TotauxRepartitionDTO() {
-            this.totalProduitDisponible = BigDecimal.ZERO;
-            this.totalIndicateur = BigDecimal.ZERO;
-            this.totalProduitNet = BigDecimal.ZERO;
-            this.totalFlcf = BigDecimal.ZERO;
-            this.totalTresor = BigDecimal.ZERO;
-            this.totalProduitNetAyantsDroits = BigDecimal.ZERO;
-            this.totalChefs = BigDecimal.ZERO;
-            this.totalSaisissants = BigDecimal.ZERO;
-            this.totalMutuelleNationale = BigDecimal.ZERO;
-            this.totalMasseCommune = BigDecimal.ZERO;
-            this.totalInteressement = BigDecimal.ZERO;
-        }
-
-        // Getters et setters
-        public BigDecimal getTotalProduitDisponible() { return totalProduitDisponible; }
-        public void setTotalProduitDisponible(BigDecimal totalProduitDisponible) { this.totalProduitDisponible = totalProduitDisponible; }
-
-        public BigDecimal getTotalIndicateur() { return totalIndicateur; }
-        public void setTotalIndicateur(BigDecimal totalIndicateur) { this.totalIndicateur = totalIndicateur; }
-
-        public BigDecimal getTotalProduitNet() { return totalProduitNet; }
-        public void setTotalProduitNet(BigDecimal totalProduitNet) { this.totalProduitNet = totalProduitNet; }
-
-        public BigDecimal getTotalFlcf() { return totalFlcf; }
-        public void setTotalFlcf(BigDecimal totalFlcf) { this.totalFlcf = totalFlcf; }
-
-        public BigDecimal getTotalTresor() { return totalTresor; }
-        public void setTotalTresor(BigDecimal totalTresor) { this.totalTresor = totalTresor; }
-
-        public BigDecimal getTotalProduitNetAyantsDroits() { return totalProduitNetAyantsDroits; }
-        public void setTotalProduitNetAyantsDroits(BigDecimal totalProduitNetAyantsDroits) { this.totalProduitNetAyantsDroits = totalProduitNetAyantsDroits; }
-
-        public BigDecimal getTotalChefs() { return totalChefs; }
-        public void setTotalChefs(BigDecimal totalChefs) { this.totalChefs = totalChefs; }
-
-        public BigDecimal getTotalSaisissants() { return totalSaisissants; }
-        public void setTotalSaisissants(BigDecimal totalSaisissants) { this.totalSaisissants = totalSaisissants; }
-
-        public BigDecimal getTotalMutuelleNationale() { return totalMutuelleNationale; }
-        public void setTotalMutuelleNationale(BigDecimal totalMutuelleNationale) { this.totalMutuelleNationale = totalMutuelleNationale; }
-
-        public BigDecimal getTotalMasseCommune() { return totalMasseCommune; }
-        public void setTotalMasseCommune(BigDecimal totalMasseCommune) { this.totalMasseCommune = totalMasseCommune; }
-
-        public BigDecimal getTotalInteressement() { return totalInteressement; }
-        public void setTotalInteressement(BigDecimal totalInteressement) { this.totalInteressement = totalInteressement; }
-    }
-
-    /**
-     * Génère l'état de répartition des affaires contentieuses (Imprimé 1)
-     */
-    public EtatRepartitionAffairesDTO genererEtatRepartitionAffaires(LocalDate dateDebut, LocalDate dateFin) {
-        try {
-            logger.info("Génération de l'état de répartition des affaires contentieuses du {} au {}", dateDebut, dateFin);
-
-            EtatRepartitionAffairesDTO etat = new EtatRepartitionAffairesDTO();
-            etat.setDateDebut(dateDebut);
-            etat.setDateFin(dateFin);
-            etat.setPeriodeLibelle(formatPeriode(dateDebut, dateFin));
-
-            // Récupération des affaires avec encaissements
-            List<Affaire> affaires = affaireDAO.findAffairesWithEncaissementsByPeriod(dateDebut, dateFin);
-
-            List<AffaireRepartitionCompleteDTO> affairesDTO = new ArrayList<>();
-            TotauxRepartitionDTO totaux = new TotauxRepartitionDTO();
-
-            // Traitement de chaque affaire
-            for (Affaire affaire : affaires) {
-                List<Encaissement> encaissements = encaissementDAO.findByAffaireAndPeriod(
-                        affaire.getId(), dateDebut, dateFin);
-
-                for (Encaissement encaissement : encaissements) {
-                    if (encaissement.getStatut() == StatutEncaissement.VALIDE) {
-                        AffaireRepartitionCompleteDTO affaireDTO = new AffaireRepartitionCompleteDTO();
-
-                        // Données de base
-                        affaireDTO.setNumeroEncaissement(encaissement.getReferenceMandat());
-                        affaireDTO.setDateEncaissement(encaissement.getDateEncaissement());
-                        affaireDTO.setNumeroAffaire(affaire.getNumeroAffaire());
-                        affaireDTO.setDateAffaire(affaire.getDateCreation());
-
-                        // Direction départementale (indicatif pour l'instant)
-                        affaireDTO.setDirectionDepartementale(determinerDirectionDepartementale(affaire));
-
-                        // Calculs de répartition selon la hiérarchie
-                        BigDecimal produitDisponible = encaissement.getMontant();
-                        BigDecimal indicateur = CalculsRepartition.calculerIndicateur(produitDisponible);
-                        BigDecimal produitNet = CalculsRepartition.calculerProduitNet(produitDisponible);
-                        BigDecimal flcf = CalculsRepartition.calculerFLCF(produitNet);
-                        BigDecimal tresor = CalculsRepartition.calculerTresor(produitNet);
-                        BigDecimal produitNetAyantsDroits = CalculsRepartition.calculerProduitNetAyantsDroits(produitNet);
-
-                        BigDecimal chefs = CalculsRepartition.calculerPartChefs(produitNetAyantsDroits);
-                        BigDecimal saisissants = CalculsRepartition.calculerPartSaisissants(produitNetAyantsDroits);
-                        BigDecimal mutuelleNationale = CalculsRepartition.calculerPartMutuelleNationale(produitNetAyantsDroits);
-                        BigDecimal masseCommune = CalculsRepartition.calculerPartMasseCommune(produitNetAyantsDroits);
-                        BigDecimal interessement = CalculsRepartition.calculerPartInteressement(produitNetAyantsDroits);
-
-                        // Remplissage du DTO
-                        affaireDTO.setProduitDisponible(produitDisponible);
-                        affaireDTO.setIndicateur(indicateur);
-                        affaireDTO.setProduitNet(produitNet);
-                        affaireDTO.setFlcf(flcf);
-                        affaireDTO.setTresor(tresor);
-                        affaireDTO.setProduitNetAyantsDroits(produitNetAyantsDroits);
-                        affaireDTO.setChefs(chefs);
-                        affaireDTO.setSaisissants(saisissants);
-                        affaireDTO.setMutuelleNationale(mutuelleNationale);
-                        affaireDTO.setMasseCommune(masseCommune);
-                        affaireDTO.setInteressement(interessement);
-
-                        affairesDTO.add(affaireDTO);
-
-                        // Accumulation des totaux
-                        totaux.setTotalProduitDisponible(totaux.getTotalProduitDisponible().add(produitDisponible));
-                        totaux.setTotalPartIndicateur(totaux.getTotalPartIndicateur().add(partIndicateur));
-                        totaux.setTotalPartDirectionContentieux(totaux.getTotalPartDirectionContentieux().add(affaireDTO.getPartDirectionContentieux()));
-                        totaux.setTotalPartIndicateur2(totaux.getTotalPartIndicateur2().add(partIndicateur));
-                        totaux.setTotalFlcf(totaux.getTotalFlcf().add(flcf));
-                        totaux.setTotalMontantTresor(totaux.getTotalMontantTresor().add(tresor));
-                        totaux.setTotalMontantGlobalAyantsDroits(totaux.getTotalMontantGlobalAyantsDroits().add(produitNetAyantsDroits));
-                    }
-                }
-            }
-
-            // Tri par date d'encaissement
-            affairesDTO.sort((a1, a2) -> a1.getDateEncaissement().compareTo(a2.getDateEncaissement()));
-
-            etat.setAffaires(affairesDTO);
-            etat.setTotaux(totaux);
-            etat.setTotalAffaires(affaires.size());
-
-            logger.info("État de répartition du produit généré: {} lignes, {} FCFA produit disponible",
-                    affairesDTO.size(), CurrencyFormatter.format(totaux.getTotalProduitDisponible()));
-
-            return etat;
-
-        } catch (Exception e) {
-            logger.error("Erreur lors de la génération de l'état de répartition du produit", e);
-            throw new RuntimeException("Impossible de générer l'état: " + e.getMessage(), e);
-        }
-    }
-
-
-    // ==================== IMPRIMÉ 2: ÉTAT PAR SÉRIES DE MANDATEMENT ====================
-
-    /**
-     * Génère le HTML pour l'imprimé 2
-     */
-    public String genererHTML_EtatMandatement(EtatMandatementDTO etat) {
-        StringBuilder content = new StringBuilder();
-
-        content.append("""
-            <table>
-                <thead>
-                    <tr>
-                        <th rowspan="2">N° encaissement et Date</th>
-                        <th rowspan="2">N° Affaire et Date</th>
-                        <th rowspan="2">Produit net</th>
-                        <th colspan="5">Part revenant aux</th>
-                        <th rowspan="2">Observations</th>
-                    </tr>
-                    <tr>
-                        <th>Chefs</th>
-                        <th>Saisissants</th>
-                        <th>Mutuelle nationale</th>
-                        <th>Masse commune</th>
-                        <th>Intéressement</th>
-                    </tr>
-                </thead>
-                <tbody>
-            """);
-
-        // Lignes de données
-        for (MandatementDTO mandatement : etat.getMandatements()) {
-            content.append(String.format("""
-                <tr>
-                    <td class="center">%s<br/>%s</td>
-                    <td class="center">%s<br/>%s</td>
-                    <td class="currency">%s</td>
-                    <td class="currency">%s</td>
-                    <td class="currency">%s</td>
-                    <td class="currency">%s</td>
-                    <td class="currency">%s</td>
-                    <td class="currency">%s</td>
-                    <td>%s</td>
-                </tr>
-                """,
-                    escapeHtml(mandatement.getNumeroEncaissement()),
-                    DateFormatter.formatDate(mandatement.getDateEncaissement()),
-                    escapeHtml(mandatement.getNumeroAffaire()),
-                    DateFormatter.formatDate(mandatement.getDateAffaire()),
-                    CurrencyFormatter.formatWithoutSymbol(mandatement.getProduitNet()),
-                    CurrencyFormatter.formatWithoutSymbol(mandatement.getPartChefs()),
-                    CurrencyFormatter.formatWithoutSymbol(mandatement.getPartSaisissants()),
-                    CurrencyFormatter.formatWithoutSymbol(mandatement.getPartMutuelleNationale()),
-                    CurrencyFormatter.formatWithoutSymbol(mandatement.getPartMasseCommune()),
-                    CurrencyFormatter.formatWithoutSymbol(mandatement.getPartInteressement()),
-                    escapeHtml(mandatement.getObservations())
-            ));
-        }
-
-        // Ligne de total
-        content.append(String.format("""
-                <tr class="total-row">
-                    <td colspan="2"><strong>TOTAUX</strong></td>
-                    <td class="currency"><strong>%s</strong></td>
-                    <td class="currency"><strong>%s</strong></td>
-                    <td class="currency"><strong>%s</strong></td>
-                    <td class="currency"><strong>%s</strong></td>
-                    <td class="currency"><strong>%s</strong></td>
-                    <td class="currency"><strong>%s</strong></td>
-                    <td></td>
-                </tr>
-            """,
-                CurrencyFormatter.formatWithoutSymbol(etat.getTotalProduitNet()),
-                CurrencyFormatter.formatWithoutSymbol(etat.getTotalChefs()),
-                CurrencyFormatter.formatWithoutSymbol(etat.getTotalSaisissants()),
-                CurrencyFormatter.formatWithoutSymbol(etat.getTotalMutuelleNationale()),
-                CurrencyFormatter.formatWithoutSymbol(etat.getTotalMasseCommune()),
-                CurrencyFormatter.formatWithoutSymbol(etat.getTotalInteressement())
-        ));
-
-        content.append("""
-                </tbody>
-            </table>
-            """);
-
-        return assemblerHTML("État par Séries de Mandatement",
-                "ÉTAT PAR SÉRIES DE MANDATEMENT",
-                etat.getPeriodeLibelle(), etat.getDateGeneration(), content.toString());
-    }
-
-    // ==================== DTO 3: ETAT CUMULE PAR CENTRE DE REPARTITION ====================
-
-    /**
-     * DTO pour l'imprimé 3: "ETAT CUMULE PAR CENTRE DE REPARTITION"
-     * (À garder pour la fin comme convenu)
-     */
-    public static class EtatCentreRepartitionDTO {
-        private LocalDate dateDebut;
-        private LocalDate dateFin;
-        private LocalDate dateGeneration;
-        private String periodeLibelle;
-        private List<CentreRepartitionDTO> centres;
-        private BigDecimal totalRepartitionBase;
-        private BigDecimal totalRepartitionIndicateurFictif;
-        private BigDecimal totalPartCentre;
-
-        public EtatCentreRepartitionDTO() {
-            this.centres = new ArrayList<>();
-            this.dateGeneration = LocalDate.now();
-            this.totalRepartitionBase = BigDecimal.ZERO;
-            this.totalRepartitionIndicateurFictif = BigDecimal.ZERO;
-            this.totalPartCentre = BigDecimal.ZERO;
-        }
-
-        // Getters et setters
-        public LocalDate getDateDebut() { return dateDebut; }
-        public void setDateDebut(LocalDate dateDebut) { this.dateDebut = dateDebut; }
-
-        public LocalDate getDateFin() { return dateFin; }
-        public void setDateFin(LocalDate dateFin) { this.dateFin = dateFin; }
-
-        public LocalDate getDateGeneration() { return dateGeneration; }
-        public void setDateGeneration(LocalDate dateGeneration) { this.dateGeneration = dateGeneration; }
-
-        public String getPeriodeLibelle() { return periodeLibelle; }
-        public void setPeriodeLibelle(String periodeLibelle) { this.periodeLibelle = periodeLibelle; }
-
-        public List<CentreRepartitionDTO> getCentres() { return centres; }
-        public void setCentres(List<CentreRepartitionDTO> centres) { this.centres = centres; }
-
-        public BigDecimal getTotalRepartitionBase() { return totalRepartitionBase; }
-        public void setTotalRepartitionBase(BigDecimal totalRepartitionBase) { this.totalRepartitionBase = totalRepartitionBase; }
-
-        public BigDecimal getTotalRepartitionIndicateurFictif() { return totalRepartitionIndicateurFictif; }
-        public void setTotalRepartitionIndicateurFictif(BigDecimal totalRepartitionIndicateurFictif) { this.totalRepartitionIndicateurFictif = totalRepartitionIndicateurFictif; }
-
-        public BigDecimal getTotalPartCentre() { return totalPartCentre; }
-        public void setTotalPartCentre(BigDecimal totalPartCentre) { this.totalPartCentre = totalPartCentre; }
-    }
-
-    /**
-     * DTO pour un centre de répartition
-     */
-    public static class CentreRepartitionDTO {
-        private String nomCentre;
-        private BigDecimal partRepartitionBase;
-        private BigDecimal partRepartitionIndicateurFictif;
-        private BigDecimal partTotaleCentre;
-
-        public CentreRepartitionDTO() {}
-
-        public CentreRepartitionDTO(String nomCentre) {
-            this.nomCentre = nomCentre;
-            this.partRepartitionBase = BigDecimal.ZERO;
-            this.partRepartitionIndicateurFictif = BigDecimal.ZERO;
-            this.partTotaleCentre = BigDecimal.ZERO;
-        }
-
-        // Getters et setters
-        public String getNomCentre() { return nomCentre; }
-        public void setNomCentre(String nomCentre) { this.nomCentre = nomCentre; }
-
-        public BigDecimal getPartRepartitionBase() { return partRepartitionBase; }
-        public void setPartRepartitionBase(BigDecimal partRepartitionBase) { this.partRepartitionBase = partRepartitionBase; }
-
-        public BigDecimal getPartRepartitionIndicateurFictif() { return partRepartitionIndicateurFictif; }
-        public void setPartRepartitionIndicateurFictif(BigDecimal partRepartitionIndicateurFictif) { this.partRepartitionIndicateurFictif = partRepartitionIndicateurFictif; }
-
-        public BigDecimal getPartTotaleCentre() { return partTotaleCentre; }
-        public void setPartTotaleCentre(BigDecimal partTotaleCentre) { this.partTotaleCentre = partTotaleCentre; }
-
-        /**
-         * Calcule le total du centre
-         */
-        public void calculerTotal() {
-            this.partTotaleCentre = this.partRepartitionBase.add(this.partRepartitionIndicateurFictif);
-        }
-    }
-
-    /**
-     * Génère l'état cumulé par centre de répartition (Imprimé 3)
-     * Méthode placeholder - à implémenter plus tard
-     */
-    public EtatCentreRepartitionDTO genererEtatCentreRepartition(LocalDate dateDebut, LocalDate dateFin) {
-        try {
-            logger.info("Génération de l'état cumulé par centre de répartition du {} au {}", dateDebut, dateFin);
-
-            EtatCentreRepartitionDTO etat = new EtatCentreRepartitionDTO();
-            etat.setDateDebut(dateDebut);
-            etat.setDateFin(dateFin);
-            etat.setPeriodeLibelle(formatPeriode(dateDebut, dateFin));
-
-            // TODO: Implémenter la logique des centres de répartition
-            // Cette méthode est gardée pour la fin comme convenu
-
-            List<CentreRepartitionDTO> centres = new ArrayList<>();
-            // Logique à implémenter...
-
-            etat.setCentres(centres);
-
-            logger.info("État cumulé par centre de répartition généré (placeholder)");
-            return etat;
-
-        } catch (Exception e) {
-            logger.error("Erreur lors de la génération de l'état par centre de répartition", e);
-            throw new RuntimeException("Impossible de générer l'état: " + e.getMessage(), e);
-        }
-    }
-
-    // ==================== IMPRIMÉ 4: ÉTAT DE RÉPARTITION DES INDICATEURS RÉELS ====================
-
-    /**
-     * Génère le HTML pour l'imprimé 4
-     */
-    public String genererHTML_EtatRepartitionIndicateursReels(EtatRepartitionIndicateursReelsDTO etat) {
-        StringBuilder content = new StringBuilder();
-
+    private String generateHtmlEtatIndicateurs(EtatIndicateursReelsDTO etat) {
+        StringBuilder html = new StringBuilder();
+
+        html.append("<!DOCTYPE html><html><head>");
+        html.append("<meta charset='UTF-8'>");
+        html.append("<title>État des Indicateurs Réels</title>");
+        html.append(getDefaultStyles());
+        html.append("</head><body>");
+
+        // En-tête
+        html.append("<div class='header'>");
+        html.append("<h1>RÉPUBLIQUE GABONAISE</h1>");
+        html.append("<h2>MINISTÈRE DE L'ÉCONOMIE ET DE LA RELANCE</h2>");
+        html.append("<h3>DIRECTION GÉNÉRALE DE LA CONCURRENCE ET DE LA CONSOMMATION</h3>");
+        html.append("<br><h2>ÉTAT DES INDICATEURS RÉELS</h2>");
+        html.append("<p>").append(etat.getPeriodeLibelle()).append("</p>");
+        html.append("</div>");
+
+        // Tableau par service
         for (ServiceIndicateurDTO service : etat.getServices()) {
-            content.append(String.format("""
-                <table>
-                    <thead>
-                        <tr>
-                            <th>N° encaissement et Date</th>
-                            <th>N° Affaire et Date</th>
-                            <th>Noms des contrevenants</th>
-                            <th>Contraventions</th>
-                            <th>Montant encaissement</th>
-                            <th>Part indicateur</th>
-                            <th>Observations</th>
-                        </tr>
-                        <tr class="section-header">
-                            <th colspan="7">Service : %s</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                """, escapeHtml(service.getNomService())));
+            html.append("<h3>Service: ").append(service.getNomService()).append("</h3>");
+
+            html.append("<table class='data-table'>");
+            html.append("<thead>");
+            html.append("<tr>");
+            html.append("<th>Section</th>");
+            html.append("<th>Nombre d'Affaires</th>");
+            html.append("<th>Montant Encaissement</th>");
+            html.append("<th>Part Indicateur</th>");
+            html.append("</tr>");
+            html.append("</thead>");
+            html.append("<tbody>");
 
             for (SectionIndicateurDTO section : service.getSections()) {
-                content.append(String.format("""
-                    <tr class="sub-section-header">
-                        <td colspan="7">Section : %s</td>
-                    </tr>
-                    """, escapeHtml(section.getNomSection())));
+                html.append("<tr>");
+                html.append("<td>").append(section.getNomSection()).append("</td>");
+                html.append("<td class='number'>").append(section.getNombreAffaires()).append("</td>");
+                html.append("<td class='amount'>").append(CurrencyFormatter.format(section.getMontantEncaissement())).append("</td>");
+                html.append("<td class='amount'>").append(CurrencyFormatter.format(section.getPartIndicateur())).append("</td>");
+                html.append("</tr>");
+            }
 
-                for (AffaireIndicateurDTO affaire : section.getAffaires()) {
-                    content.append(String.format("""
-                        <tr>
-                            <td class="center">%s<br/>%s</td>
-                            <td class="center">%s<br/>%s</td>
-                            <td>%s</td>
-                            <td>%s</td>
-                            <td class="currency">%s</td>
-                            <td class="currency">%s</td>
-                            <td>%s</td>
-                        </tr>
-                        """,
-                            escapeHtml(affaire.getNumeroEncaissement()),
-                            DateFormatter.formatDate(affaire.getDateEncaissement()),
-                            escapeHtml(affaire.getNumeroAffaire()),
-                            DateFormatter.formatDate(affaire.getDateAffaire()),
-                            escapeHtml(affaire.getNomContrevenant()),
-                            escapeHtml(affaire.getNomContravention()),
-                            CurrencyFormatter.formatWithoutSymbol(affaire.getMontantEncaissement()),
-                            CurrencyFormatter.formatWithoutSymbol(affaire.getPartIndicateur()),
-                            escapeHtml(affaire.getObservations())
-                    ));
+            html.append("</tbody>");
+            html.append("<tfoot>");
+            html.append("<tr class='total-row'>");
+            html.append("<td><strong>Total ").append(service.getNomService()).append("</strong></td>");
+            html.append("<td class='number'><strong>").append(service.getTotalAffairesService()).append("</strong></td>");
+            html.append("<td class='amount'><strong>").append(CurrencyFormatter.format(service.getTotalMontantService())).append("</strong></td>");
+            html.append("<td class='amount'><strong>").append(CurrencyFormatter.format(service.getTotalPartIndicateurService())).append("</strong></td>");
+            html.append("</tr>");
+            html.append("</tfoot>");
+            html.append("</table>");
+            html.append("<br>");
+        }
+
+        // Total général
+        html.append("<table class='data-table total-general'>");
+        html.append("<tfoot>");
+        html.append("<tr class='total-row'>");
+        html.append("<td><strong>TOTAL GÉNÉRAL</strong></td>");
+        html.append("<td class='number'><strong>").append(etat.getTotalAffaires()).append("</strong></td>");
+        html.append("<td class='amount'><strong>").append(CurrencyFormatter.format(etat.getTotalMontantEncaissement())).append("</strong></td>");
+        html.append("<td class='amount'><strong>").append(CurrencyFormatter.format(etat.getTotalPartIndicateur())).append("</strong></td>");
+        html.append("</tr>");
+        html.append("</tfoot>");
+        html.append("</table>");
+
+        // Pied de page
+        html.append("<div class='footer'>");
+        html.append("<p>État généré le ").append(DateFormatter.formatDateTime(etat.getDateGeneration().atStartOfDay())).append("</p>");
+        html.append("</div>");
+
+        html.append("</body></html>");
+
+        return html.toString();
+    }
+
+    /**
+     * Génère le HTML pour un reçu d'encaissement
+     */
+    private String generateHtmlRecuEncaissement(Encaissement encaissement, Affaire affaire) {
+        StringBuilder html = new StringBuilder();
+
+        html.append("<!DOCTYPE html><html><head>");
+        html.append("<meta charset='UTF-8'>");
+        html.append("<title>Reçu d'Encaissement</title>");
+        html.append(getReceiptStyles());
+        html.append("</head><body>");
+
+        // En-tête
+        html.append("<div class='header'>");
+        html.append("<h1>RÉPUBLIQUE GABONAISE</h1>");
+        html.append("<h2>DIRECTION GÉNÉRALE DE LA CONCURRENCE ET DE LA CONSOMMATION</h2>");
+        html.append("<br><h2>REÇU D'ENCAISSEMENT</h2>");
+        html.append("<p>N° ").append(encaissement.getReference()).append("</p>");
+        html.append("</div>");
+
+        // Informations de l'affaire
+        html.append("<div class='info-section'>");
+        html.append("<h3>Informations de l'Affaire</h3>");
+        html.append("<p><strong>Numéro d'affaire:</strong> ").append(affaire.getNumeroAffaire()).append("</p>");
+        html.append("<p><strong>Date de création:</strong> ").append(DateFormatter.formatDate(affaire.getDateCreation())).append("</p>");
+        html.append("<p><strong>Montant de l'amende:</strong> ").append(CurrencyFormatter.format(affaire.getMontantAmendeTotal())).append("</p>");
+        html.append("</div>");
+
+        // Informations de l'encaissement
+        html.append("<div class='info-section'>");
+        html.append("<h3>Détails de l'Encaissement</h3>");
+        html.append("<p><strong>Date d'encaissement:</strong> ").append(DateFormatter.formatDate(encaissement.getDateEncaissement())).append("</p>");
+        html.append("<p><strong>Montant encaissé:</strong> ").append(CurrencyFormatter.format(encaissement.getMontantEncaisse())).append("</p>");
+        html.append("<p><strong>Mode de règlement:</strong> ").append(encaissement.getModeReglement().getLibelle()).append("</p>");
+        if (encaissement.getObservations() != null && !encaissement.getObservations().trim().isEmpty()) {
+            html.append("<p><strong>Observations:</strong> ").append(encaissement.getObservations()).append("</p>");
+        }
+        html.append("</div>");
+
+        // Signature
+        html.append("<div class='signature'>");
+        html.append("<p>Date: ").append(DateFormatter.formatDate(LocalDate.now())).append("</p>");
+        html.append("<br><br>");
+        html.append("<p>L'Agent Comptable</p>");
+        html.append("<br><br><br>");
+        html.append("<p>_________________________</p>");
+        html.append("</div>");
+
+        html.append("</body></html>");
+
+        return html.toString();
+    }
+
+    /**
+     * Génère le HTML pour une liste d'affaires
+     */
+    private String generateHtmlListeAffaires(List<Affaire> affaires, String titre) {
+        StringBuilder html = new StringBuilder();
+
+        html.append("<!DOCTYPE html><html><head>");
+        html.append("<meta charset='UTF-8'>");
+        html.append("<title>").append(titre).append("</title>");
+        html.append(getDefaultStyles());
+        html.append("</head><body>");
+
+        // En-tête
+        html.append("<div class='header'>");
+        html.append("<h1>RÉPUBLIQUE GABONAISE</h1>");
+        html.append("<h2>DIRECTION GÉNÉRALE DE LA CONCURRENCE ET DE LA CONSOMMATION</h2>");
+        html.append("<br><h2>").append(titre.toUpperCase()).append("</h2>");
+        html.append("<p>Date d'édition: ").append(DateFormatter.formatDate(LocalDate.now())).append("</p>");
+        html.append("</div>");
+
+        // Tableau des affaires
+        html.append("<table class='data-table'>");
+        html.append("<thead>");
+        html.append("<tr>");
+        html.append("<th>N° Affaire</th>");
+        html.append("<th>Date Création</th>");
+        html.append("<th>Montant Amende</th>");
+        html.append("<th>Statut</th>");
+        html.append("</tr>");
+        html.append("</thead>");
+        html.append("<tbody>");
+
+        double totalAmende = 0.0;
+        for (Affaire affaire : affaires) {
+            html.append("<tr>");
+            html.append("<td>").append(affaire.getNumeroAffaire()).append("</td>");
+            html.append("<td>").append(DateFormatter.formatDate(affaire.getDateCreation())).append("</td>");
+            html.append("<td class='amount'>").append(CurrencyFormatter.format(affaire.getMontantAmendeTotal())).append("</td>");
+            html.append("<td>").append(affaire.getStatut().getLibelle()).append("</td>");
+            html.append("</tr>");
+
+            totalAmende += affaire.getMontantAmendeTotal() != null ? affaire.getMontantAmendeTotal() : 0.0;
+        }
+
+        html.append("</tbody>");
+        html.append("<tfoot>");
+        html.append("<tr class='total-row'>");
+        html.append("<td colspan='2'><strong>TOTAL (").append(affaires.size()).append(" affaires)</strong></td>");
+        html.append("<td class='amount'><strong>").append(CurrencyFormatter.format(totalAmende)).append("</strong></td>");
+        html.append("<td></td>");
+        html.append("</tr>");
+        html.append("</tfoot>");
+        html.append("</table>");
+
+        // Pied de page
+        html.append("<div class='footer'>");
+        html.append("<p>Rapport généré le ").append(DateFormatter.formatDateTime(LocalDate.now().atStartOfDay())).append("</p>");
+        html.append("</div>");
+
+        html.append("</body></html>");
+
+        return html.toString();
+    }
+
+    // ==================== STYLES CSS ====================
+
+    /**
+     * Styles CSS par défaut pour les rapports
+     */
+    private String getDefaultStyles() {
+        return """
+            <style>
+                body { 
+                    font-family: Arial, sans-serif; 
+                    font-size: 12px; 
+                    margin: 20px; 
+                    line-height: 1.4;
                 }
-
-                content.append(String.format("""
-                    <tr class="total-row">
-                        <td colspan="4"><strong>Sous-total Section %s</strong></td>
-                        <td class="currency"><strong>%s</strong></td>
-                        <td class="currency"><strong>%s</strong></td>
-                        <td></td>
-                    </tr>
-                    """,
-                        escapeHtml(section.getNomSection()),
-                        CurrencyFormatter.formatWithoutSymbol(section.getTotalMontantSection()),
-                        CurrencyFormatter.formatWithoutSymbol(section.getTotalPartIndicateurSection())
-                ));
-            }
-
-            content.append(String.format("""
-                <tr class="total-row">
-                    <td colspan="4"><strong>TOTAL SERVICE %s</strong></td>
-                    <td class="currency"><strong>%s</strong></td>
-                    <td class="currency"><strong>%s</strong></td>
-                    <td></td>
-                </tr>
-                """,
-                    escapeHtml(service.getNomService()),
-                    CurrencyFormatter.formatWithoutSymbol(service.getTotalMontantService()),
-                    CurrencyFormatter.formatWithoutSymbol(service.getTotalPartIndicateurService())
-            ));
-
-            content.append("</tbody></table><div class='page-break'></div>");
-        }
-
-        content.append(String.format("""
-            <table>
-                <tr class="total-row">
-                    <td colspan="4"><strong>TOTAL GÉNÉRAL</strong></td>
-                    <td class="currency"><strong>%s</strong></td>
-                    <td class="currency"><strong>%s</strong></td>
-                    <td></td>
-                </tr>
-            </table>
-            """,
-                CurrencyFormatter.formatWithoutSymbol(etat.getTotalMontantEncaissement()),
-                CurrencyFormatter.formatWithoutSymbol(etat.getTotalPartIndicateur())
-        ));
-
-        return assemblerHTML("État de Répartition des Indicateurs Réels",
-                "ÉTAT DE RÉPARTITION DES PART DES INDICATEURS RÉELS",
-                etat.getPeriodeLibelle(), etat.getDateGeneration(), content.toString());
-    }
-
-    // ==================== IMPRIMÉ 6: ÉTAT CUMULÉ PAR AGENT ====================
-
-    /**
-     * Génère le HTML pour l'imprimé 6
-     */
-    public String genererHTML_EtatCumuleParAgent(EtatCumuleParAgentDTO etat) {
-        StringBuilder content = new StringBuilder();
-
-        content.append("""
-            <table>
-                <thead>
-                    <tr>
-                        <th rowspan="2">Nom de l'agent</th>
-                        <th colspan="4">Part revenant à l'agent après répartition en tant que</th>
-                        <th rowspan="2">Part agent</th>
-                    </tr>
-                    <tr>
-                        <th>Chef</th>
-                        <th>Saisissant</th>
-                        <th>DG</th>
-                        <th>DD</th>
-                    </tr>
-                </thead>
-                <tbody>
-            """);
-
-        for (AgentCumuleDTO agent : etat.getAgents()) {
-            content.append(String.format("""
-                <tr>
-                    <td>%s (%s)</td>
-                    <td class="currency">%s</td>
-                    <td class="currency">%s</td>
-                    <td class="currency">%s</td>
-                    <td class="currency">%s</td>
-                    <td class="currency">%s</td>
-                </tr>
-                """,
-                    escapeHtml(agent.getNomAgent()),
-                    escapeHtml(agent.getCodeAgent()),
-                    CurrencyFormatter.formatWithoutSymbol(agent.getPartChef()),
-                    CurrencyFormatter.formatWithoutSymbol(agent.getPartSaisissant()),
-                    CurrencyFormatter.formatWithoutSymbol(agent.getPartDG()),
-                    CurrencyFormatter.formatWithoutSymbol(agent.getPartDD()),
-                    CurrencyFormatter.formatWithoutSymbol(agent.getPartTotaleAgent())
-            ));
-        }
-
-        BigDecimal totalChefs = etat.getAgents().stream()
-                .map(AgentCumuleDTO::getPartChef)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal totalDG = etat.getAgents().stream()
-                .map(AgentCumuleDTO::getPartDG)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal totalDD = etat.getAgents().stream()
-                .map(AgentCumuleDTO::getPartDD)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        content.append(String.format("""
-                <tr class="total-row">
-                    <td><strong>TOTAL GÉNÉRAL</strong></td>
-                    <td class="currency"><strong>%s</strong></td>
-                    <td class="currency"><strong>%s</strong></td>
-                    <td class="currency"><strong>%s</strong></td>
-                    <td class="currency"><strong>%s</strong></td>
-                    <td class="currency"><strong>%s</strong></td>
-                </tr>
-            """,
-                CurrencyFormatter.formatWithoutSymbol(totalChefs),
-                CurrencyFormatter.formatWithoutSymbol(totalSaisissants),
-                CurrencyFormatter.formatWithoutSymbol(totalDG),
-                CurrencyFormatter.formatWithoutSymbol(totalDD),
-                CurrencyFormatter.formatWithoutSymbol(etat.getTotalGeneral())
-        ));
-
-        content.append("""
-                </tbody>
-            </table>
-            """);
-
-        return assemblerHTML("État Cumulé par Agent",
-                "ÉTAT CUMULÉ PAR AGENT",
-                etat.getPeriodeLibelle(), etat.getDateGeneration(), content.toString());
-    }
-
-    // ==================== IMPRIMÉ 7: TABLEAU DES AMENDES PAR SERVICES ====================
-
-    /**
-     * Génère le HTML pour l'imprimé 7
-     */
-    public String genererHTML_TableauAmendesParServices(TableauAmendesParServicesDTO tableau) {
-        StringBuilder content = new StringBuilder();
-
-        content.append("""
-            <table>
-                <thead>
-                    <tr>
-                        <th>Services</th>
-                        <th>Nombre d'affaires</th>
-                        <th>Montant</th>
-                        <th>Observations</th>
-                    </tr>
-                </thead>
-                <tbody>
-            """);
-
-        for (ServiceAmendeDTO service : tableau.getServices()) {
-            content.append(String.format("""
-                <tr>
-                    <td>%s</td>
-                    <td class="center">%d</td>
-                    <td class="currency">%s</td>
-                    <td>%s</td>
-                </tr>
-                """,
-                    escapeHtml(service.getNomService()),
-                    service.getNombreAffaires(),
-                    CurrencyFormatter.formatWithoutSymbol(service.getMontantTotal()),
-                    escapeHtml(service.getObservations())
-            ));
-        }
-
-        content.append(String.format("""
-                <tr class="total-row">
-                    <td><strong>TOTAL GÉNÉRAL</strong></td>
-                    <td class="center"><strong>%d</strong></td>
-                    <td class="currency"><strong>%s</strong></td>
-                    <td></td>
-                </tr>
-            """,
-                tableau.getTotalAffaires(),
-                CurrencyFormatter.formatWithoutSymbol(tableau.getTotalMontant())
-        ));
-
-        content.append("""
-                </tbody>
-            </table>
-            """);
-
-        return assemblerHTML("Tableau des Amendes par Services",
-                "TABLEAU DES AMENDES PAR SERVICES",
-                tableau.getPeriodeLibelle(), tableau.getDateGeneration(), content.toString());
-    }
-
-    // ==================== IMPRIMÉ 8: ÉTAT PAR SÉRIES DE MANDATEMENTS (AGENTS) ====================
-
-    /**
-     * Génère le HTML pour l'imprimé 8
-     */
-    public String genererHTML_EtatMandatementAgents(EtatMandatementDTO etat) {
-        StringBuilder content = new StringBuilder();
-
-        content.append("""
-            <table>
-                <thead>
-                    <tr>
-                        <th rowspan="2">N° encaissement et Date</th>
-                        <th rowspan="2">N° Affaire et Date</th>
-                        <th colspan="5">Part revenant à l'agent après répartition en tant que</th>
-                        <th rowspan="2">Part agent</th>
-                    </tr>
-                    <tr>
-                        <th>Chefs</th>
-                        <th>Saisissants</th>
-                        <th>Mutuelle nationale</th>
-                        <th>D.G</th>
-                        <th>D.D</th>
-                    </tr>
-                </thead>
-                <tbody>
-            """);
-
-        for (MandatementDTO mandatement : etat.getMandatements()) {
-            BigDecimal partAgent = mandatement.getPartChefs()
-                    .add(mandatement.getPartSaisissants())
-                    .add(mandatement.getPartMutuelleNationale())
-                    .add(mandatement.getPartDG() != null ? mandatement.getPartDG() : BigDecimal.ZERO)
-                    .add(mandatement.getPartDD() != null ? mandatement.getPartDD() : BigDecimal.ZERO);
-
-            content.append(String.format("""
-                <tr>
-                    <td class="center">%s<br/>%s</td>
-                    <td class="center">%s<br/>%s</td>
-                    <td class="currency">%s</td>
-                    <td class="currency">%s</td>
-                    <td class="currency">%s</td>
-                    <td class="currency">%s</td>
-                    <td class="currency">%s</td>
-                    <td class="currency">%s</td>
-                </tr>
-                """,
-                    escapeHtml(mandatement.getNumeroEncaissement()),
-                    DateFormatter.formatDate(mandatement.getDateEncaissement()),
-                    escapeHtml(mandatement.getNumeroAffaire()),
-                    DateFormatter.formatDate(mandatement.getDateAffaire()),
-                    CurrencyFormatter.formatWithoutSymbol(mandatement.getPartChefs()),
-                    CurrencyFormatter.formatWithoutSymbol(mandatement.getPartSaisissants()),
-                    CurrencyFormatter.formatWithoutSymbol(mandatement.getPartMutuelleNationale()),
-                    CurrencyFormatter.formatWithoutSymbol(mandatement.getPartDG() != null ? mandatement.getPartDG() : BigDecimal.ZERO),
-                    CurrencyFormatter.formatWithoutSymbol(mandatement.getPartDD() != null ? mandatement.getPartDD() : BigDecimal.ZERO),
-                    CurrencyFormatter.formatWithoutSymbol(partAgent)
-            ));
-        }
-
-        BigDecimal totalPartAgent = etat.getTotalChefs()
-                .add(etat.getTotalSaisissants())
-                .add(etat.getTotalMutuelleNationale())
-                .add(etat.getTotalDG())
-                .add(etat.getTotalDD());
-
-        content.append(String.format("""
-                <tr class="total-row">
-                    <td colspan="2"><strong>TOTAUX</strong></td>
-                    <td class="currency"><strong>%s</strong></td>
-                    <td class="currency"><strong>%s</strong></td>
-                    <td class="currency"><strong>%s</strong></td>
-                    <td class="currency"><strong>%s</strong></td>
-                    <td class="currency"><strong>%s</strong></td>
-                    <td class="currency"><strong>%s</strong></td>
-                </tr>
-            """,
-                CurrencyFormatter.formatWithoutSymbol(etat.getTotalChefs()),
-                CurrencyFormatter.formatWithoutSymbol(etat.getTotalSaisissants()),
-                CurrencyFormatter.formatWithoutSymbol(etat.getTotalMutuelleNationale()),
-                CurrencyFormatter.formatWithoutSymbol(etat.getTotalDG()),
-                CurrencyFormatter.formatWithoutSymbol(etat.getTotalDD()),
-                CurrencyFormatter.formatWithoutSymbol(totalPartAgent)
-        ));
-
-        content.append("""
-                </tbody>
-            </table>
-            """);
-
-        return assemblerHTML("État par Séries de Mandatements (Agents)",
-                "ÉTAT PAR SÉRIES DE MANDATEMENTS",
-                etat.getPeriodeLibelle(), etat.getDateGeneration(), content.toString());
-    }
-
-    // ==================== MÉTHODES UTILITAIRES POUR LES 8 IMPRIMÉS ====================
-
-    /**
-     * Retourne la liste des types d'imprimés disponibles
-     */
-    public static List<String> getTypesImprimesDisponibles() {
-        return Arrays.asList(
-                "ETAT_REPARTITION_AFFAIRES",           // Imprimé 1
-                "ETAT_MANDATEMENT",                    // Imprimé 2
-                "ETAT_CENTRE_REPARTITION",             // Imprimé 3
-                "ETAT_INDICATEURS_REELS",              // Imprimé 4
-                "ETAT_REPARTITION_PRODUIT",            // Imprimé 5
-                "ETAT_CUMULE_AGENT",                   // Imprimé 6
-                "TABLEAU_AMENDES_SERVICES",            // Imprimé 7
-                "ETAT_MANDATEMENT_AGENTS"              // Imprimé 8
-        );
+                .header { 
+                    text-align: center; 
+                    margin-bottom: 30px; 
+                    border-bottom: 2px solid #000;
+                    padding-bottom: 20px;
+                }
+                .header h1 { 
+                    font-size: 16px; 
+                    margin: 5px 0; 
+                    font-weight: bold;
+                }
+                .header h2 { 
+                    font-size: 14px; 
+                    margin: 3px 0; 
+                    font-weight: bold;
+                }
+                .header h3 { 
+                    font-size: 12px; 
+                    margin: 3px 0; 
+                    font-weight: normal;
+                }
+                .data-table { 
+                    width: 100%; 
+                    border-collapse: collapse; 
+                    margin: 20px 0;
+                }
+                .data-table th, .data-table td { 
+                    border: 1px solid #000; 
+                    padding: 6px; 
+                    text-align: left;
+                }
+                .data-table th { 
+                    background-color: #f0f0f0; 
+                    font-weight: bold; 
+                    text-align: center;
+                }
+                .amount { 
+                    text-align: right; 
+                    font-family: 'Courier New', monospace;
+                }
+                .number { 
+                    text-align: center;
+                }
+                .total-row { 
+                    background-color: #e8e8e8; 
+                    font-weight: bold;
+                }
+                .total-general {
+                    margin-top: 30px;
+                    border: 2px solid #000;
+                }
+                .footer { 
+                    margin-top: 40px; 
+                    text-align: center; 
+                    font-size: 10px;
+                    border-top: 1px solid #ccc;
+                    padding-top: 10px;
+                }
+                @media print {
+                    body { margin: 0; }
+                    .header { page-break-after: avoid; }
+                    .data-table { page-break-inside: avoid; }
+                }
+            </style>
+        """;
     }
 
     /**
-     * Génère un imprimé selon son type
+     * Styles CSS pour les reçus
      */
-    public Object genererImprimeParType(String typeImprime, LocalDate dateDebut, LocalDate dateFin) {
-        switch (typeImprime) {
-            case "ETAT_REPARTITION_AFFAIRES":
-                return genererEtatRepartitionAffaires(dateDebut, dateFin);
-            case "ETAT_MANDATEMENT":
-                return genererEtatMandatement(dateDebut, dateFin);
-            case "ETAT_CENTRE_REPARTITION":
-                return genererEtatCentreRepartition(dateDebut, dateFin);
-            case "ETAT_INDICATEURS_REELS":
-                return genererEtatRepartitionIndicateursReels(dateDebut, dateFin);
-            case "ETAT_REPARTITION_PRODUIT":
-                return genererEtatRepartitionProduit(dateDebut, dateFin);
-            case "ETAT_CUMULE_AGENT":
-                return genererEtatCumuleParAgent(dateDebut, dateFin);
-            case "TABLEAU_AMENDES_SERVICES":
-                return genererTableauAmendesParServices(dateDebut, dateFin);
-            case "ETAT_MANDATEMENT_AGENTS":
-                return genererEtatMandatementAgents(dateDebut, dateFin);
-            default:
-                throw new IllegalArgumentException("Type d'imprimé non reconnu: " + typeImprime);
-        }
+    private String getReceiptStyles() {
+        return """
+            <style>
+                body { 
+                    font-family: Arial, sans-serif; 
+                    font-size: 14px; 
+                    margin: 20px; 
+                    line-height: 1.6;
+                }
+                .header { 
+                    text-align: center; 
+                    margin-bottom: 40px; 
+                    border-bottom: 2px solid #000;
+                    padding-bottom: 20px;
+                }
+                .header h1 { 
+                    font-size: 18px; 
+                    margin: 8px 0; 
+                }
+                .header h2 { 
+                    font-size: 16px; 
+                    margin: 5px 0; 
+                }
+                .info-section { 
+                    margin: 30px 0; 
+                    padding: 15px;
+                    border: 1px solid #ccc;
+                }
+                .info-section h3 { 
+                    background-color: #f0f0f0; 
+                    margin: -15px -15px 15px -15px;
+                    padding: 10px 15px;
+                    font-size: 16px;
+                }
+                .info-section p { 
+                    margin: 10px 0; 
+                }
+                .signature { 
+                    margin-top: 60px; 
+                    text-align: right;
+                    width: 50%;
+                    float: right;
+                }
+                @media print {
+                    body { margin: 0; }
+                }
+            </style>
+        """;
     }
 
-    /**
-     * Retourne le libellé d'un type d'imprimé
-     */
-    public static String getLibelleTypeImprime(String typeImprime) {
-        switch (typeImprime) {
-            case "ETAT_REPARTITION_AFFAIRES":
-                return "État de Répartition des Affaires Contentieuses";
-            case "ETAT_MANDATEMENT":
-                return "État par Séries de Mandatement";
-            case "ETAT_CENTRE_REPARTITION":
-                return "État Cumulé par Centre de Répartition";
-            case "ETAT_INDICATEURS_REELS":
-                return "État de Répartition des Part des Indicateurs Réels";
-            case "ETAT_REPARTITION_PRODUIT":
-                return "État de Répartition du Produit des Affaires Contentieuses";
-            case "ETAT_CUMULE_AGENT":
-                return "État Cumulé par Agent";
-            case "TABLEAU_AMENDES_SERVICES":
-                return "Tableau des Amendes par Services";
-            case "ETAT_MANDATEMENT_AGENTS":
-                return "État par Séries de Mandatements (Agents)";
-            default:
-                return "Type d'imprimé inconnu";
-        }
-    }
+    // ==================== UTILITAIRES ====================
 
     /**
-     * Valide qu'un imprimé peut être généré
+     * Vérifie si une imprimante est disponible
      */
-    public boolean validerParametresImprime(String typeImprime, LocalDate dateDebut, LocalDate dateFin) {
-        // Validation générale
-        if (!validerParametresRapport(dateDebut, dateFin)) {
-            return false;
-        }
-
-        // Validations spécifiques par type
-        switch (typeImprime) {
-            case "ETAT_CENTRE_REPARTITION":
-                // Ce type nécessite des données spéciales
-                logger.warn("L'imprimé {} nécessite une configuration avancée", typeImprime);
-                return false; // Temporairement désactivé
-            default:
-                return true;
-        }
-    }
-
-    /**
-     * Calcule les statistiques générales d'un ensemble d'imprimés
-     */
-    public Map<String, Object> calculerStatistiquesImprimes(LocalDate dateDebut, LocalDate dateFin) {
-        Map<String, Object> stats = new HashMap<>();
-
-        try {
-            // Génération de quelques imprimés clés pour les statistiques
-            TableauAmendesParServicesDTO tableau = genererTableauAmendesParServices(dateDebut, dateFin);
-            EtatCumuleParAgentDTO etatAgents = genererEtatCumuleParAgent(dateDebut, dateFin);
-
-            stats.put("nombreServices", tableau.getServices().size());
-            stats.put("totalMontantServices", tableau.getTotalMontant());
-            stats.put("nombreAgents", etatAgents.getAgents().size());
-            stats.put("totalMontantAgents", etatAgents.getTotalGeneral());
-            stats.put("affairesTraitees", tableau.getTotalAffaires());
-
-        } catch (Exception e) {
-            logger.warn("Erreur lors du calcul des statistiques d'imprimés", e);
-            stats.put("erreur", "Impossible de calculer les statistiques");
-        }
-
-        return stats;
-    }
-
-    // ==================== MÉTHODES GÉNÉRIQUES ====================
-
-    /**
-     * Assemble le HTML final avec le template de base
-     */
-    private String assemblerHTML(String titre, String titreHeader, String periode,
-                                 LocalDateTime dateGeneration, String contenu) {
-        String header = genererEnteteStandard(titreHeader, periode, dateGeneration);
-
-        return BASE_TEMPLATE
-                .replace("{{TITRE}}", titre)
-                .replace("{{HEADER}}", header)
-                .replace("{{CONTENT}}", contenu)
-                .replace("{{FOOTER}}", genererPiedPageStandard());
-    }
-
-    /**
-     * Génère le HTML d'un imprimé selon son type
-     */
-    public String genererHTMLImprimeParType(String typeImprime, Object donneesImprime) {
-        switch (typeImprime) {
-            case "ETAT_REPARTITION_AFFAIRES":
-                return genererHTML_EtatRepartitionAffaires((EtatRepartitionAffairesDTO) donneesImprime);
-            case "ETAT_MANDATEMENT":
-                return genererHTML_EtatMandatement((EtatMandatementDTO) donneesImprime);
-            case "ETAT_CENTRE_REPARTITION":
-                return genererHTML_EtatCentreRepartition((EtatCentreRepartitionDTO) donneesImprime);
-            case "ETAT_INDICATEURS_REELS":
-                return genererHTML_EtatRepartitionIndicateursReels((EtatRepartitionIndicateursReelsDTO) donneesImprime);
-            case "ETAT_REPARTITION_PRODUIT":
-                return genererHTML_EtatRepartitionProduit((EtatRepartitionProduitDTO) donneesImprime);
-            case "ETAT_CUMULE_AGENT":
-                return genererHTML_EtatCumuleParAgent((EtatCumuleParAgentDTO) donneesImprime);
-            case "TABLEAU_AMENDES_SERVICES":
-                return genererHTML_TableauAmendesParServices((TableauAmendesParServicesDTO) donneesImprime);
-            case "ETAT_MANDATEMENT_AGENTS":
-                return genererHTML_EtatMandatementAgents((EtatMandatementDTO) donneesImprime);
-            default:
-                throw new IllegalArgumentException("Type d'imprimé non reconnu: " + typeImprime);
-        }
-    }
-
-    // ==================== MÉTHODES D'IMPRESSION ====================
-
-    /**
-     * Imprime un imprimé selon son type
-     */
-    public CompletableFuture<Boolean> imprimerImprimeParType(String typeImprime, Object donneesImprime) {
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                logger.info("Début de l'impression de l'imprimé: {}", typeImprime);
-
-                String htmlContent = genererHTMLImprimeParType(typeImprime, donneesImprime);
-
-                WebView webView = new WebView();
-                webView.getEngine().loadContent(htmlContent);
-
-                webView.getEngine().getLoadWorker().stateProperty().addListener((obs, oldState, newState) -> {
-                    if (newState == javafx.concurrent.Worker.State.SUCCEEDED) {
-                        javafx.application.Platform.runLater(() -> {
-                            try {
-                                executerImpression(webView);
-                            } catch (Exception e) {
-                                logger.error("Erreur lors de l'exécution de l'impression", e);
-                            }
-                        });
-                    }
-                });
-
-                return true;
-
-            } catch (Exception e) {
-                logger.error("Erreur lors de l'impression de l'imprimé {}", typeImprime, e);
-                return false;
-            }
-        });
-    }
-
-    /**
-     * Génère l'aperçu d'un imprimé
-     */
-    public WebView genererApercuImprimeParType(String typeImprime, Object donneesImprime) {
-        try {
-            String htmlContent = genererHTMLImprimeParType(typeImprime, donneesImprime);
-
-            WebView webView = new WebView();
-            webView.getEngine().loadContent(htmlContent);
-
-            logger.info("Aperçu généré pour l'imprimé: {}", typeImprime);
-            return webView;
-
-        } catch (Exception e) {
-            logger.error("Erreur lors de la génération de l'aperçu de l'imprimé {}", typeImprime, e);
-            throw new RuntimeException("Impossible de générer l'aperçu: " + e.getMessage(), e);
-        }
-    }
-
-    /**
-     * Exécute l'impression avec les paramètres par défaut
-     */
-    private void executerImpression(WebView webView) {
-        Printer defaultPrinter = Printer.getDefaultPrinter();
-        if (defaultPrinter == null) {
-            logger.warn("Aucune imprimante par défaut trouvée");
-            return;
-        }
-
-        PrinterJob printerJob = PrinterJob.createPrinterJob();
-        if (printerJob == null) {
-            logger.error("Impossible de créer le job d'impression");
-            return;
-        }
-
-        PageLayout pageLayout = defaultPrinter.createPageLayout(
-                Paper.A4,
-                PageOrientation.PORTRAIT,
-                Printer.MarginType.DEFAULT
-        );
-
-        printerJob.getJobSettings().setPageLayout(pageLayout);
-
-        boolean proceed = printerJob.showPrintDialog(webView.getScene().getWindow());
-
-        if (proceed) {
-            boolean success = printerJob.printPage(webView);
-            if (success) {
-                printerJob.endJob();
-                logger.info("Impression terminée avec succès");
-            } else {
-                logger.error("Échec de l'impression");
-            }
-        } else {
-            logger.info("Impression annulée par l'utilisateur");
-        }
-    }
-
-    /**
-     * Crée une tâche d'impression pour un imprimé spécifique
-     */
-    public Task<Boolean> creerTacheImpressionImprime(String typeImprime, Object donneesImprime) {
-        return new Task<Boolean>() {
-            @Override
-            protected Boolean call() throws Exception {
-                updateMessage("Génération de l'imprimé " + RapportService.getLibelleTypeImprime(typeImprime) + "...");
-                updateProgress(0, 100);
-
-                String htmlContent = genererHTMLImprimeParType(typeImprime, donneesImprime);
-                updateProgress(50, 100);
-
-                updateMessage("Envoi vers l'imprimante...");
-
-                WebView webView = new WebView();
-                webView.getEngine().loadContent(htmlContent);
-
-                final boolean[] success = {false};
-
-                webView.getEngine().getLoadWorker().stateProperty().addListener((obs, oldState, newState) -> {
-                    if (newState == javafx.concurrent.Worker.State.SUCCEEDED) {
-                        javafx.application.Platform.runLater(() -> {
-                            try {
-                                executerImpression(webView);
-                                success[0] = true;
-                                updateProgress(100, 100);
-                                updateMessage("Impression terminée");
-                            } catch (Exception e) {
-                                logger.error("Erreur dans la tâche d'impression de l'imprimé", e);
-                                updateMessage("Erreur d'impression: " + e.getMessage());
-                            }
-                        });
-                    }
-                });
-
-                Thread.sleep(3000);
-                return success[0];
-            }
-        };
-    }
-
-    // ==================== MÉTHODES UTILITAIRES ====================
-
-    /**
-     * Vérifie la disponibilité des imprimantes
-     */
-    public boolean isImprimanteDisponible() {
+    public boolean isImpressionDisponible() {
         return Printer.getDefaultPrinter() != null;
     }
 
     /**
      * Obtient la liste des imprimantes disponibles
      */
-    public java.util.List<String> getImprimantesDisponibles() {
-        return Printer.getAllPrinters().stream()
-                .map(Printer::getName)
-                .collect(java.util.stream.Collectors.toList());
+    public List<Printer> getImprimantesDisponibles() {
+        return Printer.getAllPrinters().stream().toList();
     }
 
     /**
-     * Valide qu'un imprimé peut être imprimé
+     * Obtient l'imprimante par défaut
      */
-    public boolean validerImprimePourImpression(String typeImprime, Object donneesImprime) {
-        if (donneesImprime == null) {
-            logger.warn("Données null pour l'imprimé {}", typeImprime);
-            return false;
-        }
-
-        switch (typeImprime) {
-            case "ETAT_REPARTITION_AFFAIRES":
-                EtatRepartitionAffairesDTO etatAffaires = (EtatRepartitionAffairesDTO) donneesImprime;
-                return etatAffaires.getAffaires() != null && !etatAffaires.getAffaires().isEmpty();
-
-            case "TABLEAU_AMENDES_SERVICES":
-                TableauAmendesParServicesDTO tableau = (TableauAmendesParServicesDTO) donneesImprime;
-                return tableau.getServices() != null && !tableau.getServices().isEmpty();
-
-            case "ETAT_CUMULE_AGENT":
-                EtatCumuleParAgentDTO etatAgents = (EtatCumuleParAgentDTO) donneesImprime;
-                return etatAgents.getAgents() != null && !etatAgents.getAgents().isEmpty();
-
-            default:
-                return true;
-        }
-    }
-
-    /**
-     * Génère les paramètres d'impression recommandés
-     */
-    public PageLayout getParametresImpressionRecommandes() {
-        Printer defaultPrinter = Printer.getDefaultPrinter();
-        if (defaultPrinter == null) {
-            return null;
-        }
-
-        return defaultPrinter.createPageLayout(
-                Paper.A4,
-                PageOrientation.PORTRAIT,
-                Printer.MarginType.DEFAULT
-        );
+    public Printer getImprimanteParDefaut() {
+        return Printer.getDefaultPrinter();
     }
 }

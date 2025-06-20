@@ -1,61 +1,75 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
 
-    <!-- Variables de configuration -->
+    <!-- ==================== VARIABLES DE CONFIGURATION ==================== -->
     <property name="LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"/>
+    <property name="LOG_PATTERN_CONSOLE" value="%d{HH:mm:ss.SSS} [%thread] %highlight(%-5level) %cyan(%logger{36}) - %msg%n"/>
     <property name="LOG_FILE" value="logs/contentieux"/>
+    <property name="LOG_MAX_FILE_SIZE" value="10MB"/>
+    <property name="LOG_MAX_HISTORY" value="30"/>
+    <property name="LOG_TOTAL_SIZE_CAP" value="1GB"/>
 
-    <!-- Appender pour la console -->
+    <!-- ==================== APPENDER CONSOLE ==================== -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            <pattern>${LOG_PATTERN_CONSOLE}</pattern>
+            <charset>UTF-8</charset>
         </encoder>
-        <!-- Filtrer les logs pour ne montrer que INFO et plus en console -->
+        <!-- Filtrer pour afficher seulement INFO et plus en console -->
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
             <level>INFO</level>
         </filter>
     </appender>
 
-    <!-- Appender pour fichier principal -->
+    <!-- ==================== APPENDER FICHIER PRINCIPAL ==================== -->
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${LOG_FILE}.log</file>
 
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
             <fileNamePattern>${LOG_FILE}.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
-            <maxFileSize>10MB</maxFileSize>
-            <maxHistory>30</maxHistory>
-            <totalSizeCap>1GB</totalSizeCap>
+            <maxFileSize>${LOG_MAX_FILE_SIZE}</maxFileSize>
+            <maxHistory>${LOG_MAX_HISTORY}</maxHistory>
+            <totalSizeCap>${LOG_TOTAL_SIZE_CAP}</totalSizeCap>
+            <cleanHistoryOnStart>true</cleanHistoryOnStart>
         </rollingPolicy>
 
         <encoder>
             <pattern>${LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
         </encoder>
+
+        <!-- Filtrer pour inclure tous les niveaux sauf TRACE -->
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>TRACE</level>
+            <onMatch>DENY</onMatch>
+            <onMismatch>ACCEPT</onMismatch>
+        </filter>
     </appender>
 
-    <!-- Appender pour les erreurs uniquement -->
+    <!-- ==================== APPENDER ERREURS UNIQUEMENT ==================== -->
     <appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${LOG_FILE}-errors.log</file>
 
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
             <fileNamePattern>${LOG_FILE}-errors.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
-            <maxFileSize>10MB</maxFileSize>
+            <maxFileSize>${LOG_MAX_FILE_SIZE}</maxFileSize>
             <maxHistory>60</maxHistory>
             <totalSizeCap>500MB</totalSizeCap>
+            <cleanHistoryOnStart>true</cleanHistoryOnStart>
         </rollingPolicy>
 
         <encoder>
             <pattern>${LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
         </encoder>
 
-        <!-- Filtrer pour ne garder que les erreurs -->
-        <filter class="ch.qos.logback.classic.filter.LevelFilter">
-            <level>ERROR</level>
-            <onMatch>ACCEPT</onMatch>
-            <onMismatch>DENY</onMismatch>
+        <!-- Filtrer pour ne garder que les erreurs et warnings -->
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>WARN</level>
         </filter>
     </appender>
 
-    <!-- Appender pour le debug (fichier séparé) -->
+    <!-- ==================== APPENDER DEBUG (FICHIER SÉPARÉ) ==================== -->
     <appender name="DEBUG_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${LOG_FILE}-debug.log</file>
 
@@ -63,10 +77,12 @@
             <fileNamePattern>${LOG_FILE}-debug.%d{yyyy-MM-dd}.log</fileNamePattern>
             <maxHistory>7</maxHistory>
             <totalSizeCap>200MB</totalSizeCap>
+            <cleanHistoryOnStart>true</cleanHistoryOnStart>
         </rollingPolicy>
 
         <encoder>
             <pattern>${LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
         </encoder>
 
         <!-- Filtrer pour le debug uniquement -->
@@ -77,44 +93,177 @@
         </filter>
     </appender>
 
-    <!-- Configuration spécifique pour l'application -->
+    <!-- ==================== APPENDER PERFORMANCE ==================== -->
+    <appender name="PERF_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_FILE}-performance.log</file>
+
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_FILE}-performance.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>15</maxHistory>
+            <totalSizeCap>100MB</totalSizeCap>
+        </rollingPolicy>
+
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} - %msg%n</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- ==================== APPENDER AUDIT ==================== -->
+    <appender name="AUDIT_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_FILE}-audit.log</file>
+
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_FILE}-audit.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>365</maxHistory>
+            <totalSizeCap>2GB</totalSizeCap>
+        </rollingPolicy>
+
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%X{user}] [%X{action}] - %msg%n</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- ==================== APPENDER ASYNC POUR PERFORMANCE ==================== -->
+    <appender name="ASYNC_FILE" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="FILE"/>
+        <queueSize>1024</queueSize>
+        <discardingThreshold>20</discardingThreshold>
+        <maxFlushTime>1000</maxFlushTime>
+        <neverBlock>true</neverBlock>
+    </appender>
+
+    <appender name="ASYNC_ERROR" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="ERROR_FILE"/>
+        <queueSize>256</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <maxFlushTime>1000</maxFlushTime>
+        <neverBlock>false</neverBlock>
+    </appender>
+
+    <!-- ==================== CONFIGURATION DES LOGGERS ==================== -->
+
+    <!-- Logger principal de l'application -->
     <logger name="com.regulation.contentieux" level="DEBUG" additivity="false">
         <appender-ref ref="CONSOLE"/>
-        <appender-ref ref="FILE"/>
-        <appender-ref ref="ERROR_FILE"/>
+        <appender-ref ref="ASYNC_FILE"/>
+        <appender-ref ref="ASYNC_ERROR"/>
         <appender-ref ref="DEBUG_FILE"/>
     </logger>
 
-    <!-- Configuration pour les DAOs (plus de détails) -->
+    <!-- Logger pour les performances -->
+    <logger name="com.regulation.contentieux.performance" level="INFO" additivity="false">
+        <appender-ref ref="PERF_FILE"/>
+    </logger>
+
+    <!-- Logger pour l'audit -->
+    <logger name="com.regulation.contentieux.audit" level="INFO" additivity="false">
+        <appender-ref ref="AUDIT_FILE"/>
+    </logger>
+
+    <!-- Loggers pour les DAO (plus verbeux en DEBUG) -->
     <logger name="com.regulation.contentieux.dao" level="DEBUG" additivity="false">
         <appender-ref ref="CONSOLE"/>
-        <appender-ref ref="FILE"/>
+        <appender-ref ref="ASYNC_FILE"/>
         <appender-ref ref="DEBUG_FILE"/>
     </logger>
 
-    <!-- Configuration pour les services -->
+    <!-- Loggers pour les services métier -->
     <logger name="com.regulation.contentieux.service" level="INFO" additivity="false">
         <appender-ref ref="CONSOLE"/>
-        <appender-ref ref="FILE"/>
-        <appender-ref ref="ERROR_FILE"/>
+        <appender-ref ref="ASYNC_FILE"/>
+        <appender-ref ref="ASYNC_ERROR"/>
     </logger>
 
-    <!-- Réduire le bruit des librairies externes -->
-    <logger name="com.zaxxer.hikari" level="INFO"/>
-    <logger name="org.sqlite" level="WARN"/>
-    <logger name="com.mysql" level="WARN"/>
+    <!-- Loggers pour les contrôleurs -->
+    <logger name="com.regulation.contentieux.controller" level="DEBUG" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="ASYNC_FILE"/>
+        <appender-ref ref="DEBUG_FILE"/>
+    </logger>
+
+    <!-- Logger pour la base de données -->
+    <logger name="com.regulation.contentieux.config.DatabaseConfig" level="INFO" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="ASYNC_FILE"/>
+        <appender-ref ref="ASYNC_ERROR"/>
+    </logger>
+
+    <!-- ==================== LOGGERS EXTERNES ==================== -->
+
+    <!-- JavaFX (réduire le bruit) -->
     <logger name="javafx" level="WARN"/>
+    <logger name="com.sun.javafx" level="WARN"/>
+
+    <!-- AtlantaFX -->
     <logger name="atlantafx" level="INFO"/>
 
-    <!-- Configuration pour HikariCP (pool de connexions) -->
-    <logger name="com.zaxxer.hikari.HikariConfig" level="WARN"/>
-    <logger name="com.zaxxer.hikari.pool" level="WARN"/>
+    <!-- HikariCP -->
+    <logger name="com.zaxxer.hikari" level="INFO"/>
 
-    <!-- Root logger (par défaut) -->
+    <!-- SQLite -->
+    <logger name="org.sqlite" level="WARN"/>
+
+    <!-- Jackson -->
+    <logger name="com.fasterxml.jackson" level="WARN"/>
+
+    <!-- Apache POI -->
+    <logger name="org.apache.poi" level="WARN"/>
+
+    <!-- iText -->
+    <logger name="com.itextpdf" level="WARN"/>
+
+    <!-- ControlsFX -->
+    <logger name="org.controlsfx" level="WARN"/>
+
+    <!-- ==================== LOGGER ROOT ==================== -->
     <root level="INFO">
         <appender-ref ref="CONSOLE"/>
-        <appender-ref ref="FILE"/>
-        <appender-ref ref="ERROR_FILE"/>
+        <appender-ref ref="ASYNC_FILE"/>
+        <appender-ref ref="ASYNC_ERROR"/>
     </root>
+
+    <!-- ==================== CONFIGURATION CONDITIONNELLE ==================== -->
+
+    <!-- Configuration pour l'environnement de développement -->
+    <springProfile name="dev">
+        <logger name="com.regulation.contentieux" level="DEBUG"/>
+        <root level="DEBUG"/>
+    </springProfile>
+
+    <!-- Configuration pour l'environnement de production -->
+    <springProfile name="prod">
+        <logger name="com.regulation.contentieux" level="INFO"/>
+        <root level="WARN"/>
+    </springProfile>
+
+    <!-- Configuration pour les tests -->
+    <springProfile name="test">
+        <logger name="com.regulation.contentieux" level="DEBUG"/>
+        <appender name="TEST_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>%d{HH:mm:ss.SSS} [TEST] %-5level %logger{36} - %msg%n</pattern>
+            </encoder>
+        </appender>
+        <root level="DEBUG">
+            <appender-ref ref="TEST_CONSOLE"/>
+        </root>
+    </springProfile>
+
+    <!-- ==================== CONFIGURATION FINALE ==================== -->
+
+    <!-- Activation du scan automatique des changements de configuration -->
+    <scan>true</scan>
+    <scanPeriod>30 seconds</scanPeriod>
+
+    <!-- Configuration JMX pour monitoring -->
+    <jmxConfigurator/>
+
+    <!-- Limitation du nombre de logs en cas de flooding -->
+    <turboFilter class="ch.qos.logback.classic.turbo.DuplicateMessageFilter">
+        <AllowedRepetitions>5</AllowedRepetitions>
+        <CacheSize>500</CacheSize>
+    </turboFilter>
 
 </configuration>

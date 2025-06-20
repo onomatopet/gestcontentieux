@@ -7,12 +7,14 @@ import java.util.Objects;
 
 /**
  * Entité représentant une contravention
+ * HARMONISÉE AVEC ReferentielController
  */
 public class Contravention {
     private Long id;
     private String code;
     private String libelle;
     private String description;
+    private boolean actif = true;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
@@ -20,6 +22,7 @@ public class Contravention {
     // Constructeurs
     public Contravention() {
         this.createdAt = LocalDateTime.now();
+        this.actif = true;
     }
 
     public Contravention(String code, String libelle) {
@@ -28,7 +31,25 @@ public class Contravention {
         this.libelle = libelle;
     }
 
-    // Getters et Setters
+    // ===== MÉTHODES REQUISES PAR ReferentielController =====
+    // (Déjà correctes dans l'original, ajout de isActif/setActif)
+
+    /**
+     * Méthode pour isActif() - REQUIS PAR ReferentielController
+     */
+    public boolean isActif() {
+        return actif;
+    }
+
+    /**
+     * Méthode pour setActif() - REQUIS PAR ReferentielController
+     */
+    public void setActif(boolean actif) {
+        this.actif = actif;
+    }
+
+    // ===== GETTERS ET SETTERS =====
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 

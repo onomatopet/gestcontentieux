@@ -13,8 +13,8 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * DAO pour la gestion des banques - SUIT LE PATTERN ÉTABLI
- * Respecte exactement la structure des autres DAOs
+ * DAO pour la gestion des banques - HARMONISÉ
+ * Compatible avec le modèle Banque harmonisé
  */
 public class BanqueDAO extends AbstractSQLiteDAO<Banque, Long> {
 
@@ -33,8 +33,8 @@ public class BanqueDAO extends AbstractSQLiteDAO<Banque, Long> {
     @Override
     protected String getInsertQuery() {
         return """
-            INSERT INTO banques (code_banque, nom_banque) 
-            VALUES (?, ?)
+            INSERT INTO banques (code_banque, nom_banque, description, actif) 
+            VALUES (?, ?, ?, ?)
         """;
     }
 
@@ -42,7 +42,7 @@ public class BanqueDAO extends AbstractSQLiteDAO<Banque, Long> {
     protected String getUpdateQuery() {
         return """
             UPDATE banques 
-            SET code_banque = ?, nom_banque = ? 
+            SET code_banque = ?, nom_banque = ?, description = ?, actif = ?
             WHERE id = ?
         """;
     }
@@ -50,7 +50,7 @@ public class BanqueDAO extends AbstractSQLiteDAO<Banque, Long> {
     @Override
     protected String getSelectAllQuery() {
         return """
-            SELECT id, code_banque, nom_banque, created_at 
+            SELECT id, code_banque, nom_banque, description, actif, created_at 
             FROM banques 
             ORDER BY nom_banque ASC
         """;
@@ -59,7 +59,7 @@ public class BanqueDAO extends AbstractSQLiteDAO<Banque, Long> {
     @Override
     protected String getSelectByIdQuery() {
         return """
-            SELECT id, code_banque, nom_banque, created_at 
+            SELECT id, code_banque, nom_banque, description, actif, created_at 
             FROM banques 
             WHERE id = ?
         """;
@@ -72,8 +72,16 @@ public class BanqueDAO extends AbstractSQLiteDAO<Banque, Long> {
         banque.setId(rs.getLong("id"));
         banque.setCodeBanque(rs.getString("code_banque"));
         banque.setNomBanque(rs.getString("nom_banque"));
+        banque.setDescription(rs.getString("description"));
 
-        // Gestion des timestamps - COMME DANS LES AUTRES DAOs
+        // Gestion du boolean actif
+        try {
+            banque.setActif(rs.getBoolean("actif"));
+        } catch (SQLException e) {
+            banque.setActif(true); // Valeur par défaut
+        }
+
+        // Gestion des timestamps
         try {
             Timestamp createdAt = rs.getTimestamp("created_at");
             if (createdAt != null) {
@@ -91,13 +99,14 @@ public class BanqueDAO extends AbstractSQLiteDAO<Banque, Long> {
     protected void setInsertParameters(PreparedStatement stmt, Banque banque) throws SQLException {
         stmt.setString(1, banque.getCodeBanque());
         stmt.setString(2, banque.getNomBanque());
+        stmt.setString(3, banque.getDescription());
+        stmt.setBoolean(4, banque.isActif());
     }
 
     @Override
     protected void setUpdateParameters(PreparedStatement stmt, Banque banque) throws SQLException {
-        stmt.setString(1, banque.getCodeBanque());
-        stmt.setString(2, banque.getNomBanque());
-        stmt.setLong(3, banque.getId());
+        setInsertParameters(stmt, banque);
+        stmt.setLong(5, banque.getId());
     }
 
     @Override
@@ -110,14 +119,21 @@ public class BanqueDAO extends AbstractSQLiteDAO<Banque, Long> {
         banque.setId(id);
     }
 
-    // Méthodes spécifiques aux banques
+    // ========== MÉTHODES SPÉCIFIQUES AUX BANQUES ==========
 
     /**
-     * Trouve une banque par son code
+     * Trouve une banque par son code - COMPATIBLE AVEC ReferentielController
+     */
+    public Optional<Banque> findByCode(String code) {
+        return findByCodeBanque(code);
+    }
+
+    /**
+     * Trouve une banque par son code banque
      */
     public Optional<Banque> findByCodeBanque(String codeBanque) {
         String sql = """
-            SELECT id, code_banque, nom_banque, created_at 
+            SELECT id, code_banque, nom_banque, description, actif, created_at 
             FROM banques 
             WHERE code_banque = ?
         """;
@@ -140,11 +156,11 @@ public class BanqueDAO extends AbstractSQLiteDAO<Banque, Long> {
     }
 
     /**
-     * Recherche de banques avec critères multiples
+     * Recherche de banques avec critères multiples - POUR ReferentielController
      */
-    public List<Banque> searchBanques(String nomOuCode, int offset, int limit) {
+    public List<Banque> searchBanques(String nomOuCode, Boolean actifOnly, int offset, int limit) {
         StringBuilder sql = new StringBuilder();
-        sql.append("SELECT id, code_banque, nom_banque, created_at ");
+        sql.append("SELECT id, code_banque, nom_banque, description, actif, created_at ");
         sql.append("FROM banques WHERE 1=1 ");
 
         List<Object> parameters = new ArrayList<>();
@@ -154,6 +170,11 @@ public class BanqueDAO extends AbstractSQLiteDAO<Banque, Long> {
             String searchPattern = "%" + nomOuCode.trim() + "%";
             parameters.add(searchPattern);
             parameters.add(searchPattern);
+        }
+
+        if (actifOnly != null) {
+            sql.append("AND actif = ? ");
+            parameters.add(actifOnly);
         }
 
         sql.append("ORDER BY nom_banque ASC LIMIT ? OFFSET ?");
@@ -183,38 +204,32 @@ public class BanqueDAO extends AbstractSQLiteDAO<Banque, Long> {
     }
 
     /**
-     * Compte les banques correspondant aux critères
+     * Trouve toutes les banques actives - POUR LES COMBOBOX
      */
-    public long countSearchBanques(String nomOuCode) {
-        StringBuilder sql = new StringBuilder();
-        sql.append("SELECT COUNT(*) FROM banques WHERE 1=1 ");
+    public List<Banque> findAllActive() {
+        String sql = """
+            SELECT id, code_banque, nom_banque, description, actif, created_at 
+            FROM banques 
+            WHERE actif = 1
+            ORDER BY nom_banque ASC
+        """;
 
-        List<Object> parameters = new ArrayList<>();
-
-        if (nomOuCode != null && !nomOuCode.trim().isEmpty()) {
-            sql.append("AND (nom_banque LIKE ? OR code_banque LIKE ?) ");
-            String searchPattern = "%" + nomOuCode.trim() + "%";
-            parameters.add(searchPattern);
-            parameters.add(searchPattern);
-        }
+        List<Banque> banques = new ArrayList<>();
 
         try (Connection conn = DatabaseConfig.getSQLiteConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
-
-            for (int i = 0; i < parameters.size(); i++) {
-                stmt.setObject(i + 1, parameters.get(i));
-            }
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             ResultSet rs = stmt.executeQuery();
-            if (rs.next()) {
-                return rs.getLong(1);
+
+            while (rs.next()) {
+                banques.add(mapResultSetToEntity(rs));
             }
 
         } catch (SQLException e) {
-            logger.error("Erreur lors du comptage des banques", e);
+            logger.error("Erreur lors de la récupération des banques actives", e);
         }
 
-        return 0;
+        return banques;
     }
 
     /**
@@ -280,35 +295,5 @@ public class BanqueDAO extends AbstractSQLiteDAO<Banque, Long> {
             logger.error("Erreur lors de la vérification du code banque", e);
             return false;
         }
-    }
-
-    /**
-     * Trouve les banques par nom partiel
-     */
-    public List<Banque> findByNomContaining(String nom) {
-        String sql = """
-            SELECT id, code_banque, nom_banque, created_at 
-            FROM banques 
-            WHERE nom_banque LIKE ? 
-            ORDER BY nom_banque ASC
-        """;
-
-        List<Banque> banques = new ArrayList<>();
-
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-            stmt.setString(1, "%" + nom + "%");
-            ResultSet rs = stmt.executeQuery();
-
-            while (rs.next()) {
-                banques.add(mapResultSetToEntity(rs));
-            }
-
-        } catch (SQLException e) {
-            logger.error("Erreur lors de la recherche par nom: " + nom, e);
-        }
-
-        return banques;
     }
 }

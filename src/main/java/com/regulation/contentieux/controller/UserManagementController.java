@@ -5,480 +5,612 @@ import com.regulation.contentieux.model.enums.RoleUtilisateur;
 import com.regulation.contentieux.service.AuthenticationService;
 import com.regulation.contentieux.service.ValidationService;
 import com.regulation.contentieux.util.AlertUtil;
-import javafx.beans.property.SimpleStringProperty;
+import com.regulation.contentieux.util.DateFormatter;
+import javafx.application.Platform;
+import javafx.beans.property.BooleanProperty;
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.*;
-import javafx.scene.control.cell.PropertyValueFactory;
-import javafx.scene.layout.VBox;
+import javafx.scene.control.cell.CheckBoxTableCell;
+import javafx.scene.layout.HBox;
+import javafx.util.Callback;
+import javafx.util.StringConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.URL;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 import java.util.ResourceBundle;
+import java.util.stream.Collectors;
 
 /**
- * Contrôleur pour la gestion des utilisateurs
- * Gestion CRUD complète des utilisateurs système
+ * Contrôleur pour la gestion des utilisateurs - VERSION COMPLÈTE
+ * Respecte le pattern établi des autres contrôleurs
  */
 public class UserManagementController implements Initializable {
 
     private static final Logger logger = LoggerFactory.getLogger(UserManagementController.class);
 
-    // Interface principale
-    @FXML private TableView<Utilisateur> utilisateursTableView;
-    @FXML private TableColumn<Utilisateur, String> loginColumn;
-    @FXML private TableColumn<Utilisateur, String> nomPrenomColumn;
-    @FXML private TableColumn<Utilisateur, String> roleColumn;
-    @FXML private TableColumn<Utilisateur, String> statutColumn;
-    @FXML private TableColumn<Utilisateur, String> derniereConnexionColumn;
+    // Filtres et recherche
+    @FXML private TextField searchField;
+    @FXML private ComboBox<RoleUtilisateur> roleFilterComboBox;
+    @FXML private CheckBox activeOnlyCheckBox;
+    @FXML private Button searchButton;
+    @FXML private Button clearFiltersButton;
 
-    // Formulaire d'édition
-    @FXML private VBox formulaireBox;
+    // Actions principales
+    @FXML private Button newUserButton;
+    @FXML private Button exportButton;
+
+    // Tableau et sélection
+    @FXML private TableView<UtilisateurViewModel> utilisateursTableView;
+    @FXML private CheckBox selectAllCheckBox;
+
+    // Colonnes du tableau
+    @FXML private TableColumn<UtilisateurViewModel, Boolean> selectColumn;
+    @FXML private TableColumn<UtilisateurViewModel, String> loginColumn;
+    @FXML private TableColumn<UtilisateurViewModel, String> nomColumn;
+    @FXML private TableColumn<UtilisateurViewModel, String> prenomColumn;
+    @FXML private TableColumn<UtilisateurViewModel, String> emailColumn;
+    @FXML private TableColumn<UtilisateurViewModel, RoleUtilisateur> roleColumn;
+    @FXML private TableColumn<UtilisateurViewModel, Boolean> actifColumn;
+    @FXML private TableColumn<UtilisateurViewModel, LocalDateTime> dateCreationColumn;
+    @FXML private TableColumn<UtilisateurViewModel, Void> actionsColumn;
+
+    // Formulaire utilisateur
+    @FXML private ScrollPane formulaireScrollPane;
+    @FXML private Label formTitleLabel;
+    @FXML private Label modeLabel;
+
     @FXML private TextField loginField;
-    @FXML private PasswordField motDePasseField;
-    @FXML private PasswordField confirmMotDePasseField;
     @FXML private TextField nomField;
     @FXML private TextField prenomField;
     @FXML private TextField emailField;
     @FXML private ComboBox<RoleUtilisateur> roleComboBox;
     @FXML private CheckBox actifCheckBox;
+    @FXML private PasswordField motDePasseField;
+    @FXML private PasswordField confirmMotDePasseField;
 
-    // Boutons
-    @FXML private Button nouveauButton;
-    @FXML private Button modifierButton;
-    @FXML private Button supprimerButton;
+    // Actions du formulaire
     @FXML private Button enregistrerButton;
     @FXML private Button annulerButton;
-    @FXML private Button resetMotDePasseButton;
+    @FXML private Button supprimerButton;
 
-    // Recherche et filtrage
-    @FXML private TextField rechercheField;
-    @FXML private ComboBox<String> filtreRoleComboBox;
-    @FXML private ComboBox<String> filtreStatutComboBox;
+    // Actions sur sélection
+    @FXML private Button editButton;
+    @FXML private Button deleteButton;
+    @FXML private Button activateButton;
+    @FXML private Button deactivateButton;
 
     // Informations
+    @FXML private Label totalCountLabel;
     @FXML private Label statusLabel;
     @FXML private ProgressBar progressBar;
 
-    private final AuthenticationService authenticationService;
-    private final ValidationService validationService;
+    // Services et données
+    private AuthenticationService authenticationService;
+    private ValidationService validationService;
+    private ObservableList<UtilisateurViewModel> utilisateurs;
+    private ObservableList<UtilisateurViewModel> utilisateursFiltres;
 
-    private ObservableList<Utilisateur> utilisateursOriginaux;
-    private ObservableList<Utilisateur> utilisateursFiltres;
+    // État du formulaire
+    private boolean modeCreation = true;
     private Utilisateur utilisateurEnCours;
-    private boolean modeCreation = false;
-
-    public UserManagementController() {
-        this.authenticationService = new AuthenticationService();
-        this.validationService = new ValidationService();
-    }
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
+        authenticationService = AuthenticationService.getInstance();
+        validationService = new ValidationService();
+        utilisateurs = FXCollections.observableArrayList();
+        utilisateursFiltres = FXCollections.observableArrayList();
+
+        setupUI();
         setupTableColumns();
-        setupComboBoxes();
         setupEventHandlers();
         setupFormValidation();
-        setupInitialState();
+        loadData();
 
-        chargerUtilisateurs();
-
-        logger.info("UserManagementController initialisé");
+        logger.info("Contrôleur de gestion des utilisateurs initialisé");
     }
 
-    private void setupTableColumns() {
-        loginColumn.setCellValueFactory(new PropertyValueFactory<>("login"));
+    /**
+     * Configuration initiale de l'interface
+     */
+    private void setupUI() {
+        // Configuration des ComboBox
+        roleFilterComboBox.getItems().add(null); // Option "Tous les rôles"
+        roleFilterComboBox.getItems().addAll(RoleUtilisateur.values());
+        roleFilterComboBox.setConverter(createRoleStringConverter("Tous les rôles"));
 
-        nomPrenomColumn.setCellValueFactory(cellData -> {
-            Utilisateur user = cellData.getValue();
-            String nomComplet = (user.getPrenom() != null ? user.getPrenom() : "") + " " +
-                    (user.getNom() != null ? user.getNom() : "");
-            return new SimpleStringProperty(nomComplet.trim());
-        });
+        roleComboBox.getItems().addAll(RoleUtilisateur.values());
+        roleComboBox.setConverter(createRoleStringConverter(null));
 
-        roleColumn.setCellValueFactory(cellData ->
-                new SimpleStringProperty(cellData.getValue().getRole().getLibelle()));
-
-        statutColumn.setCellValueFactory(cellData ->
-                new SimpleStringProperty(cellData.getValue().isActif() ? "Actif" : "Inactif"));
-
-        derniereConnexionColumn.setCellValueFactory(cellData -> {
-            LocalDateTime derniere = cellData.getValue().getDerniereConnexion();
-            return new SimpleStringProperty(derniere != null ?
-                    derniere.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")) :
-                    "Jamais");
-        });
-
-        // Style conditionnel pour les utilisateurs inactifs
-        utilisateursTableView.setRowFactory(tv -> {
-            TableRow<Utilisateur> row = new TableRow<>();
-            row.itemProperty().addListener((obs, oldUser, newUser) -> {
-                if (newUser != null && !newUser.isActif()) {
-                    row.setStyle("-fx-background-color: #ffebee;");
-                } else {
-                    row.setStyle("");
-                }
-            });
-            return row;
-        });
-    }
-
-    private void setupComboBoxes() {
-        // ComboBox des rôles
-        roleComboBox.setItems(FXCollections.observableArrayList(RoleUtilisateur.values()));
-        roleComboBox.setValue(RoleUtilisateur.GESTIONNAIRE); // Par défaut
-
-        // Filtres
-        filtreRoleComboBox.getItems().addAll("Tous les rôles", "SUPER_ADMIN", "ADMIN", "GESTIONNAIRE");
-        filtreRoleComboBox.setValue("Tous les rôles");
-
-        filtreStatutComboBox.getItems().addAll("Tous les statuts", "Actif", "Inactif");
-        filtreStatutComboBox.setValue("Tous les statuts");
-    }
-
-    private void setupEventHandlers() {
-        // Sélection dans la table
-        utilisateursTableView.getSelectionModel().selectedItemProperty().addListener(
-                (obs, oldSelection, newSelection) -> {
-                    modifierButton.setDisable(newSelection == null);
-                    supprimerButton.setDisable(newSelection == null);
-                    resetMotDePasseButton.setDisable(newSelection == null);
-                }
-        );
-
-        // Boutons d'action
-        nouveauButton.setOnAction(e -> creerNouvelUtilisateur());
-        modifierButton.setOnAction(e -> modifierUtilisateurSelectionne());
-        supprimerButton.setOnAction(e -> supprimerUtilisateurSelectionne());
-        enregistrerButton.setOnAction(e -> enregistrerUtilisateur());
-        annulerButton.setOnAction(e -> annulerEdition());
-        resetMotDePasseButton.setOnAction(e -> resetMotDePasse());
-
-        // Filtrage en temps réel
-        rechercheField.textProperty().addListener((obs, oldVal, newVal) -> appliquerFiltres());
-        filtreRoleComboBox.valueProperty().addListener((obs, oldVal, newVal) -> appliquerFiltres());
-        filtreStatutComboBox.valueProperty().addListener((obs, oldVal, newVal) -> appliquerFiltres());
-    }
-
-    private void setupFormValidation() {
-        // Validation du login en temps réel
-        loginField.textProperty().addListener((obs, oldVal, newVal) -> {
-            if (!newVal.isEmpty() && newVal.length() >= 3) {
-                loginField.setStyle("-fx-border-color: green;");
-            } else {
-                loginField.setStyle("-fx-border-color: red;");
-            }
-            validerFormulaire();
-        });
-
-        // Validation de la confirmation du mot de passe
-        confirmMotDePasseField.textProperty().addListener((obs, oldVal, newVal) -> {
-            String motDePasse = motDePasseField.getText();
-            if (!newVal.isEmpty() && newVal.equals(motDePasse)) {
-                confirmMotDePasseField.setStyle("-fx-border-color: green;");
-            } else {
-                confirmMotDePasseField.setStyle("-fx-border-color: red;");
-            }
-            validerFormulaire();
-        });
-
-        // Validation email
-        emailField.textProperty().addListener((obs, oldVal, newVal) -> {
-            if (newVal.isEmpty() || validationService.isValidEmail(newVal)) {
-                emailField.setStyle("");
-            } else {
-                emailField.setStyle("-fx-border-color: orange;");
-            }
-        });
-    }
-
-    private void setupInitialState() {
-        formulaireBox.setDisable(true);
-        modifierButton.setDisable(true);
-        supprimerButton.setDisable(true);
-        resetMotDePasseButton.setDisable(true);
+        // Configuration initiale
+        formulaireScrollPane.setVisible(false);
         progressBar.setVisible(false);
-        statusLabel.setText("Prêt");
+        activeOnlyCheckBox.setSelected(true);
+
+        // Initialisation de la liste filtrée
+        utilisateursTableView.setItems(utilisateursFiltres);
+    }
+
+    private StringConverter<RoleUtilisateur> createRoleStringConverter(String nullValue) {
+        return new StringConverter<RoleUtilisateur>() {
+            @Override
+            public String toString(RoleUtilisateur role) {
+                if (role == null) return nullValue != null ? nullValue : "";
+                return role.getLibelle();
+            }
+
+            @Override
+            public RoleUtilisateur fromString(String string) {
+                return null; // Pas utilisé
+            }
+        };
+    }
+
+    /**
+     * Configuration des colonnes du tableau
+     */
+    private void setupTableColumns() {
+        // Colonne de sélection
+        selectColumn.setCellValueFactory(param -> param.getValue().selectedProperty());
+        selectColumn.setCellFactory(CheckBoxTableCell.forTableColumn(selectColumn));
+
+        // Colonnes de données
+        loginColumn.setCellValueFactory(param -> param.getValue().loginProperty());
+        nomColumn.setCellValueFactory(param -> param.getValue().nomProperty());
+        prenomColumn.setCellValueFactory(param -> param.getValue().prenomProperty());
+        emailColumn.setCellValueFactory(param -> param.getValue().emailProperty());
+
+        roleColumn.setCellValueFactory(param -> param.getValue().roleProperty());
+        roleColumn.setCellFactory(column -> new TableCell<UtilisateurViewModel, RoleUtilisateur>() {
+            @Override
+            protected void updateItem(RoleUtilisateur role, boolean empty) {
+                super.updateItem(role, empty);
+                setText(empty || role == null ? "" : role.getLibelle());
+            }
+        });
+
+        actifColumn.setCellValueFactory(param -> param.getValue().actifProperty());
+        actifColumn.setCellFactory(column -> new TableCell<UtilisateurViewModel, Boolean>() {
+            @Override
+            protected void updateItem(Boolean actif, boolean empty) {
+                super.updateItem(actif, empty);
+                if (empty || actif == null) {
+                    setText("");
+                    setStyle("");
+                } else {
+                    setText(actif ? "Actif" : "Inactif");
+                    setStyle(actif ? "-fx-text-fill: green;" : "-fx-text-fill: red;");
+                }
+            }
+        });
+
+        dateCreationColumn.setCellValueFactory(param -> param.getValue().dateCreationProperty());
+        dateCreationColumn.setCellFactory(column -> new TableCell<UtilisateurViewModel, LocalDateTime>() {
+            @Override
+            protected void updateItem(LocalDateTime date, boolean empty) {
+                super.updateItem(date, empty);
+                setText(empty || date == null ? "" : DateFormatter.formatDateTime(date));
+            }
+        });
+
+        // Colonne Actions
+        actionsColumn.setCellFactory(createActionsCellFactory());
+
+        // Configuration de la sélection
+        utilisateursTableView.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
+    }
+
+    private Callback<TableColumn<UtilisateurViewModel, Void>, TableCell<UtilisateurViewModel, Void>> createActionsCellFactory() {
+        return new Callback<TableColumn<UtilisateurViewModel, Void>, TableCell<UtilisateurViewModel, Void>>() {
+            @Override
+            public TableCell<UtilisateurViewModel, Void> call(TableColumn<UtilisateurViewModel, Void> param) {
+                return new TableCell<UtilisateurViewModel, Void>() {
+                    private final Button btnEdit = new Button("Modifier");
+                    private final Button btnToggle = new Button();
+                    private final HBox buttons = new HBox(5, btnEdit, btnToggle);
+
+                    {
+                        btnEdit.getStyleClass().add("button-primary");
+                        btnEdit.setOnAction(e -> {
+                            UtilisateurViewModel user = getTableView().getItems().get(getIndex());
+                            editUser(user);
+                        });
+
+                        btnToggle.setOnAction(e -> {
+                            UtilisateurViewModel user = getTableView().getItems().get(getIndex());
+                            toggleUserStatus(user);
+                        });
+                    }
+
+                    @Override
+                    protected void updateItem(Void item, boolean empty) {
+                        super.updateItem(item, empty);
+                        if (empty) {
+                            setGraphic(null);
+                        } else {
+                            UtilisateurViewModel user = getTableView().getItems().get(getIndex());
+                            btnToggle.setText(user.isActif() ? "Désactiver" : "Activer");
+                            btnToggle.getStyleClass().clear();
+                            btnToggle.getStyleClass().add(user.isActif() ? "button-danger" : "button-success");
+                            setGraphic(buttons);
+                        }
+                    }
+                };
+            }
+        };
+    }
+
+    /**
+     * Configuration des gestionnaires d'événements
+     */
+    private void setupEventHandlers() {
+        // Recherche et filtres
+        searchButton.setOnAction(e -> applyFilters());
+        clearFiltersButton.setOnAction(e -> clearFilters());
+        searchField.setOnAction(e -> applyFilters());
+
+        // Actions principales
+        newUserButton.setOnAction(e -> createNewUser());
+        exportButton.setOnAction(e -> exportUsers());
+
+        // Sélection
+        selectAllCheckBox.setOnAction(e -> toggleSelectAll());
+        utilisateursTableView.getSelectionModel().selectedItemProperty().addListener(
+                (obs, oldSelection, newSelection) -> updateSelectionButtons());
+
+        // Formulaire
+        enregistrerButton.setOnAction(e -> saveUser());
+        annulerButton.setOnAction(e -> cancelForm());
+        supprimerButton.setOnAction(e -> deleteCurrentUser());
+
+        // Actions sur sélection
+        editButton.setOnAction(e -> editSelectedUser());
+        deleteButton.setOnAction(e -> deleteSelectedUsers());
+        activateButton.setOnAction(e -> activateSelectedUsers());
+        deactivateButton.setOnAction(e -> deactivateSelectedUsers());
+
+        // Filtres en temps réel
+        activeOnlyCheckBox.setOnAction(e -> applyFilters());
+        roleFilterComboBox.setOnAction(e -> applyFilters());
+        searchField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null && newVal.length() > 2) {
+                applyFilters();
+            } else if (newVal == null || newVal.isEmpty()) {
+                applyFilters();
+            }
+        });
+    }
+
+    /**
+     * Configuration de la validation du formulaire
+     */
+    private void setupFormValidation() {
+        // Validation en temps réel
+        loginField.textProperty().addListener((obs, oldVal, newVal) -> validateForm());
+        nomField.textProperty().addListener((obs, oldVal, newVal) -> validateForm());
+        prenomField.textProperty().addListener((obs, oldVal, newVal) -> validateForm());
+        emailField.textProperty().addListener((obs, oldVal, newVal) -> validateForm());
+        motDePasseField.textProperty().addListener((obs, oldVal, newVal) -> validateForm());
+        confirmMotDePasseField.textProperty().addListener((obs, oldVal, newVal) -> validateForm());
+        roleComboBox.valueProperty().addListener((obs, oldVal, newVal) -> validateForm());
+    }
+
+    /**
+     * Chargement initial des données
+     */
+    private void loadData() {
+        chargerUtilisateurs();
     }
 
     private void chargerUtilisateurs() {
         Task<List<Utilisateur>> task = new Task<List<Utilisateur>>() {
             @Override
             protected List<Utilisateur> call() throws Exception {
-                updateMessage("Chargement des utilisateurs...");
                 return authenticationService.getAllUsers();
+            }
+
+            @Override
+            protected void succeeded() {
+                Platform.runLater(() -> {
+                    List<Utilisateur> users = getValue();
+                    utilisateurs.clear();
+                    utilisateurs.addAll(users.stream()
+                            .map(UtilisateurViewModel::new)
+                            .collect(Collectors.toList()));
+
+                    applyFilters();
+                    updateStatusLabel();
+                    progressBar.setVisible(false);
+                });
+            }
+
+            @Override
+            protected void failed() {
+                Platform.runLater(() -> {
+                    progressBar.setVisible(false);
+                    AlertUtil.showErrorAlert("Erreur", "Chargement",
+                            "Impossible de charger les utilisateurs: " + getException().getMessage());
+                });
             }
         };
 
-        task.setOnSucceeded(e -> {
-            List<Utilisateur> utilisateurs = task.getValue();
-            utilisateursOriginaux = FXCollections.observableArrayList(utilisateurs);
-            utilisateursFiltres = FXCollections.observableArrayList(utilisateurs);
-            utilisateursTableView.setItems(utilisateursFiltres);
-
-            statusLabel.setText(String.format("%d utilisateur(s) chargé(s)", utilisateurs.size()));
-            progressBar.setVisible(false);
-        });
-
-        task.setOnFailed(e -> {
-            Throwable exception = task.getException();
-            logger.error("Erreur lors du chargement des utilisateurs", exception);
-            AlertUtil.showErrorAlert("Erreur", "Chargement impossible",
-                    "Impossible de charger les utilisateurs: " + exception.getMessage());
-            progressBar.setVisible(false);
-        });
-
         progressBar.setVisible(true);
-        statusLabel.textProperty().bind(task.messageProperty());
-
-        Thread thread = new Thread(task);
-        thread.setDaemon(true);
-        thread.start();
+        new Thread(task).start();
     }
 
-    @FXML
-    private void creerNouvelUtilisateur() {
-        utilisateurEnCours = new Utilisateur();
-        modeCreation = true;
+    // ==================== GESTION DES FILTRES ====================
 
-        afficherFormulaireEdition();
-        viderFormulaire();
-
-        loginField.requestFocus();
-        statusLabel.setText("Création d'un nouvel utilisateur");
-    }
-
-    @FXML
-    private void modifierUtilisateurSelectionne() {
-        Utilisateur selected = utilisateursTableView.getSelectionModel().getSelectedItem();
-        if (selected == null) {
-            AlertUtil.showWarningAlert("Attention", "Aucune sélection",
-                    "Veuillez sélectionner un utilisateur à modifier.");
-            return;
-        }
-
-        utilisateurEnCours = selected;
-        modeCreation = false;
-
-        afficherFormulaireEdition();
-        remplirFormulaire(selected);
-
-        statusLabel.setText("Modification de l'utilisateur: " + selected.getLogin());
-    }
-
-    @FXML
-    private void supprimerUtilisateurSelectionne() {
-        Utilisateur selected = utilisateursTableView.getSelectionModel().getSelectedItem();
-        if (selected == null) {
-            return;
-        }
-
-        // Vérification de sécurité
-        if (selected.getRole() == RoleUtilisateur.SUPER_ADMIN) {
-            AlertUtil.showErrorAlert("Erreur", "Suppression interdite",
-                    "Impossible de supprimer un Super Administrateur.");
-            return;
-        }
-
-        Optional<ButtonType> result = AlertUtil.showConfirmationAlert(
-                "Confirmation",
-                "Supprimer l'utilisateur",
-                "Êtes-vous sûr de vouloir supprimer l'utilisateur \"" + selected.getLogin() + "\" ?\n" +
-                        "Cette action est irréversible."
-        );
-
-        if (result.isPresent() && result.get() == ButtonType.OK) {
-            try {
-                authenticationService.deleteUser(selected.getId());
-                utilisateursOriginaux.remove(selected);
-                appliquerFiltres();
-
-                statusLabel.setText("Utilisateur supprimé: " + selected.getLogin());
-                AlertUtil.showInfoAlert("Succès", "Suppression réussie",
-                        "L'utilisateur a été supprimé avec succès.");
-
-            } catch (Exception e) {
-                logger.error("Erreur lors de la suppression de l'utilisateur", e);
-                AlertUtil.showErrorAlert("Erreur", "Suppression échouée",
-                        "Impossible de supprimer l'utilisateur: " + e.getMessage());
-            }
-        }
-    }
-
-    @FXML
-    private void enregistrerUtilisateur() {
-        try {
-            if (!validerSaisie()) {
-                return;
-            }
-
-            // Remplissage des données
-            utilisateurEnCours.setLogin(loginField.getText().trim());
-            utilisateurEnCours.setNom(nomField.getText().trim());
-            utilisateurEnCours.setPrenom(prenomField.getText().trim());
-            utilisateurEnCours.setEmail(emailField.getText().trim());
-            utilisateurEnCours.setRole(roleComboBox.getValue());
-            utilisateurEnCours.setActif(actifCheckBox.isSelected());
-
-            // Gestion du mot de passe
-            String motDePasse = motDePasseField.getText();
-            if (!motDePasse.isEmpty()) {
-                utilisateurEnCours.setMotDePasse(motDePasse); // Sera hashé dans le service
-            }
-
-            if (modeCreation) {
-                authenticationService.createUser(utilisateurEnCours);
-                utilisateursOriginaux.add(utilisateurEnCours);
-                statusLabel.setText("Utilisateur créé: " + utilisateurEnCours.getLogin());
-                AlertUtil.showInfoAlert("Succès", "Création réussie",
-                        "L'utilisateur a été créé avec succès.");
-            } else {
-                authenticationService.updateUser(utilisateurEnCours);
-                statusLabel.setText("Utilisateur modifié: " + utilisateurEnCours.getLogin());
-                AlertUtil.showInfoAlert("Succès", "Modification réussie",
-                        "L'utilisateur a été modifié avec succès.");
-            }
-
-            appliquerFiltres();
-            masquerFormulaireEdition();
-
-        } catch (Exception e) {
-            logger.error("Erreur lors de l'enregistrement de l'utilisateur", e);
-            AlertUtil.showErrorAlert("Erreur", "Enregistrement échoué",
-                    "Impossible d'enregistrer l'utilisateur: " + e.getMessage());
-        }
-    }
-
-    @FXML
-    private void annulerEdition() {
-        masquerFormulaireEdition();
-        statusLabel.setText("Édition annulée");
-    }
-
-    @FXML
-    private void resetMotDePasse() {
-        Utilisateur selected = utilisateursTableView.getSelectionModel().getSelectedItem();
-        if (selected == null) {
-            return;
-        }
-
-        Optional<ButtonType> result = AlertUtil.showConfirmationAlert(
-                "Confirmation",
-                "Réinitialiser le mot de passe",
-                "Voulez-vous réinitialiser le mot de passe de l'utilisateur \"" + selected.getLogin() + "\" ?\n" +
-                        "Un nouveau mot de passe temporaire sera généré."
-        );
-
-        if (result.isPresent() && result.get() == ButtonType.OK) {
-            try {
-                String nouveauMotDePasse = authenticationService.resetUserPassword(selected.getId());
-
-                Alert alert = new Alert(Alert.AlertType.INFORMATION);
-                alert.setTitle("Réinitialisation réussie");
-                alert.setHeaderText("Nouveau mot de passe généré");
-                alert.setContentText("Nouveau mot de passe temporaire pour \"" + selected.getLogin() + "\" :\n\n" +
-                        nouveauMotDePasse + "\n\n" +
-                        "L'utilisateur devra le changer à sa prochaine connexion.");
-                alert.showAndWait();
-
-                statusLabel.setText("Mot de passe réinitialisé pour: " + selected.getLogin());
-
-            } catch (Exception e) {
-                logger.error("Erreur lors de la réinitialisation du mot de passe", e);
-                AlertUtil.showErrorAlert("Erreur", "Réinitialisation échouée",
-                        "Impossible de réinitialiser le mot de passe: " + e.getMessage());
-            }
-        }
-    }
-
-    private void appliquerFiltres() {
-        if (utilisateursOriginaux == null) {
-            return;
-        }
-
-        String recherche = rechercheField.getText().toLowerCase().trim();
-        String filtreRole = filtreRoleComboBox.getValue();
-        String filtreStatut = filtreStatutComboBox.getValue();
+    private void applyFilters() {
+        String searchText = searchField.getText() != null ? searchField.getText().trim().toLowerCase() : "";
+        RoleUtilisateur roleFilter = roleFilterComboBox.getValue();
+        boolean activeOnly = activeOnlyCheckBox.isSelected();
 
         utilisateursFiltres.clear();
-
-        utilisateursOriginaux.stream()
+        utilisateursFiltres.addAll(utilisateurs.stream()
                 .filter(user -> {
                     // Filtre de recherche
-                    if (!recherche.isEmpty()) {
-                        String searchText = (user.getLogin() + " " +
-                                user.getNom() + " " +
-                                user.getPrenom() + " " +
-                                user.getEmail()).toLowerCase();
-                        if (!searchText.contains(recherche)) {
+                    if (!searchText.isEmpty()) {
+                        String userText = (user.getLogin() + " " + user.getNom() + " " + user.getPrenom() + " " +
+                                (user.getEmail() != null ? user.getEmail() : "")).toLowerCase();
+                        if (!userText.contains(searchText)) {
                             return false;
                         }
                     }
 
-                    // Filtre rôle
-                    if (!"Tous les rôles".equals(filtreRole)) {
-                        if (!user.getRole().name().equals(filtreRole)) {
-                            return false;
-                        }
+                    // Filtre par rôle
+                    if (roleFilter != null && !roleFilter.equals(user.getRole())) {
+                        return false;
                     }
 
-                    // Filtre statut
-                    if (!"Tous les statuts".equals(filtreStatut)) {
-                        boolean estActif = "Actif".equals(filtreStatut);
-                        if (user.isActif() != estActif) {
-                            return false;
-                        }
+                    // Filtre actif uniquement
+                    if (activeOnly && !user.isActif()) {
+                        return false;
                     }
 
                     return true;
                 })
-                .forEach(utilisateursFiltres::add);
+                .collect(Collectors.toList()));
 
-        statusLabel.setText(String.format("Affichage: %d/%d utilisateur(s)",
-                utilisateursFiltres.size(), utilisateursOriginaux.size()));
+        updateStatusLabel();
     }
 
-    private void afficherFormulaireEdition() {
-        formulaireBox.setDisable(false);
-        nouveauButton.setDisable(true);
-        modifierButton.setDisable(true);
-        supprimerButton.setDisable(true);
-        resetMotDePasseButton.setDisable(true);
-        utilisateursTableView.setDisable(true);
+    private void clearFilters() {
+        searchField.clear();
+        roleFilterComboBox.setValue(null);
+        activeOnlyCheckBox.setSelected(true);
+        applyFilters();
     }
 
-    private void masquerFormulaireEdition() {
-        formulaireBox.setDisable(true);
-        nouveauButton.setDisable(false);
-        modifierButton.setDisable(false);
-        supprimerButton.setDisable(false);
-        resetMotDePasseButton.setDisable(false);
-        utilisateursTableView.setDisable(false);
+    // ==================== GESTION DU FORMULAIRE ====================
 
+    private void createNewUser() {
+        modeCreation = true;
+        utilisateurEnCours = new Utilisateur();
+
+        formTitleLabel.setText("Nouvel Utilisateur");
+        modeLabel.setText("CRÉATION");
+
+        viderFormulaire();
+        supprimerButton.setVisible(false);
+
+        formulaireScrollPane.setVisible(true);
+        Platform.runLater(() -> loginField.requestFocus());
+    }
+
+    private void editUser(UtilisateurViewModel userViewModel) {
+        // Trouver l'utilisateur complet
+        authenticationService.findUserByLogin(userViewModel.getLogin())
+                .ifPresent(user -> {
+                    modeCreation = false;
+                    utilisateurEnCours = user;
+
+                    formTitleLabel.setText("Modifier Utilisateur");
+                    modeLabel.setText("MODIFICATION");
+
+                    remplirFormulaire(user);
+                    supprimerButton.setVisible(true);
+
+                    formulaireScrollPane.setVisible(true);
+                });
+    }
+
+    private void editSelectedUser() {
+        UtilisateurViewModel selected = utilisateursTableView.getSelectionModel().getSelectedItem();
+        if (selected != null) {
+            editUser(selected);
+        }
+    }
+
+    private void saveUser() {
+        if (!validerSaisie()) return;
+
+        try {
+            // Remplir l'objet utilisateur
+            utilisateurEnCours.setLogin(loginField.getText().trim());
+            utilisateurEnCours.setNom(nomField.getText().trim());
+            utilisateurEnCours.setPrenom(prenomField.getText().trim());
+            utilisateurEnCours.setEmail(emailField.getText().trim().isEmpty() ? null : emailField.getText().trim());
+            utilisateurEnCours.setRole(roleComboBox.getValue());
+            utilisateurEnCours.setActif(actifCheckBox.isSelected());
+
+            // Mot de passe uniquement si fourni
+            if (!motDePasseField.getText().isEmpty()) {
+                utilisateurEnCours.setMotDePasse(motDePasseField.getText());
+            }
+
+            // Sauvegarde
+            if (modeCreation) {
+                authenticationService.createUser(utilisateurEnCours);
+                AlertUtil.showInfoAlert("Succès", "Création", "Utilisateur créé avec succès");
+            } else {
+                authenticationService.updateUser(utilisateurEnCours);
+                AlertUtil.showInfoAlert("Succès", "Modification", "Utilisateur modifié avec succès");
+            }
+
+            cancelForm();
+            chargerUtilisateurs();
+
+        } catch (Exception e) {
+            logger.error("Erreur lors de la sauvegarde de l'utilisateur", e);
+            AlertUtil.showErrorAlert("Erreur", "Sauvegarde", "Erreur: " + e.getMessage());
+        }
+    }
+
+    private void cancelForm() {
+        formulaireScrollPane.setVisible(false);
         viderFormulaire();
         utilisateurEnCours = null;
     }
 
+    private void deleteCurrentUser() {
+        if (utilisateurEnCours == null) return;
+
+        boolean confirmed = AlertUtil.showConfirmationAlert("Confirmation",
+                "Supprimer l'utilisateur",
+                String.format("Êtes-vous sûr de vouloir supprimer l'utilisateur %s ?",
+                        utilisateurEnCours.getLogin()));
+
+        if (confirmed) {
+            try {
+                authenticationService.deleteUser(utilisateurEnCours.getLogin());
+                AlertUtil.showInfoAlert("Succès", "Suppression", "Utilisateur supprimé avec succès");
+                cancelForm();
+                chargerUtilisateurs();
+            } catch (Exception e) {
+                logger.error("Erreur lors de la suppression", e);
+                AlertUtil.showErrorAlert("Erreur", "Suppression", "Erreur: " + e.getMessage());
+            }
+        }
+    }
+
+    // ==================== ACTIONS SUR SÉLECTION ====================
+
+    private void deleteSelectedUsers() {
+        List<UtilisateurViewModel> selected = getSelectedUsers();
+        if (selected.isEmpty()) return;
+
+        boolean confirmed = AlertUtil.showConfirmationAlert("Confirmation",
+                "Supprimer les utilisateurs",
+                String.format("Êtes-vous sûr de vouloir supprimer %d utilisateur(s) ?", selected.size()));
+
+        if (confirmed) {
+            int deleted = 0;
+            for (UtilisateurViewModel user : selected) {
+                try {
+                    authenticationService.deleteUser(user.getLogin());
+                    deleted++;
+                } catch (Exception e) {
+                    logger.error("Erreur lors de la suppression de " + user.getLogin(), e);
+                }
+            }
+
+            AlertUtil.showInfoAlert("Suppression", "Résultat",
+                    String.format("%d utilisateur(s) supprimé(s)", deleted));
+            chargerUtilisateurs();
+        }
+    }
+
+    private void activateSelectedUsers() {
+        toggleSelectedUsersStatus(true);
+    }
+
+    private void deactivateSelectedUsers() {
+        toggleSelectedUsersStatus(false);
+    }
+
+    private void toggleSelectedUsersStatus(boolean activate) {
+        List<UtilisateurViewModel> selected = getSelectedUsers();
+        if (selected.isEmpty()) return;
+
+        int updated = 0;
+        for (UtilisateurViewModel userViewModel : selected) {
+            authenticationService.findUserByLogin(userViewModel.getLogin())
+                    .ifPresent(user -> {
+                        try {
+                            user.setActif(activate);
+                            authenticationService.updateUser(user);
+                        } catch (Exception e) {
+                            logger.error("Erreur lors de la mise à jour de " + user.getLogin(), e);
+                        }
+                    });
+            updated++;
+        }
+
+        AlertUtil.showInfoAlert("Mise à jour", "Résultat",
+                String.format("%d utilisateur(s) %s", updated, activate ? "activé(s)" : "désactivé(s)"));
+        chargerUtilisateurs();
+    }
+
+    private void toggleUserStatus(UtilisateurViewModel userViewModel) {
+        authenticationService.findUserByLogin(userViewModel.getLogin())
+                .ifPresent(user -> {
+                    try {
+                        user.setActif(!user.isActif());
+                        authenticationService.updateUser(user);
+                        chargerUtilisateurs();
+                    } catch (Exception e) {
+                        logger.error("Erreur lors du changement de statut", e);
+                        AlertUtil.showErrorAlert("Erreur", "Mise à jour", "Erreur: " + e.getMessage());
+                    }
+                });
+    }
+
+    // ==================== UTILITAIRES ====================
+
+    private List<UtilisateurViewModel> getSelectedUsers() {
+        return utilisateursFiltres.stream()
+                .filter(UtilisateurViewModel::isSelected)
+                .collect(Collectors.toList());
+    }
+
+    private void toggleSelectAll() {
+        boolean selectAll = selectAllCheckBox.isSelected();
+        utilisateursFiltres.forEach(user -> user.setSelected(selectAll));
+    }
+
+    private void updateSelectionButtons() {
+        List<UtilisateurViewModel> selected = getSelectedUsers();
+        boolean hasSelection = !selected.isEmpty();
+
+        editButton.setDisable(selected.size() != 1);
+        deleteButton.setDisable(!hasSelection);
+        activateButton.setDisable(!hasSelection);
+        deactivateButton.setDisable(!hasSelection);
+    }
+
+    private void updateStatusLabel() {
+        totalCountLabel.setText(String.format("Total: %d utilisateur(s)", utilisateurs.size()));
+        statusLabel.setText(String.format("Affichage: %d/%d utilisateur(s)",
+                utilisateursFiltres.size(), utilisateurs.size()));
+    }
+
+    private void exportUsers() {
+        // TODO: Implémenter l'export
+        AlertUtil.showInfoAlert("Information", "Export", "Fonctionnalité d'export en cours de développement");
+    }
+
     private void viderFormulaire() {
         loginField.clear();
-        motDePasseField.clear();
-        confirmMotDePasseField.clear();
         nomField.clear();
         prenomField.clear();
         emailField.clear();
-        roleComboBox.setValue(RoleUtilisateur.GESTIONNAIRE);
+        roleComboBox.setValue(null);
         actifCheckBox.setSelected(true);
+        motDePasseField.clear();
+        confirmMotDePasseField.clear();
 
-        // Reset des styles
+        // Supprimer les styles d'erreur
         loginField.setStyle("");
-        confirmMotDePasseField.setStyle("");
+        nomField.setStyle("");
+        prenomField.setStyle("");
         emailField.setStyle("");
     }
 
@@ -542,7 +674,7 @@ public class UserManagementController implements Initializable {
         return true;
     }
 
-    private void validerFormulaire() {
+    private void validateForm() {
         boolean isValid = !loginField.getText().trim().isEmpty() &&
                 loginField.getText().trim().length() >= 3 &&
                 (motDePasseField.getText().isEmpty() ||
@@ -566,5 +698,66 @@ public class UserManagementController implements Initializable {
                     utilisateursTableView.getSelectionModel().select(user);
                     utilisateursTableView.scrollTo(user);
                 });
+    }
+
+    // ==================== CLASSE VIEWMODEL ====================
+
+    /**
+     * ViewModel pour les utilisateurs dans le tableau
+     */
+    public static class UtilisateurViewModel {
+        private final BooleanProperty selected = new SimpleBooleanProperty(false);
+        private final Utilisateur utilisateur;
+
+        public UtilisateurViewModel(Utilisateur utilisateur) {
+            this.utilisateur = utilisateur;
+        }
+
+        // Propriétés pour JavaFX
+        public BooleanProperty selectedProperty() { return selected; }
+        public boolean isSelected() { return selected.get(); }
+        public void setSelected(boolean selected) { this.selected.set(selected); }
+
+        // Propriétés dérivées de l'utilisateur
+        public String getLogin() { return utilisateur.getLogin(); }
+        public String getNom() { return utilisateur.getNom(); }
+        public String getPrenom() { return utilisateur.getPrenom(); }
+        public String getEmail() { return utilisateur.getEmail(); }
+        public RoleUtilisateur getRole() { return utilisateur.getRole(); }
+        public boolean isActif() { return utilisateur.isActif(); }
+        public LocalDateTime getDateCreation() { return utilisateur.getDateCreation(); }
+
+        // Propriétés observables pour le tableau
+        public javafx.beans.property.StringProperty loginProperty() {
+            return new javafx.beans.property.SimpleStringProperty(getLogin());
+        }
+
+        public javafx.beans.property.StringProperty nomProperty() {
+            return new javafx.beans.property.SimpleStringProperty(getNom());
+        }
+
+        public javafx.beans.property.StringProperty prenomProperty() {
+            return new javafx.beans.property.SimpleStringProperty(getPrenom());
+        }
+
+        public javafx.beans.property.StringProperty emailProperty() {
+            return new javafx.beans.property.SimpleStringProperty(getEmail());
+        }
+
+        public javafx.beans.property.ObjectProperty<RoleUtilisateur> roleProperty() {
+            return new javafx.beans.property.SimpleObjectProperty<>(getRole());
+        }
+
+        public javafx.beans.property.BooleanProperty actifProperty() {
+            return new javafx.beans.property.SimpleBooleanProperty(isActif());
+        }
+
+        public javafx.beans.property.ObjectProperty<LocalDateTime> dateCreationProperty() {
+            return new javafx.beans.property.SimpleObjectProperty<>(getDateCreation());
+        }
+
+        public Utilisateur getUtilisateur() {
+            return utilisateur;
+        }
     }
 }

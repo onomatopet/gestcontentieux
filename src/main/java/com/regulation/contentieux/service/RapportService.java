@@ -800,7 +800,7 @@ public class RapportService {
 
                     // ou BigDecimal.valueOf(affaire.getMontantAmende())
                     montantService = montantService.add(encaissements.stream()
-                            .map(encaissement -> BigDecimal.valueOf(encaissement.getMontant()))
+                            .map(encaissement -> BigDecimal.valueOf(encaissement.getMontant())) // Doit être encaissement.getMontant()
                             .reduce(BigDecimal.ZERO, BigDecimal::add));
                 }
 
@@ -991,7 +991,7 @@ public class RapportService {
         // Taux de recouvrement moyen
         BigDecimal totalAmende = rapport.getAffaires().stream()
                 .map(AffaireRepartitionDTO::getMontantAmende)
-                .map(encaissement -> BigDecimal.valueOf(encaissement.getMontant()))
+                .map(encaissement -> BigDecimal.valueOf(encaissement.getClass().getModifiers()))
                 .reduce(BigDecimal.ZERO, (a, b) -> a.add(b));
 
         if (totalAmende.compareTo(BigDecimal.ZERO) > 0) {

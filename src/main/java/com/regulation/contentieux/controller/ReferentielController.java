@@ -4,6 +4,7 @@ import com.regulation.contentieux.model.*;
 import com.regulation.contentieux.dao.*;
 import com.regulation.contentieux.service.ValidationService;
 import com.regulation.contentieux.util.AlertUtil;
+import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -11,8 +12,8 @@ import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.*;
-import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.VBox;
+import javafx.util.StringConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,8 +23,9 @@ import java.util.Optional;
 import java.util.ResourceBundle;
 
 /**
- * Contrôleur pour la gestion des données de référence
+ * Contrôleur pour la gestion des données de référence - VERSION HARMONISÉE
  * Gestion des Services, Bureaux, Centres, Contraventions, Banques
+ * COMPATIBLE AVEC TOUS LES MODÈLES HARMONISÉS
  */
 public class ReferentielController implements Initializable {
 
@@ -45,7 +47,7 @@ public class ReferentielController implements Initializable {
     @FXML private TextField libelleField;
     @FXML private TextArea descriptionTextArea;
     @FXML private CheckBox actifCheckBox;
-    @FXML private ComboBox<Object> parentComboBox; // Pour les hiérarchies (Section->Service->Centre)
+    @FXML private ComboBox<Object> parentComboBox; // Pour les hiérarchies
     @FXML private Label parentLabel;
 
     // Boutons
@@ -66,9 +68,8 @@ public class ReferentielController implements Initializable {
 
     private final ValidationService validationService;
 
-    // DAOs pour chaque type
-    private
-    ServiceDAO serviceDAO;
+    // DAOs pour chaque type - HARMONISÉS
+    private ServiceDAO serviceDAO;
     private BureauDAO bureauDAO;
     private CentreDAO centreDAO;
     private ContraventionDAO contraventionDAO;
@@ -83,7 +84,7 @@ public class ReferentielController implements Initializable {
     public ReferentielController() {
         this.validationService = new ValidationService();
 
-        // Initialisation des DAOs
+        // Initialisation des DAOs harmonisés
         this.serviceDAO = new ServiceDAO();
         this.bureauDAO = new BureauDAO();
         this.centreDAO = new CentreDAO();
@@ -93,13 +94,17 @@ public class ReferentielController implements Initializable {
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-        setupComboBoxes();
-        setupTableColumns();
-        setupEventHandlers();
-        setupFormValidation();
-        setupInitialState();
+        try {
+            setupComboBoxes();
+            setupTableColumns();
+            setupEventHandlers();
+            setupFormValidation();
+            setupInitialState();
 
-        logger.info("ReferentielController initialisé");
+            logger.info("✅ ReferentielController harmonisé initialisé avec succès");
+        } catch (Exception e) {
+            logger.error("❌ Erreur lors de l'initialisation de ReferentielController", e);
+        }
     }
 
     private void setupComboBoxes() {
@@ -112,13 +117,44 @@ public class ReferentielController implements Initializable {
                 "Banques"
         ));
 
-        // Filtres
-        filtreStatutComboBox.getItems().addAll("Tous les statuts", "Actif", "Inactif");
+        // StringConverter pour le type de référentiel
+        typeReferentielComboBox.setConverter(new StringConverter<String>() {
+            @Override
+            public String toString(String string) {
+                return string != null ? string : "";
+            }
+
+            @Override
+            public String fromString(String string) {
+                return string;
+            }
+        });
+
+        // Filtres de statut
+        filtreStatutComboBox.setItems(FXCollections.observableArrayList(
+                "Tous les statuts", "Actif", "Inactif"
+        ));
         filtreStatutComboBox.setValue("Tous les statuts");
+
+        // StringConverter pour le ComboBox parent générique
+        parentComboBox.setConverter(new StringConverter<Object>() {
+            @Override
+            public String toString(Object object) {
+                if (object == null) return "";
+                if (object instanceof Service) return ((Service) object).toString();
+                if (object instanceof Centre) return ((Centre) object).toString();
+                return object.toString();
+            }
+
+            @Override
+            public Object fromString(String string) {
+                return null; // Pas utilisé
+            }
+        });
     }
 
     private void setupTableColumns() {
-        // Colonnes génériques adaptables
+        // Configuration des colonnes avec les méthodes harmonisées
         codeColumn.setCellValueFactory(cellData -> {
             Object item = cellData.getValue();
             return new SimpleStringProperty(getCode(item));
@@ -131,7 +167,8 @@ public class ReferentielController implements Initializable {
 
         descriptionColumn.setCellValueFactory(cellData -> {
             Object item = cellData.getValue();
-            return new SimpleStringProperty(getDescription(item));
+            String description = getDescription(item);
+            return new SimpleStringProperty(description != null ? description : "");
         });
 
         statutColumn.setCellValueFactory(cellData -> {
@@ -139,326 +176,182 @@ public class ReferentielController implements Initializable {
             return new SimpleStringProperty(isActif(item) ? "Actif" : "Inactif");
         });
 
-        // Style conditionnel pour les éléments inactifs
-        referentielTableView.setRowFactory(tv -> {
-            TableRow<Object> row = new TableRow<>();
-            row.itemProperty().addListener((obs, oldItem, newItem) -> {
-                if (newItem != null && !isActif(newItem)) {
-                    row.setStyle("-fx-background-color: #ffebee;");
-                } else {
-                    row.setStyle("");
-                }
-            });
-            return row;
-        });
+        // Configuration de la table
+        referentielTableView.setItems(donneesFiltrees = FXCollections.observableArrayList());
+        referentielTableView.getSelectionModel().setSelectionMode(SelectionMode.SINGLE);
     }
 
     private void setupEventHandlers() {
         // Changement de type de référentiel
-        typeReferentielComboBox.valueProperty().addListener((obs, oldVal, newVal) -> {
-            if (newVal != null) {
-                changerTypeReferentiel(newVal);
+        typeReferentielComboBox.setOnAction(e -> {
+            String type = typeReferentielComboBox.getValue();
+            if (type != null) {
+                chargerDonnees(type);
             }
         });
 
         // Sélection dans la table
         referentielTableView.getSelectionModel().selectedItemProperty().addListener(
                 (obs, oldSelection, newSelection) -> {
-                    modifierButton.setDisable(newSelection == null);
-                    supprimerButton.setDisable(newSelection == null);
-                }
-        );
+                    if (newSelection != null) {
+                        afficherElementSelectionne(newSelection);
+                        activerBoutonsSelection(true);
+                    } else {
+                        masquerFormulaire();
+                        activerBoutonsSelection(false);
+                    }
+                });
 
+        // Boutons d'action
         nouveauButton.setOnAction(e -> creerNouvelElement());
         modifierButton.setOnAction(e -> modifierElementSelectionne());
         supprimerButton.setOnAction(e -> supprimerElementSelectionne());
         enregistrerButton.setOnAction(e -> enregistrerElement());
-        annulerButton.setOnAction(e -> annulerEdition());
+        annulerButton.setOnAction(e -> annulerFormulaire());
         actualiserButton.setOnAction(e -> actualiserDonnees());
 
-        // Filtrage en temps réel
+        // Recherche et filtres
         rechercheField.textProperty().addListener((obs, oldVal, newVal) -> appliquerFiltres());
-        filtreStatutComboBox.valueProperty().addListener((obs, oldVal, newVal) -> appliquerFiltres());
+        filtreStatutComboBox.setOnAction(e -> appliquerFiltres());
     }
 
     private void setupFormValidation() {
-        // Validation du code en temps réel
-        codeField.textProperty().addListener((obs, oldVal, newVal) -> {
-            if (!newVal.isEmpty() && newVal.length() >= 2) {
-                codeField.setStyle("-fx-border-color: green;");
-            } else {
-                codeField.setStyle("-fx-border-color: red;");
-            }
-            validerFormulaire();
-        });
-
-        // Validation du libellé
-        libelleField.textProperty().addListener((obs, oldVal, newVal) -> {
-            if (!newVal.trim().isEmpty()) {
-                libelleField.setStyle("-fx-border-color: green;");
-            } else {
-                libelleField.setStyle("-fx-border-color: red;");
-            }
-            validerFormulaire();
-        });
+        // Validation en temps réel
+        codeField.textProperty().addListener((obs, oldVal, newVal) -> validerFormulaire());
+        libelleField.textProperty().addListener((obs, oldVal, newVal) -> validerFormulaire());
+        parentComboBox.valueProperty().addListener((obs, oldVal, newVal) -> validerFormulaire());
     }
 
     private void setupInitialState() {
-        formulaireBox.setDisable(true);
-        modifierButton.setDisable(true);
-        supprimerButton.setDisable(true);
+        donneesOriginales = FXCollections.observableArrayList();
+        donneesFiltrees = FXCollections.observableArrayList();
+
+        masquerFormulaire();
+        activerBoutonsSelection(false);
         progressBar.setVisible(false);
-        statusLabel.setText("Sélectionnez un type de référentiel");
 
-        // Masquer initialement les champs de hiérarchie
-        parentComboBox.setVisible(false);
-        parentLabel.setVisible(false);
-    }
-
-    private void changerTypeReferentiel(String nouveauType) {
-        typeActuel = nouveauType;
-
-        // Configuration spécifique selon le type
-        configurerPourType(nouveauType);
-
-        // Chargement des données
-        chargerDonnees(nouveauType);
-
-        statusLabel.setText("Type sélectionné: " + nouveauType);
-    }
-
-    private void configurerPourType(String type) {
-        // Configuration des labels et visibilité selon le type
-        switch (type) {
-            case "Services":
-                parentLabel.setText("Centre:");
-                parentLabel.setVisible(true);
-                parentComboBox.setVisible(true);
-                chargerCentresPourServices();
-                break;
-            case "Bureaux":
-                parentLabel.setText("Service:");
-                parentLabel.setVisible(true);
-                parentComboBox.setVisible(true);
-                chargerServicesPourBureaux();
-                break;
-            default:
-                parentLabel.setVisible(false);
-                parentComboBox.setVisible(false);
-                break;
+        // Sélectionner le premier type par défaut
+        if (!typeReferentielComboBox.getItems().isEmpty()) {
+            typeReferentielComboBox.setValue("Services");
         }
     }
 
+    // ==================== CHARGEMENT DES DONNÉES ====================
+
     private void chargerDonnees(String type) {
+        typeActuel = type;
+
         Task<List<Object>> task = new Task<List<Object>>() {
             @Override
             protected List<Object> call() throws Exception {
-                updateMessage("Chargement des " + type.toLowerCase() + "...");
+                Thread.sleep(100); // Petite pause pour l'UX
+                return chargerDonneesParType(type);
+            }
 
-                switch (type) {
-                    case "Services":
-                        return (List<Object>) (List<?>) serviceDAO.findAll();
-                    case "Bureaux":
-                        return (List<Object>) (List<?>) bureauDAO.findAll();
-                    case "Centres":
-                        return (List<Object>) (List<?>) centreDAO.findAll();
-                    case "Contraventions":
-                        return (List<Object>) (List<?>) contraventionDAO.findAll();
-                    case "Banques":
-                        return (List<Object>) (List<?>) banqueDAO.findAll();
-                    default:
-                        return FXCollections.emptyObservableList();
-                }
+            @Override
+            protected void succeeded() {
+                Platform.runLater(() -> {
+                    List<Object> donnees = getValue();
+                    donneesOriginales.setAll(donnees);
+                    appliquerFiltres();
+                    configurerFormulairePourType(type);
+                    progressBar.setVisible(false);
+                    statusLabel.setText(String.format("%d %s chargé(s)",
+                            donnees.size(), type.toLowerCase()));
+                });
+            }
+
+            @Override
+            protected void failed() {
+                Platform.runLater(() -> {
+                    progressBar.setVisible(false);
+                    statusLabel.setText("Erreur lors du chargement");
+                    AlertUtil.showErrorAlert("Erreur", "Chargement",
+                            "Impossible de charger les données: " + getException().getMessage());
+                });
             }
         };
 
-        task.setOnSucceeded(e -> {
-            List<Object> donnees = task.getValue();
-            donneesOriginales = FXCollections.observableArrayList(donnees);
-            donneesFiltrees = FXCollections.observableArrayList(donnees);
-            referentielTableView.setItems(donneesFiltrees);
-
-            statusLabel.setText(String.format("%d %s chargé(s)", donnees.size(), type.toLowerCase()));
-            progressBar.setVisible(false);
-        });
-
-        task.setOnFailed(e -> {
-            Throwable exception = task.getException();
-            logger.error("Erreur lors du chargement des " + type, exception);
-            AlertUtil.showErrorAlert("Erreur", "Chargement impossible",
-                    "Impossible de charger les " + type.toLowerCase() + ": " + exception.getMessage());
-            progressBar.setVisible(false);
-        });
-
         progressBar.setVisible(true);
-        statusLabel.textProperty().bind(task.messageProperty());
-
-        Thread thread = new Thread(task);
-        thread.setDaemon(true);
-        thread.start();
+        new Thread(task).start();
     }
 
-    private void chargerCentresPourServices() {
-        try {
-            List<Centre> centres = centreDAO.findAll();
-            parentComboBox.setItems(FXCollections.observableArrayList((List<Object>)(List<?>)centres));
-        } catch (Exception e) {
-            logger.error("Erreur lors du chargement des centres", e);
+    @SuppressWarnings("unchecked")
+    private List<Object> chargerDonneesParType(String type) {
+        switch (type) {
+            case "Services":
+                return (List<Object>) (List<?>) serviceDAO.findAll();
+            case "Bureaux":
+                return (List<Object>) (List<?>) bureauDAO.findAll();
+            case "Centres":
+                return (List<Object>) (List<?>) centreDAO.findAll();
+            case "Contraventions":
+                return (List<Object>) (List<?>) contraventionDAO.findAll();
+            case "Banques":
+                return (List<Object>) (List<?>) banqueDAO.findAll();
+            default:
+                return FXCollections.observableArrayList();
         }
     }
 
-    private void chargerServicesPourBureaux() {
-        try {
-            List<Service> services = serviceDAO.findAll();
-            parentComboBox.setItems(FXCollections.observableArrayList((List<Object>)(List<?>)services));
-        } catch (Exception e) {
-            logger.error("Erreur lors du chargement des services", e);
+    private void configurerFormulairePourType(String type) {
+        // Configuration spécifique selon le type
+        switch (type) {
+            case "Services":
+                parentLabel.setText("Centre:");
+                parentComboBox.setVisible(true);
+                parentLabel.setVisible(true);
+                chargerParentsServices();
+                break;
+            case "Bureaux":
+                parentLabel.setText("Service:");
+                parentComboBox.setVisible(true);
+                parentLabel.setVisible(true);
+                chargerParentsBureaux();
+                break;
+            default:
+                parentComboBox.setVisible(false);
+                parentLabel.setVisible(false);
+                break;
         }
     }
 
-    @FXML
-    private void creerNouvelElement() {
-        if (typeActuel.isEmpty()) {
-            AlertUtil.showWarningAlert("Attention", "Type non sélectionné",
-                    "Veuillez d'abord sélectionner un type de référentiel.");
-            return;
-        }
-
-        elementEnCours = creerNouvelObjet(typeActuel);
-        modeCreation = true;
-
-        afficherFormulaireEdition();
-        viderFormulaire();
-
-        codeField.requestFocus();
-        statusLabel.setText("Création d'un nouveau " + typeActuel.substring(0, typeActuel.length()-1).toLowerCase());
+    @SuppressWarnings("unchecked")
+    private void chargerParentsServices() {
+        List<Centre> centres = centreDAO.findAllActive();
+        parentComboBox.setItems((ObservableList<Object>) (ObservableList<?>)
+                FXCollections.observableArrayList(centres));
     }
 
-    @FXML
-    private void modifierElementSelectionne() {
-        Object selected = referentielTableView.getSelectionModel().getSelectedItem();
-        if (selected == null) {
-            AlertUtil.showWarningAlert("Attention", "Aucune sélection",
-                    "Veuillez sélectionner un élément à modifier.");
-            return;
-        }
-
-        elementEnCours = selected;
-        modeCreation = false;
-
-        afficherFormulaireEdition();
-        remplirFormulaire(selected);
-
-        statusLabel.setText("Modification de: " + getLibelle(selected));
+    @SuppressWarnings("unchecked")
+    private void chargerParentsBureaux() {
+        List<Service> services = serviceDAO.findAllActive();
+        parentComboBox.setItems((ObservableList<Object>) (ObservableList<?>)
+                FXCollections.observableArrayList(services));
     }
 
-    @FXML
-    private void supprimerElementSelectionne() {
-        Object selected = referentielTableView.getSelectionModel().getSelectedItem();
-        if (selected == null) {
-            return;
-        }
-
-        Optional<ButtonType> result = AlertUtil.showConfirmationAlert(
-                "Confirmation",
-                "Supprimer l'élément",
-                "Êtes-vous sûr de vouloir supprimer \"" + getLibelle(selected) + "\" ?\n" +
-                        "Cette action peut affecter les données liées."
-        );
-
-        if (result.isPresent() && result.get() == ButtonType.OK) {
-            try {
-                supprimerObjet(selected);
-                donneesOriginales.remove(selected);
-                appliquerFiltres();
-
-                statusLabel.setText("Élément supprimé: " + getLibelle(selected));
-                AlertUtil.showInfoAlert("Succès", "Suppression réussie",
-                        "L'élément a été supprimé avec succès.");
-
-            } catch (Exception e) {
-                logger.error("Erreur lors de la suppression", e);
-                AlertUtil.showErrorAlert("Erreur", "Suppression échouée",
-                        "Impossible de supprimer l'élément: " + e.getMessage());
-            }
-        }
-    }
-
-    @FXML
-    private void enregistrerElement() {
-        try {
-            if (!validerSaisie()) {
-                return;
-            }
-
-            // Remplissage des données communes
-            setCode(elementEnCours, codeField.getText().trim().toUpperCase());
-            setLibelle(elementEnCours, libelleField.getText().trim());
-            setDescription(elementEnCours, descriptionTextArea.getText().trim());
-            setActif(elementEnCours, actifCheckBox.isSelected());
-
-            // Remplissage des données spécifiques
-            if (parentComboBox.isVisible() && parentComboBox.getValue() != null) {
-                setParent(elementEnCours, parentComboBox.getValue());
-            }
-
-            if (modeCreation) {
-                sauvegarderNouvelObjet(elementEnCours);
-                donneesOriginales.add(elementEnCours);
-                statusLabel.setText("Élément créé: " + getLibelle(elementEnCours));
-                AlertUtil.showInfoAlert("Succès", "Création réussie",
-                        "L'élément a été créé avec succès.");
-            } else {
-                mettreAJourObjet(elementEnCours);
-                statusLabel.setText("Élément modifié: " + getLibelle(elementEnCours));
-                AlertUtil.showInfoAlert("Succès", "Modification réussie",
-                        "L'élément a été modifié avec succès.");
-            }
-
-            appliquerFiltres();
-            masquerFormulaireEdition();
-
-        } catch (Exception e) {
-            logger.error("Erreur lors de l'enregistrement", e);
-            AlertUtil.showErrorAlert("Erreur", "Enregistrement échoué",
-                    "Impossible d'enregistrer l'élément: " + e.getMessage());
-        }
-    }
-
-    @FXML
-    private void annulerEdition() {
-        masquerFormulaireEdition();
-        statusLabel.setText("Édition annulée");
-    }
-
-    @FXML
-    private void actualiserDonnees() {
-        if (!typeActuel.isEmpty()) {
-            chargerDonnees(typeActuel);
-        }
-    }
+    // ==================== GESTION DES FILTRES ====================
 
     private void appliquerFiltres() {
-        if (donneesOriginales == null) {
-            return;
-        }
+        if (donneesOriginales == null) return;
 
-        String recherche = rechercheField.getText().toLowerCase().trim();
+        String recherche = rechercheField.getText().trim().toLowerCase();
         String filtreStatut = filtreStatutComboBox.getValue();
 
         donneesFiltrees.clear();
 
         donneesOriginales.stream()
                 .filter(item -> {
-                    // Filtre de recherche
+                    // Filtre par recherche
                     if (!recherche.isEmpty()) {
-                        String searchText = (getCode(item) + " " + getLibelle(item) + " " + getDescription(item)).toLowerCase();
-                        if (!searchText.contains(recherche)) {
+                        String code = getCode(item).toLowerCase();
+                        String libelle = getLibelle(item).toLowerCase();
+                        if (!code.contains(recherche) && !libelle.contains(recherche)) {
                             return false;
                         }
                     }
 
-                    // Filtre statut
+                    // Filtre par statut
                     if (!"Tous les statuts".equals(filtreStatut)) {
                         boolean estActif = "Actif".equals(filtreStatut);
                         if (isActif(item) != estActif) {
@@ -555,6 +448,144 @@ public class ReferentielController implements Initializable {
         }
     }
 
+    // ==================== GESTION DU FORMULAIRE ====================
+
+    private void afficherElementSelectionne(Object element) {
+        elementEnCours = element;
+        modeCreation = false;
+
+        // Remplir les champs
+        codeField.setText(getCode(element));
+        libelleField.setText(getLibelle(element));
+        descriptionTextArea.setText(getDescription(element));
+        actifCheckBox.setSelected(isActif(element));
+
+        // Parent spécifique
+        if (element instanceof Service) {
+            Service service = (Service) element;
+            parentComboBox.setValue(service.getCentre());
+        } else if (element instanceof Bureau) {
+            Bureau bureau = (Bureau) element;
+            parentComboBox.setValue(bureau.getService());
+        }
+
+        afficherFormulaire(false);
+    }
+
+    private void afficherFormulaire(boolean lecture) {
+        formulaireBox.setVisible(true);
+        formulaireBox.setDisable(lecture);
+        enregistrerButton.setVisible(!lecture);
+        annulerButton.setVisible(!lecture);
+    }
+
+    private void masquerFormulaire() {
+        formulaireBox.setVisible(false);
+        viderFormulaire();
+    }
+
+    private void viderFormulaire() {
+        codeField.clear();
+        libelleField.clear();
+        descriptionTextArea.clear();
+        actifCheckBox.setSelected(true);
+        parentComboBox.setValue(null);
+        elementEnCours = null;
+    }
+
+    private void activerBoutonsSelection(boolean activer) {
+        modifierButton.setDisable(!activer);
+        supprimerButton.setDisable(!activer);
+    }
+
+    // ==================== ACTIONS ====================
+
+    private void creerNouvelElement() {
+        viderFormulaire();
+        modeCreation = true;
+        elementEnCours = creerNouvelObjet(typeActuel);
+        afficherFormulaire(false);
+
+        // Focus sur le code
+        Platform.runLater(() -> codeField.requestFocus());
+    }
+
+    private void modifierElementSelectionne() {
+        if (elementEnCours != null) {
+            modeCreation = false;
+            afficherFormulaire(false);
+        }
+    }
+
+    private void supprimerElementSelectionne() {
+        if (elementEnCours == null) return;
+
+        boolean confirme = AlertUtil.showConfirmationAlert("Confirmation",
+                "Supprimer l'élément",
+                String.format("Êtes-vous sûr de vouloir supprimer %s - %s ?",
+                        getCode(elementEnCours), getLibelle(elementEnCours)));
+
+        if (confirme) {
+            try {
+                supprimerObjet(elementEnCours);
+                masquerFormulaire();
+                actualiserDonnees();
+                AlertUtil.showInfoAlert("Succès", "Suppression", "Élément supprimé avec succès");
+            } catch (Exception e) {
+                logger.error("Erreur lors de la suppression", e);
+                AlertUtil.showErrorAlert("Erreur", "Suppression",
+                        "Erreur lors de la suppression: " + e.getMessage());
+            }
+        }
+    }
+
+    private void enregistrerElement() {
+        if (!validerSaisie()) return;
+
+        try {
+            // Remplir l'objet avec les données du formulaire
+            setCode(elementEnCours, codeField.getText().trim());
+            setLibelle(elementEnCours, libelleField.getText().trim());
+            setDescription(elementEnCours, descriptionTextArea.getText().trim());
+            setActif(elementEnCours, actifCheckBox.isSelected());
+
+            // Parent si applicable
+            if (parentComboBox.isVisible() && parentComboBox.getValue() != null) {
+                setParent(elementEnCours, parentComboBox.getValue());
+            }
+
+            // Sauvegarde
+            if (modeCreation) {
+                sauvegarderNouvelObjet(elementEnCours);
+            } else {
+                mettreAJourObjet(elementEnCours);
+            }
+
+            masquerFormulaire();
+            actualiserDonnees();
+            AlertUtil.showInfoAlert("Succès", "Enregistrement",
+                    (modeCreation ? "Création" : "Modification") + " réussie");
+
+        } catch (Exception e) {
+            logger.error("Erreur lors de l'enregistrement", e);
+            AlertUtil.showErrorAlert("Erreur", "Enregistrement",
+                    "Erreur lors de l'enregistrement: " + e.getMessage());
+        }
+    }
+
+    private void annulerFormulaire() {
+        masquerFormulaire();
+        referentielTableView.getSelectionModel().clearSelection();
+    }
+
+    private void actualiserDonnees() {
+        if (!typeActuel.isEmpty()) {
+            chargerDonnees(typeActuel);
+        }
+    }
+
+    // ==================== CRÉATION ET SAUVEGARDE D'OBJETS ====================
+
     private Object creerNouvelObjet(String type) {
         switch (type) {
             case "Services": return new Service();
@@ -583,71 +614,14 @@ public class ReferentielController implements Initializable {
     }
 
     private void supprimerObjet(Object item) throws Exception {
-        if (item instanceof Service) serviceDAO.delete(((Service) item).getId());
-        else if (item instanceof Bureau) bureauDAO.delete(((Bureau) item).getId());
-        else if (item instanceof Centre) centreDAO.delete(((Centre) item).getId());
-        else if (item instanceof Contravention) contraventionDAO.delete(((Contravention) item).getId());
-        else if (item instanceof Banque) banqueDAO.delete(((Banque) item).getId());
+        if (item instanceof Service) serviceDAO.deleteById(((Service) item).getId());
+        else if (item instanceof Bureau) bureauDAO.deleteById(((Bureau) item).getId());
+        else if (item instanceof Centre) centreDAO.deleteById(((Centre) item).getId());
+        else if (item instanceof Contravention) contraventionDAO.deleteById(((Contravention) item).getId());
+        else if (item instanceof Banque) banqueDAO.deleteById(((Banque) item).getId());
     }
 
-    // ==================== GESTION DU FORMULAIRE ====================
-
-    private void afficherFormulaireEdition() {
-        formulaireBox.setDisable(false);
-        nouveauButton.setDisable(true);
-        modifierButton.setDisable(true);
-        supprimerButton.setDisable(true);
-        actualiserButton.setDisable(true);
-        referentielTableView.setDisable(true);
-    }
-
-    private void masquerFormulaireEdition() {
-        formulaireBox.setDisable(true);
-        nouveauButton.setDisable(false);
-        modifierButton.setDisable(true);
-        supprimerButton.setDisable(true);
-        actualiserButton.setDisable(false);
-        referentielTableView.setDisable(false);
-
-        viderFormulaire();
-        elementEnCours = null;
-    }
-
-    private void viderFormulaire() {
-        codeField.clear();
-        libelleField.clear();
-        descriptionTextArea.clear();
-        actifCheckBox.setSelected(true);
-        if (parentComboBox.isVisible()) {
-            parentComboBox.setValue(null);
-        }
-
-        // Reset des styles
-        codeField.setStyle("");
-        libelleField.setStyle("");
-    }
-
-    private void remplirFormulaire(Object item) {
-        codeField.setText(getCode(item));
-        libelleField.setText(getLibelle(item));
-        descriptionTextArea.setText(getDescription(item));
-        actifCheckBox.setSelected(isActif(item));
-
-        // Remplissage du parent si applicable
-        if (parentComboBox.isVisible()) {
-            if (item instanceof Service) {
-                Service service = (Service) item;
-                if (service.getCentre() != null) {
-                    parentComboBox.setValue(service.getCentre());
-                }
-            } else if (item instanceof Bureau) {
-                Bureau bureau = (Bureau) item;
-                if (bureau.getService() != null) {
-                    parentComboBox.setValue(bureau.getService());
-                }
-            }
-        }
-    }
+    // ==================== VALIDATION ====================
 
     private boolean validerSaisie() {
         StringBuilder erreurs = new StringBuilder();
@@ -662,11 +636,8 @@ public class ReferentielController implements Initializable {
         // Libellé obligatoire
         if (libelleField.getText().trim().isEmpty()) {
             erreurs.append("- Le libellé est obligatoire\n");
-        }
-
-        // Vérification unicité du code (simplifiée)
-        if (modeCreation) {
-            // TODO: Vérifier l'unicité selon le type
+        } else if (libelleField.getText().trim().length() < 3) {
+            erreurs.append("- Le libellé doit contenir au moins 3 caractères\n");
         }
 
         // Parent obligatoire pour certains types
@@ -691,51 +662,21 @@ public class ReferentielController implements Initializable {
         enregistrerButton.setDisable(!isValid);
     }
 
+    // ==================== MÉTHODES D'ACCÈS EXTERNE ====================
+
     /**
-     * Méthodes d'accès externe
+     * Sélectionne un type de référentiel depuis l'extérieur
      */
     public void selectionnerType(String type) {
         typeReferentielComboBox.setValue(type);
     }
 
+    /**
+     * Actualise toutes les données
+     */
     public void actualiserTout() {
         if (!typeActuel.isEmpty()) {
             chargerDonnees(typeActuel);
         }
     }
 }
-
-// OPTION 2: CORRIGER LES TYPES GÉNÉRIQUES SPÉCIFIQUES
-// Si vous avez des déclarations comme:
-// List items = new ArrayList();
-// CORRIGER EN:
-// List<String> items = new ArrayList<>();
-
-// Si vous avez des déclarations comme:
-// ObservableList data = FXCollections.observableArrayList();
-// CORRIGER EN:
-// ObservableList<YourType> data = FXCollections.observableArrayList();
-
-// Si vous avez des tableaux ou listes sans types:
-// TableView table = new TableView();
-// CORRIGER EN:
-// TableView<YourModelClass> table = new TableView<>();
-
-// EXEMPLE DE CORRECTION TYPIQUE:
-// ANCIEN CODE PROBLÉMATIQUE:
-/*
-private void setupTable() {
-    TableView table = new TableView();
-    ObservableList data = FXCollections.observableArrayList();
-    table.setItems(data);
-}
-*/
-
-// NOUVEAU CODE CORRIGÉ:
-/*
-private void setupTable() {
-    TableView<Service> table = new TableView<>();
-    ObservableList<Service> data = FXCollections.observableArrayList();
-    table.setItems(data);
-}
-*/

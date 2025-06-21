@@ -147,20 +147,88 @@ public class AffaireListController implements Initializable {
      * Configuration des colonnes du tableau
      */
     private void setupTableColumns() {
-        // Colonne de sélection
-        selectColumn.setCellValueFactory(new PropertyValueFactory<>("selected"));
-        selectColumn.setCellFactory(CheckBoxTableCell.forTableColumn(selectColumn));
-        selectColumn.setEditable(true);
+        logger.info("Configuration des colonnes de table...");
 
-        // Colonnes de données
-        numeroAffaireColumn.setCellValueFactory(new PropertyValueFactory<>("numeroAffaire"));
-        dateCreationColumn.setCellValueFactory(new PropertyValueFactory<>("dateCreation"));
-        contrevenantColumn.setCellValueFactory(new PropertyValueFactory<>("contrevenantNom"));
-        contraventionColumn.setCellValueFactory(new PropertyValueFactory<>("contraventionLibelle"));
-        montantColumn.setCellValueFactory(new PropertyValueFactory<>("montantAmendeTotal"));
-        statutColumn.setCellValueFactory(new PropertyValueFactory<>("statut"));
-        bureauColumn.setCellValueFactory(new PropertyValueFactory<>("bureauNom"));
-        serviceColumn.setCellValueFactory(new PropertyValueFactory<>("serviceNom"));
+        try {
+            // Colonne de sélection
+            if (selectColumn != null) {
+                selectColumn.setCellValueFactory(cellData -> cellData.getValue().selectedProperty());
+                selectColumn.setCellFactory(CheckBoxTableCell.forTableColumn(selectColumn));
+                selectColumn.setEditable(true);
+            } else {
+                logger.warn("selectColumn est null");
+            }
+
+            // Colonnes de données avec vérifications null
+            if (numeroAffaireColumn != null) {
+                numeroAffaireColumn.setCellValueFactory(cellData ->
+                        new javafx.beans.property.SimpleStringProperty(cellData.getValue().getNumeroAffaire()));
+            } else {
+                logger.warn("numeroAffaireColumn est null - vérifiez le fx:id dans le FXML");
+            }
+
+            if (dateCreationColumn != null) {
+                dateCreationColumn.setCellValueFactory(cellData ->
+                        new javafx.beans.property.SimpleObjectProperty<>(cellData.getValue().getDateCreation()));
+            } else {
+                logger.warn("dateCreationColumn est null");
+            }
+
+            if (contrevenantColumn != null) {
+                contrevenantColumn.setCellValueFactory(cellData ->
+                        new javafx.beans.property.SimpleStringProperty(cellData.getValue().getContrevenantNom()));
+            } else {
+                logger.warn("contrevenantColumn est null");
+            }
+
+            if (contraventionColumn != null) {
+                contraventionColumn.setCellValueFactory(cellData ->
+                        new javafx.beans.property.SimpleStringProperty(cellData.getValue().getContraventionLibelle()));
+            } else {
+                logger.warn("contraventionColumn est null");
+            }
+
+            if (montantColumn != null) {
+                montantColumn.setCellValueFactory(cellData ->
+                        new javafx.beans.property.SimpleObjectProperty<>(cellData.getValue().getMontantAmendeTotal()));
+            } else {
+                logger.warn("montantColumn est null");
+            }
+
+            if (statutColumn != null) {
+                statutColumn.setCellValueFactory(cellData ->
+                        new javafx.beans.property.SimpleObjectProperty<>(cellData.getValue().getStatut()));
+            } else {
+                logger.warn("statutColumn est null");
+            }
+
+            if (bureauColumn != null) {
+                bureauColumn.setCellValueFactory(cellData ->
+                        new javafx.beans.property.SimpleStringProperty("Bureau"));
+            } else {
+                logger.warn("bureauColumn est null");
+            }
+
+            if (serviceColumn != null) {
+                serviceColumn.setCellValueFactory(cellData ->
+                        new javafx.beans.property.SimpleStringProperty("Service"));
+            } else {
+                logger.warn("serviceColumn est null");
+            }
+
+            // Configuration du tableau
+            if (affairesTableView != null) {
+                affairesTableView.setItems(affaires);
+                affairesTableView.setEditable(true);
+            } else {
+                logger.warn("affairesTableView est null");
+            }
+
+            logger.info("Configuration des colonnes terminée");
+
+        } catch (Exception e) {
+            logger.error("Erreur lors de la configuration des colonnes", e);
+        }
 
         // Formatage des colonnes
         dateCreationColumn.setCellFactory(column -> new TableCell<AffaireViewModel, LocalDate>() {

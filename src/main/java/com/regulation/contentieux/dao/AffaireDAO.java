@@ -346,19 +346,17 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
      */
     public List<Affaire> searchAffaires(String searchTerm, StatutAffaire statut,
                                         LocalDate dateDebut, LocalDate dateFin,
-                                        Integer bureauId, int offset, int limit) {
-        StringBuilder sql = new StringBuilder(getSelectAllQuery().replace(
-                "WHERE a.deleted = false",
-                "WHERE a.deleted = false"));
-
+                                        int offset, int limit) {
+        StringBuilder sql = new StringBuilder(getSelectAllQuery());
         List<Object> parameters = new ArrayList<>();
 
+        // Modifier la clause WHERE existante
+        sql.append(" AND 1=1"); // Pour simplifier l'ajout de conditions
+
+        // Ajout des critères de recherche
         if (searchTerm != null && !searchTerm.trim().isEmpty()) {
-            sql.append(" AND (a.numero_affaire LIKE ? OR a.description LIKE ? OR a.lieu_constatation LIKE ?)");
-            String searchPattern = "%" + searchTerm.trim() + "%";
-            parameters.add(searchPattern);
-            parameters.add(searchPattern);
-            parameters.add(searchPattern);
+            sql.append(" AND a.numero_affaire LIKE ?");
+            parameters.add("%" + searchTerm.trim() + "%");
         }
 
         if (statut != null) {
@@ -367,20 +365,16 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
         }
 
         if (dateDebut != null) {
-            sql.append(" AND a.date_constatation >= ?");
+            sql.append(" AND a.date_creation >= ?");
             parameters.add(Date.valueOf(dateDebut));
         }
 
         if (dateFin != null) {
-            sql.append(" AND a.date_constatation <= ?");
+            sql.append(" AND a.date_creation <= ?");
             parameters.add(Date.valueOf(dateFin));
         }
 
-        if (bureauId != null) {
-            sql.append(" AND a.bureau_id = ?");
-            parameters.add(bureauId.longValue());
-        }
-
+        // Ajout de la pagination
         sql.append(" ORDER BY a.date_creation DESC LIMIT ? OFFSET ?");
         parameters.add(limit);
         parameters.add(offset);
@@ -394,17 +388,88 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
                 stmt.setObject(i + 1, parameters.get(i));
             }
 
-            ResultSet rs = stmt.executeQuery();
-
-            while (rs.next()) {
-                affaires.add(mapResultSetToEntity(rs));
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    affaires.add(mapResultSetToEntity(rs));
+                }
             }
+
+            logger.debug("Recherche retournée {} affaires", affaires.size());
 
         } catch (SQLException e) {
             logger.error("Erreur lors de la recherche d'affaires", e);
         }
 
         return affaires;
+    }
+
+    /**
+     * Compte le nombre total d'affaires
+     */
+    public long count() {
+        String sql = "SELECT COUNT(*) FROM affaires WHERE deleted = false";
+
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+
+            if (rs.next()) {
+                return rs.getLong(1);
+            }
+
+        } catch (SQLException e) {
+            logger.error("Erreur lors du comptage des affaires", e);
+        }
+
+        return 0;
+    }
+
+    /**
+     * Compte le nombre d'affaires selon des critères
+     */
+    public long countWithCriteria(String searchTerm, StatutAffaire statut, LocalDate dateDebut, LocalDate dateFin) {
+        StringBuilder sql = new StringBuilder("SELECT COUNT(*) FROM affaires WHERE deleted = false");
+        List<Object> parameters = new ArrayList<>();
+
+        // Ajout des critères de recherche
+        if (searchTerm != null && !searchTerm.trim().isEmpty()) {
+            sql.append(" AND numero_affaire LIKE ?");
+            parameters.add("%" + searchTerm.trim() + "%");
+        }
+
+        if (statut != null) {
+            sql.append(" AND statut = ?");
+            parameters.add(statut.name());
+        }
+
+        if (dateDebut != null) {
+            sql.append(" AND date_creation >= ?");
+            parameters.add(Date.valueOf(dateDebut));
+        }
+
+        if (dateFin != null) {
+            sql.append(" AND date_creation <= ?");
+            parameters.add(Date.valueOf(dateFin));
+        }
+
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
+
+            for (int i = 0; i < parameters.size(); i++) {
+                stmt.setObject(i + 1, parameters.get(i));
+            }
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getLong(1);
+                }
+            }
+
+        } catch (SQLException e) {
+            logger.error("Erreur lors du comptage avec critères", e);
+        }
+
+        return 0;
     }
 
     /**

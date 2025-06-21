@@ -350,7 +350,7 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
         StringBuilder sql = new StringBuilder(getSelectAllQuery());
         List<Object> parameters = new ArrayList<>();
 
-        // Modifier la clause WHERE existante
+        // Ajouter les conditions WHERE
         sql.append(" AND 1=1"); // Pour simplifier l'ajout de conditions
 
         // Ajout des critères de recherche
@@ -398,6 +398,7 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
 
         } catch (SQLException e) {
             logger.error("Erreur lors de la recherche d'affaires", e);
+            throw new RuntimeException("Erreur lors de la recherche", e);
         }
 
         return affaires;

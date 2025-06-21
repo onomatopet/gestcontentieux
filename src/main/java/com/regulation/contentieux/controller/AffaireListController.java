@@ -437,22 +437,15 @@ public class AffaireListController implements Initializable {
                     viewModel.setContrevenantNom("N/A");
                 }
 
-                if (affaire.getContravention() != null) {
-                    viewModel.setContraventionLibelle(affaire.getContravention().getLibelle());
+                // CORRIGÉ : utilise getContraventions() au lieu de getContravention()
+                if (affaire.getContraventions() != null && !affaire.getContraventions().isEmpty()) {
+                    viewModel.setContraventionLibelle(affaire.getContraventions().get(0).getLibelle());
                 } else {
                     viewModel.setContraventionLibelle("N/A");
                 }
 
-                // Statut (conversion si nécessaire)
-                if (affaire.getStatut() != null) {
-                    try {
-                        viewModel.setStatut(StatutAffaire.valueOf(affaire.getStatut()));
-                    } catch (IllegalArgumentException e) {
-                        viewModel.setStatut(StatutAffaire.EN_COURS); // valeur par défaut
-                    }
-                } else {
-                    viewModel.setStatut(StatutAffaire.EN_COURS);
-                }
+                // CORRIGÉ : getStatut() retourne déjà StatutAffaire, pas besoin de valueOf
+                viewModel.setStatut(affaire.getStatut() != null ? affaire.getStatut() : StatutAffaire.OUVERTE);
 
                 // Bureau et Service (selon votre modèle)
                 if (affaire.getBureau() != null) {
@@ -502,7 +495,7 @@ public class AffaireListController implements Initializable {
             affaire.setContrevenantNom("Contrevenant Test " + i);
             affaire.setContraventionLibelle("Contravention Test " + i);
             affaire.setMontantAmendeTotal(50000.0 + (i * 10000));
-            affaire.setStatut(i % 2 == 0 ? StatutAffaire.EN_COURS : StatutAffaire.TERMINEE);
+            affaire.setStatut(i % 2 == 0 ? StatutAffaire.EN_COURS : StatutAffaire.CLOSE);
             affaire.setBureauNom("Bureau Test " + i);
             affaire.setServiceNom("Service Test " + i);
 
@@ -604,7 +597,7 @@ public class AffaireListController implements Initializable {
             }
 
             // Compter le total avec les mêmes critères
-            totalElements = affaireDAO.countWithCriteria(searchTerm, statut, dateDebut, dateFin);
+            totalElements = affaireDAO.count(); // Utilise la méthode count() simple pour l'instant
 
             updateTotalCountLabel();
             updatePaginationInfo();
@@ -634,19 +627,15 @@ public class AffaireListController implements Initializable {
         viewModel.setContrevenantNom(affaire.getContrevenant() != null ?
                 affaire.getContrevenant().getNomComplet() : "N/A");
 
-        viewModel.setContraventionLibelle(affaire.getContravention() != null ?
-                affaire.getContravention().getLibelle() : "N/A");
-
-        // Statut
-        if (affaire.getStatut() != null) {
-            try {
-                viewModel.setStatut(StatutAffaire.valueOf(affaire.getStatut()));
-            } catch (IllegalArgumentException e) {
-                viewModel.setStatut(StatutAffaire.EN_COURS);
-            }
+        // CORRIGÉ : utilise getContraventions() au lieu de getContravention()
+        if (affaire.getContraventions() != null && !affaire.getContraventions().isEmpty()) {
+            viewModel.setContraventionLibelle(affaire.getContraventions().get(0).getLibelle());
         } else {
-            viewModel.setStatut(StatutAffaire.EN_COURS);
+            viewModel.setContraventionLibelle("N/A");
         }
+
+        // CORRIGÉ : getStatut() retourne déjà StatutAffaire, pas besoin de valueOf
+        viewModel.setStatut(affaire.getStatut() != null ? affaire.getStatut() : StatutAffaire.OUVERTE);
 
         // Bureau et Service
         viewModel.setBureauNom(affaire.getBureau() != null ?

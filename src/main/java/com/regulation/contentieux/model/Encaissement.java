@@ -195,13 +195,9 @@ public class Encaissement {
         this.dateEncaissement = dateEncaissement;
     }
 
-    public BigDecimal getMontantEncaisse() {
-        return montantEncaisse;
-    }
+    public BigDecimal getMontantEncaisse() { return montantEncaisse; }
+    public void setMontantEncaisse(BigDecimal montantEncaisse) { this.montantEncaisse = montantEncaisse; }
 
-    public void setMontantEncaisse(BigDecimal montantEncaisse) {
-        this.montantEncaisse = montantEncaisse;
-    }
 
     public ModeReglement getModeReglement() {
         return modeReglement;

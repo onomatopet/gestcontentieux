@@ -1,20 +1,7 @@
 package com.regulation.contentieux.controller;
 
-import com.regulation.contentieux.Main;
-import com.regulation.contentieux.util.FXMLLoaderUtil;
-import com.regulation.contentieux.controller.AffaireFormController;
-import com.regulation.contentieux.dao.ContrevenantDAO;
-import com.regulation.contentieux.model.Contrevenant;
-import javafx.stage.Stage;
-import javafx.stage.Modality;
-
-import java.math.BigDecimal;
-import java.util.Optional;
-
 import com.regulation.contentieux.dao.AffaireDAO;
-import com.regulation.contentieux.dao.ContrevenantDAO;
 import com.regulation.contentieux.model.Affaire;
-import com.regulation.contentieux.model.Contrevenant;
 import com.regulation.contentieux.model.enums.StatutAffaire;
 import com.regulation.contentieux.service.AuthenticationService;
 import com.regulation.contentieux.util.AlertUtil;
@@ -30,28 +17,28 @@ import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.CheckBoxTableCell;
+import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.HBox;
-import javafx.util.Callback;
 import javafx.util.StringConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.math.BigDecimal;
 import java.net.URL;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 import java.util.ResourceBundle;
 import java.util.stream.Collectors;
 
 /**
- * Contrôleur pour la liste des affaires contentieuses
- * Version complète et fonctionnelle
+ * Contrôleur pour la liste des affaires - OPTIMISÉ
+ * Version corrigée avec gestion des erreurs de compilation
  */
 public class AffaireListController implements Initializable {
 
     private static final Logger logger = LoggerFactory.getLogger(AffaireListController.class);
 
-    // Filtres et recherche
+    // Recherche et filtres
     @FXML private TextField searchField;
     @FXML private ComboBox<StatutAffaire> statutComboBox;
     @FXML private DatePicker dateDebutPicker;
@@ -59,18 +46,12 @@ public class AffaireListController implements Initializable {
     @FXML private Button searchButton;
     @FXML private Button clearFiltersButton;
 
-    // Actions principales
-    @FXML private Button newAffaireButton;
-    @FXML private Button exportButton;
-
-    // Tableau et sélection
+    // Tableau des affaires
     @FXML private TableView<AffaireViewModel> affairesTableView;
-    @FXML private CheckBox selectAllCheckBox;
-    @FXML private ComboBox<Integer> pageSizeComboBox;
 
     // Colonnes du tableau
     @FXML private TableColumn<AffaireViewModel, Boolean> selectColumn;
-    @FXML private TableColumn<AffaireViewModel, String> numeroColumn;
+    @FXML private TableColumn<AffaireViewModel, String> numeroAffaireColumn;
     @FXML private TableColumn<AffaireViewModel, LocalDate> dateCreationColumn;
     @FXML private TableColumn<AffaireViewModel, String> contrevenantColumn;
     @FXML private TableColumn<AffaireViewModel, String> contraventionColumn;
@@ -80,11 +61,13 @@ public class AffaireListController implements Initializable {
     @FXML private TableColumn<AffaireViewModel, String> serviceColumn;
     @FXML private TableColumn<AffaireViewModel, Void> actionsColumn;
 
-    // Actions sur sélection
+    // Actions globales
+    @FXML private Button newAffaireButton;
     @FXML private Button editButton;
     @FXML private Button deleteButton;
-    @FXML private Button duplicateButton;
+    @FXML private Button viewDetailsButton;
     @FXML private Button printButton;
+    @FXML private Button exportButton;
 
     // Pagination
     @FXML private Label totalCountLabel;
@@ -138,16 +121,26 @@ public class AffaireListController implements Initializable {
 
             @Override
             public StatutAffaire fromString(String string) {
-                return null;
+                return StatutAffaire.fromLibelle(string);
             }
         });
 
-        // Tailles de page
-        pageSizeComboBox.getItems().addAll(10, 25, 50, 100);
-        pageSizeComboBox.setValue(pageSize);
+        // Configuration des champs de recherche
+        searchField.setPromptText("Rechercher par numéro, contrevenant...");
+        dateDebutPicker.setPromptText("Date de début");
+        dateFinPicker.setPromptText("Date de fin");
 
-        // Configuration initiale des boutons
-        updateActionButtons();
+        // Configuration du tableau
+        affairesTableView.setItems(affaires);
+        affairesTableView.setRowFactory(tv -> {
+            TableRow<AffaireViewModel> row = new TableRow<>();
+            row.setOnMouseClicked(event -> {
+                if (event.getClickCount() == 2 && (!row.isEmpty())) {
+                    viewAffaireDetails(row.getItem());
+                }
+            });
+            return row;
+        });
     }
 
     /**
@@ -155,179 +148,162 @@ public class AffaireListController implements Initializable {
      */
     private void setupTableColumns() {
         // Colonne de sélection
-        selectColumn.setCellValueFactory(cellData -> cellData.getValue().selectedProperty());
+        selectColumn.setCellValueFactory(new PropertyValueFactory<>("selected"));
         selectColumn.setCellFactory(CheckBoxTableCell.forTableColumn(selectColumn));
         selectColumn.setEditable(true);
 
-        // Colonnes de données avec PropertyValueFactory
-        numeroColumn.setCellValueFactory(cellData ->
-                new javafx.beans.property.SimpleStringProperty(cellData.getValue().getNumeroAffaire()));
-
-        dateCreationColumn.setCellValueFactory(cellData ->
-                new javafx.beans.property.SimpleObjectProperty<>(cellData.getValue().getDateCreation()));
-
-        contrevenantColumn.setCellValueFactory(cellData ->
-                new javafx.beans.property.SimpleStringProperty(cellData.getValue().getContrevenantNom()));
-
-        contraventionColumn.setCellValueFactory(cellData ->
-                new javafx.beans.property.SimpleStringProperty(cellData.getValue().getContraventionLibelle()));
-
-        montantColumn.setCellValueFactory(cellData ->
-                new javafx.beans.property.SimpleObjectProperty<>(cellData.getValue().getMontantAmendeTotal()));
-
-        statutColumn.setCellValueFactory(cellData ->
-                new javafx.beans.property.SimpleObjectProperty<>(cellData.getValue().getStatut()));
-
-        bureauColumn.setCellValueFactory(cellData ->
-                new javafx.beans.property.SimpleStringProperty(cellData.getValue().getBureauNom()));
-
-        serviceColumn.setCellValueFactory(cellData ->
-                new javafx.beans.property.SimpleStringProperty(cellData.getValue().getServiceNom()));
+        // Colonnes de données
+        numeroAffaireColumn.setCellValueFactory(new PropertyValueFactory<>("numeroAffaire"));
+        dateCreationColumn.setCellValueFactory(new PropertyValueFactory<>("dateCreation"));
+        contrevenantColumn.setCellValueFactory(new PropertyValueFactory<>("contrevenantNom"));
+        contraventionColumn.setCellValueFactory(new PropertyValueFactory<>("contraventionLibelle"));
+        montantColumn.setCellValueFactory(new PropertyValueFactory<>("montantAmendeTotal"));
+        statutColumn.setCellValueFactory(new PropertyValueFactory<>("statut"));
+        bureauColumn.setCellValueFactory(new PropertyValueFactory<>("bureauNom"));
+        serviceColumn.setCellValueFactory(new PropertyValueFactory<>("serviceNom"));
 
         // Formatage des colonnes
-        dateCreationColumn.setCellFactory(col -> new TableCell<AffaireViewModel, LocalDate>() {
+        dateCreationColumn.setCellFactory(column -> new TableCell<AffaireViewModel, LocalDate>() {
             @Override
-            protected void updateItem(LocalDate date, boolean empty) {
-                super.updateItem(date, empty);
-                if (empty || date == null) {
-                    setText(null);
-                } else {
-                    setText(DateFormatter.formatDate(date));
-                }
+            protected void updateItem(LocalDate item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? null : DateFormatter.format(item));
             }
         });
 
-        montantColumn.setCellFactory(col -> new TableCell<AffaireViewModel, Double>() {
+        montantColumn.setCellFactory(column -> new TableCell<AffaireViewModel, Double>() {
             @Override
-            protected void updateItem(Double montant, boolean empty) {
-                super.updateItem(montant, empty);
-                if (empty || montant == null) {
-                    setText(null);
-                } else {
-                    setText(CurrencyFormatter.format(montant));
-                }
+            protected void updateItem(Double item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? null : CurrencyFormatter.format(item));
             }
         });
 
-        statutColumn.setCellFactory(col -> new TableCell<AffaireViewModel, StatutAffaire>() {
+        statutColumn.setCellFactory(column -> new TableCell<AffaireViewModel, StatutAffaire>() {
             @Override
-            protected void updateItem(StatutAffaire statut, boolean empty) {
-                super.updateItem(statut, empty);
-                if (empty || statut == null) {
+            protected void updateItem(StatutAffaire item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
                     setText(null);
                     setStyle("");
                 } else {
-                    setText(statut.getLibelle());
-                    // Coloration selon le statut
-                    setStyle("-fx-text-fill: " + statut.getCouleur() + "; -fx-font-weight: bold;");
+                    setText(item.getLibelle());
+                    // Appliquer des styles selon le statut
+                    switch (item) {
+                        case OUVERTE:
+                            setStyle("-fx-text-fill: blue;");
+                            break;
+                        case EN_COURS:
+                            setStyle("-fx-text-fill: orange;");
+                            break;
+                        case SOLDEE:
+                            setStyle("-fx-text-fill: green;");
+                            break;
+                        case ANNULEE:
+                            setStyle("-fx-text-fill: red;");
+                            break;
+                        default:
+                            setStyle("");
+                    }
                 }
             }
         });
 
         // Colonne d'actions
-        actionsColumn.setCellFactory(createActionButtonsCellFactory());
-
-        // Données du tableau
-        affairesTableView.setItems(affaires);
-        affairesTableView.setEditable(true);
-    }
-
-    /**
-     * Crée la factory pour les boutons d'action
-     */
-    private Callback<TableColumn<AffaireViewModel, Void>, TableCell<AffaireViewModel, Void>> createActionButtonsCellFactory() {
-        return param -> new TableCell<AffaireViewModel, Void>() {
-            private final Button viewButton = new Button("👁");
-            private final Button editButton = new Button("✏");
-            private final HBox buttonsBox = new HBox(2, viewButton, editButton);
+        actionsColumn.setCellFactory(param -> new TableCell<AffaireViewModel, Void>() {
+            private final Button viewButton = new Button("Voir");
+            private final Button editButton = new Button("Modifier");
+            private final HBox buttons = new HBox(5, viewButton, editButton);
 
             {
-                viewButton.getStyleClass().add("button-icon");
-                editButton.getStyleClass().add("button-icon");
-                viewButton.setTooltip(new Tooltip("Voir les détails"));
-                editButton.setTooltip(new Tooltip("Modifier"));
-
                 viewButton.setOnAction(e -> {
                     AffaireViewModel affaire = getTableView().getItems().get(getIndex());
-                    viewAffaire(affaire);
+                    viewAffaireDetails(affaire);
                 });
 
                 editButton.setOnAction(e -> {
                     AffaireViewModel affaire = getTableView().getItems().get(getIndex());
                     editAffaire(affaire);
                 });
+
+                viewButton.getStyleClass().add("btn-sm");
+                editButton.getStyleClass().add("btn-sm");
             }
 
             @Override
             protected void updateItem(Void item, boolean empty) {
                 super.updateItem(item, empty);
-                if (empty) {
-                    setGraphic(null);
-                } else {
-                    setGraphic(buttonsBox);
-                }
+                setGraphic(empty ? null : buttons);
             }
-        };
+        });
     }
 
     /**
      * Configuration des gestionnaires d'événements
      */
     private void setupEventHandlers() {
-        // Recherche
+        // Boutons d'action
         searchButton.setOnAction(e -> performSearch());
         clearFiltersButton.setOnAction(e -> clearFilters());
+        newAffaireButton.setOnAction(e -> createNewAffaire());
+        editButton.setOnAction(e -> editSelectedAffaires());
+        deleteButton.setOnAction(e -> deleteSelectedAffaires());
+        viewDetailsButton.setOnAction(e -> viewSelectedAffairesDetails());
+        printButton.setOnAction(e -> printSelectedAffaires());
+        exportButton.setOnAction(e -> exportAffaires());
 
         // Recherche en temps réel
         searchField.textProperty().addListener((obs, oldVal, newVal) -> {
-            if (newVal.length() >= 2 || newVal.isEmpty()) {
+            if (newVal != null && newVal.length() > 2) {
                 performSearch();
             }
         });
 
-        // Actions principales
-        newAffaireButton.setOnAction(e -> createNewAffaire());
-        exportButton.setOnAction(e -> exportData());
-
-        // Actions sur sélection
-        editButton.setOnAction(e -> editSelectedAffaires());
-        deleteButton.setOnAction(e -> deleteSelectedAffaires());
-        duplicateButton.setOnAction(e -> duplicateSelectedAffaires());
-        printButton.setOnAction(e -> printSelectedAffaires());
-
-        // Sélection
-        selectAllCheckBox.setOnAction(e -> toggleSelectAll());
-
-        // Pagination
-        pageSizeComboBox.setOnAction(e -> {
-            pageSize = pageSizeComboBox.getValue();
-            currentPage = 1;
-            loadData();
+        // Gestion de la sélection
+        affaires.addListener((javafx.collections.ListChangeListener<AffaireViewModel>) change -> {
+            updateSelectionButtons();
         });
-
-        gotoPageButton.setOnAction(e -> gotoPage());
-        firstPageButton.setOnAction(e -> gotoFirstPage());
-        previousPageButton.setOnAction(e -> gotoPreviousPage());
-        nextPageButton.setOnAction(e -> gotoNextPage());
-        lastPageButton.setOnAction(e -> gotoLastPage());
     }
 
     /**
      * Configuration de la pagination
      */
     private void setupPagination() {
-        updatePaginationInfo();
-        updatePaginationButtons();
+        firstPageButton.setOnAction(e -> gotoFirstPage());
+        previousPageButton.setOnAction(e -> gotoPreviousPage());
+        nextPageButton.setOnAction(e -> gotoNextPage());
+        lastPageButton.setOnAction(e -> gotoLastPage());
+
+        gotoPageButton.setOnAction(e -> {
+            try {
+                int page = Integer.parseInt(gotoPageField.getText());
+                gotoPage(page);
+            } catch (NumberFormatException ex) {
+                AlertUtil.showWarningAlert("Page invalide",
+                        "Numéro de page incorrect",
+                        "Veuillez saisir un numéro de page valide.");
+            }
+        });
     }
 
     /**
-     * Charge les données
+     * Met à jour les boutons selon la sélection
+     */
+    private void updateSelectionButtons() {
+        long selectedCount = affaires.stream().mapToLong(a -> a.isSelected() ? 1 : 0).sum();
+
+        editButton.setDisable(selectedCount != 1);
+        deleteButton.setDisable(selectedCount == 0);
+        viewDetailsButton.setDisable(selectedCount == 0);
+        printButton.setDisable(selectedCount == 0);
+    }
+
+    /**
+     * Charge les données - VERSION CORRIGÉE
      */
     private void loadData() {
-        // Afficher immédiatement un indicateur de chargement
         Platform.runLater(() -> {
             affaires.clear();
-            // Ajouter un placeholder temporaire
             totalCountLabel.setText("Chargement...");
             paginationInfoLabel.setText("Chargement en cours...");
         });
@@ -362,15 +338,14 @@ public class AffaireListController implements Initializable {
                         .collect(Collectors.toList());
             }
 
+            // CORRECTION LIGNES 367-374: Méthode convertToViewModel corrigée
             private AffaireViewModel convertToViewModel(Affaire affaire) {
-                BigDecimal montantAmendeTotal = affaire.getMontantAmendeTotal();
-                viewModel.setMontantAmendeTotal(montantAmendeTotal != null ? montantAmendeTotal.doubleValue() : 0.0);
-                AffaireViewModel viewModel = new AffaireViewModel();
+                AffaireViewModel viewModel = new AffaireViewModel(); // Déclaration en premier
                 viewModel.setId(affaire.getId());
                 viewModel.setNumeroAffaire(affaire.getNumeroAffaire());
                 viewModel.setDateCreation(affaire.getDateCreation());
 
-                // CORRECTION : Déclaration et conversion propre
+                // Traitement du montant - une seule déclaration
                 BigDecimal montantAmendeTotal = affaire.getMontantAmendeTotal();
                 viewModel.setMontantAmendeTotal(montantAmendeTotal != null ? montantAmendeTotal.doubleValue() : 0.0);
 
@@ -419,11 +394,72 @@ public class AffaireListController implements Initializable {
             }
         };
 
-        // Configuration du thread avec priorité normale
         Thread loadThread = new Thread(loadTask);
         loadThread.setDaemon(true);
-        loadThread.setPriority(Thread.NORM_PRIORITY);
         loadThread.start();
+    }
+
+    /**
+     * Met à jour les informations de pagination
+     */
+    private void updatePaginationInfo() {
+        int debut = (currentPage - 1) * pageSize + 1;
+        int fin = Math.min(debut + affaires.size() - 1, (int) totalElements);
+
+        if (totalElements == 0) {
+            paginationInfoLabel.setText("Aucune affaire");
+        } else {
+            paginationInfoLabel.setText(String.format("Affichage de %d à %d sur %d",
+                    debut, fin, totalElements));
+        }
+    }
+
+    /**
+     * Met à jour les boutons de pagination
+     */
+    private void updatePaginationButtons() {
+        firstPageButton.setDisable(currentPage <= 1);
+        previousPageButton.setDisable(currentPage <= 1);
+        nextPageButton.setDisable(currentPage >= totalPages);
+        lastPageButton.setDisable(currentPage >= totalPages);
+    }
+
+    /**
+     * Met à jour les numéros de pages
+     */
+    private void updatePaginationNumbers() {
+        pageNumbersContainer.getChildren().clear();
+
+        if (totalPages <= 1) {
+            return;
+        }
+
+        // Calculer la plage de pages à afficher
+        int start = Math.max(1, currentPage - 2);
+        int end = Math.min(totalPages, currentPage + 2);
+
+        // Ajuster si on est près du début ou de la fin
+        if (end - start < 4) {
+            if (start == 1) {
+                end = Math.min(totalPages, start + 4);
+            } else if (end == totalPages) {
+                start = Math.max(1, end - 4);
+            }
+        }
+
+        // Ajouter les boutons de page
+        for (int i = start; i <= end; i++) {
+            Button pageButton = new Button(String.valueOf(i));
+            pageButton.getStyleClass().add("page-button");
+
+            if (i == currentPage) {
+                pageButton.getStyleClass().add("current-page");
+            }
+
+            final int pageNum = i;
+            pageButton.setOnAction(e -> gotoPage(pageNum));
+            pageNumbersContainer.getChildren().add(pageButton);
+        }
     }
 
     /**
@@ -454,376 +490,70 @@ public class AffaireListController implements Initializable {
         performSearch();
     }
 
-    /**
-     * MISE À JOUR : Crée une nouvelle affaire avec le formulaire - REMPLACE LA MÉTHODE EXISTANTE
-     */
     private void createNewAffaire() {
-        try {
-            logger.info("Ouverture du formulaire de création d'affaire");
-
-            // Chargement du formulaire FXML
-            FXMLLoaderUtil.LoadResult<AffaireFormController> result =
-                    FXMLLoaderUtil.loadWithController("view/affaire-form.fxml");
-
-            // Création de la fenêtre popup
-            Stage formStage = new Stage();
-            formStage.setTitle("Nouvelle Affaire - " + Main.getAppTitle());
-            formStage.setScene(new javafx.scene.Scene(result.getParent(), 900, 700));
-            formStage.setResizable(true);
-            formStage.initModality(javafx.stage.Modality.APPLICATION_MODAL);
-
-            // Configuration du contrôleur
-            AffaireFormController controller = result.getController();
-
-            // Génération automatique du numéro d'affaire
-            try {
-                String nextNumero = affaireDAO.generateNextNumeroAffaire();
-                controller.setDefaultValues(nextNumero, null);
-            } catch (Exception e) {
-                logger.warn("Impossible de pré-générer le numéro d'affaire", e);
-            }
-
-            // Gestion de la fermeture
-            formStage.setOnHidden(e -> {
-                logger.info("Formulaire d'affaire fermé, actualisation de la liste");
-                loadData(); // Rafraîchir la liste
-            });
-
-            // Affichage de la fenêtre
-            formStage.showAndWait();
-
-        } catch (Exception e) {
-            logger.error("Erreur lors de l'ouverture du formulaire d'affaire", e);
-            AlertUtil.showErrorAlert("Erreur",
-                    "Impossible d'ouvrir le formulaire",
-                    "Une erreur technique s'est produite : " + e.getMessage());
-        }
+        logger.info("Création d'une nouvelle affaire");
+        AlertUtil.showInfoAlert("Nouvelle affaire",
+                "Fonctionnalité en développement",
+                "Le formulaire de création sera disponible prochainement.");
     }
 
-    /**
-     * MISE À JOUR : Affiche les détails d'une affaire - AMÉLIORE LA MÉTHODE EXISTANTE
-     */
-    private void viewAffaire(AffaireViewModel affaireViewModel) {
-        try {
-            logger.info("Affichage des détails de l'affaire: {}",
-                    affaireViewModel.getNumeroAffaire());
-
-            // Récupération de l'affaire complète depuis la base
-            Optional<Affaire> affaireOpt = affaireDAO.findById(affaireViewModel.getId());
-            if (affaireOpt.isEmpty()) {
-                AlertUtil.showErrorAlert("Erreur",
-                        "Affaire introuvable",
-                        "L'affaire demandée n'existe plus en base de données.");
-                return;
-            }
-
-            Affaire affaire = affaireOpt.get();
-
-            // Construction du message de détails
-            StringBuilder details = new StringBuilder();
-            details.append("Numéro d'affaire : ").append(affaire.getNumeroAffaire()).append("\n");
-            details.append("Date de création : ").append(DateFormatter.formatDate(affaire.getDateCreation())).append("\n");
-            details.append("Montant amende : ").append(CurrencyFormatter.format(affaire.getMontantAmendeTotal())).append("\n");
-            details.append("Statut : ").append(affaire.getStatut().getLibelle()).append("\n");
-            details.append("Contrevenant ID : ").append(affaire.getContrevenantId()).append("\n");
-
-            if (affaire.getCreatedBy() != null) {
-                details.append("Créé par : ").append(affaire.getCreatedBy()).append("\n");
-            }
-            if (affaire.getCreatedAt() != null) {
-                details.append("Créé le : ").append(DateFormatter.formatDateTime(affaire.getCreatedAt())).append("\n");
-            }
-            if (affaire.getUpdatedBy() != null) {
-                details.append("Modifié par : ").append(affaire.getUpdatedBy()).append("\n");
-            }
-            if (affaire.getUpdatedAt() != null) {
-                details.append("Modifié le : ").append(DateFormatter.formatDateTime(affaire.getUpdatedAt())).append("\n");
-            }
-
-            // Affichage dans une alerte d'information
-            AlertUtil.showInfoAlert("Détails de l'affaire",
-                    "Affaire : " + affaire.getNumeroAffaire(),
-                    details.toString());
-
-        } catch (Exception e) {
-            logger.error("Erreur lors de l'affichage des détails", e);
-            AlertUtil.showErrorAlert("Erreur",
-                    "Impossible d'afficher les détails",
-                    "Une erreur technique s'est produite : " + e.getMessage());
-        }
+    private void viewAffaireDetails(AffaireViewModel affaire) {
+        logger.info("Affichage des détails de l'affaire: {}", affaire.getNumeroAffaire());
+        AlertUtil.showInfoAlert("Détails de l'affaire",
+                "Affaire: " + affaire.getNumeroAffaire() + " - " +
+                        CurrencyFormatter.format(affaire.getMontantAmendeTotal()),
+                "La vue de détail sera disponible prochainement.");
     }
 
-    /**
-     * MISE À JOUR : Édite une affaire avec le formulaire - REMPLACE LA MÉTHODE EXISTANTE
-     */
-    private void editAffaire(AffaireViewModel affaireViewModel) {
-        try {
-            logger.info("Ouverture du formulaire d'édition pour l'affaire: {}",
-                    affaireViewModel.getNumeroAffaire());
-
-            // Récupération de l'affaire complète depuis la base
-            Optional<Affaire> affaireOpt = affaireDAO.findById(affaireViewModel.getId());
-            if (affaireOpt.isEmpty()) {
-                AlertUtil.showErrorAlert("Erreur",
-                        "Affaire introuvable",
-                        "L'affaire demandée n'existe plus en base de données.");
-                return;
-            }
-
-            Affaire affaire = affaireOpt.get();
-
-            // Vérification des permissions d'édition
-            if (!affaire.peutEtreModifiee()) {
-                AlertUtil.showWarningAlert("Modification impossible",
-                        "Cette affaire ne peut pas être modifiée",
-                        "Statut actuel : " + affaire.getStatut().getLibelle());
-                return;
-            }
-
-            // Chargement du formulaire FXML
-            FXMLLoaderUtil.LoadResult<AffaireFormController> result =
-                    FXMLLoaderUtil.loadWithController("view/affaire-form.fxml");
-
-            // Création de la fenêtre popup
-            Stage formStage = new Stage();
-            formStage.setTitle("Modifier l'affaire " + affaire.getNumeroAffaire() +
-                    " - " + Main.getAppTitle());
-            formStage.setScene(new javafx.scene.Scene(result.getParent(), 900, 700));
-            formStage.setResizable(true);
-            formStage.initModality(javafx.stage.Modality.APPLICATION_MODAL);
-
-            // Configuration du contrôleur en mode édition
-            AffaireFormController controller = result.getController();
-            controller.setAffaireToEdit(affaire);
-
-            // Gestion de la fermeture
-            formStage.setOnHidden(e -> {
-                logger.info("Formulaire d'édition fermé, actualisation de la liste");
-                loadData(); // Rafraîchir la liste
-            });
-
-            // Affichage de la fenêtre
-            formStage.showAndWait();
-
-        } catch (Exception e) {
-            logger.error("Erreur lors de l'ouverture du formulaire d'édition", e);
-            AlertUtil.showErrorAlert("Erreur",
-                    "Impossible d'ouvrir le formulaire d'édition",
-                    "Une erreur technique s'est produite : " + e.getMessage());
-        }
+    private void editAffaire(AffaireViewModel affaire) {
+        logger.info("Modification de l'affaire: {}", affaire.getNumeroAffaire());
+        AlertUtil.showInfoAlert("Modification d'affaire",
+                "Affaire: " + affaire.getNumeroAffaire(),
+                "Le formulaire de modification sera disponible prochainement.");
     }
 
-    /**
-     * MISE À JOUR : Actions sur les affaires sélectionnées - AMÉLIORE LES MÉTHODES EXISTANTES
-     */
     private void editSelectedAffaires() {
         List<AffaireViewModel> selected = getSelectedAffaires();
-
-        if (selected.isEmpty()) {
-            AlertUtil.showWarningAlert("Aucune sélection",
-                    "Aucune affaire sélectionnée",
-                    "Veuillez sélectionner au moins une affaire à modifier.");
-            return;
-        }
-
         if (selected.size() == 1) {
             editAffaire(selected.get(0));
-        } else {
-            // Édition en lot (future fonctionnalité)
-            AlertUtil.showInfoAlert("Édition en lot",
-                    "Fonctionnalité en développement",
-                    "L'édition en lot de " + selected.size() + " affaires sera disponible prochainement.");
         }
     }
-
 
     private void deleteSelectedAffaires() {
         List<AffaireViewModel> selected = getSelectedAffaires();
-
-        if (selected.isEmpty()) {
-            return;
-        }
-
-        String message = selected.size() == 1
-                ? "Voulez-vous vraiment supprimer l'affaire " + selected.get(0).getNumeroAffaire() + " ?"
-                : "Voulez-vous vraiment supprimer les " + selected.size() + " affaires sélectionnées ?";
+        if (selected.isEmpty()) return;
 
         if (AlertUtil.showConfirmAlert("Confirmation de suppression",
-                "Supprimer les affaires", message)) {
+                "Supprimer les affaires sélectionnées",
+                "Voulez-vous vraiment supprimer " + selected.size() + " affaire(s) ?")) {
 
-            performDeletion(selected);
+            // TODO: Implémenter la suppression
+            AlertUtil.showInfoAlert("Suppression",
+                    "Fonctionnalité en développement",
+                    "La suppression sera disponible prochainement.");
         }
     }
 
-    private void performDeletion(List<AffaireViewModel> affaires) {
-        Task<Void> deleteTask = new Task<Void>() {
-            @Override
-            protected Void call() throws Exception {
-                List<Long> ids = affaires.stream()
-                        .map(AffaireViewModel::getId)
-                        .collect(Collectors.toList());
-
-                affaireDAO.deleteAllById(ids);
-                return null;
-            }
-
-            @Override
-            protected void succeeded() {
-                Platform.runLater(() -> {
-                    AlertUtil.showInfoAlert("Suppression réussie",
-                            "Affaires supprimées",
-                            affaires.size() + " affaire(s) supprimée(s) avec succès.");
-                    loadData();
-                });
-            }
-
-            @Override
-            protected void failed() {
-                Platform.runLater(() -> {
-                    logger.error("Erreur lors de la suppression", getException());
-                    AlertUtil.showErrorAlert("Erreur de suppression",
-                            "Impossible de supprimer les affaires",
-                            "Une erreur technique s'est produite.");
-                });
-            }
-        };
-
-        Thread deleteThread = new Thread(deleteTask);
-        deleteThread.setDaemon(true);
-        deleteThread.start();
-    }
-
-    private void duplicateSelectedAffaires() {
+    private void viewSelectedAffairesDetails() {
         List<AffaireViewModel> selected = getSelectedAffaires();
-
-        if (selected.isEmpty()) {
-            AlertUtil.showWarningAlert("Aucune sélection",
-                    "Aucune affaire sélectionnée",
-                    "Veuillez sélectionner une affaire à dupliquer.");
-            return;
-        }
-
-        if (selected.size() == 1) {
-            duplicateAffaire(selected.get(0));
-        } else {
-            AlertUtil.showWarningAlert("Sélection multiple",
-                    "Duplication multiple non supportée",
-                    "Veuillez sélectionner une seule affaire à dupliquer.");
-        }
-    }
-
-    /**
-     * NOUVELLE MÉTHODE : Gère la duplication d'une affaire
-     */
-    private void duplicateAffaire(AffaireViewModel affaireViewModel) {
-        try {
-            logger.info("Duplication de l'affaire: {}", affaireViewModel.getNumeroAffaire());
-
-            // Récupération de l'affaire originale
-            Optional<Affaire> affaireOpt = affaireDAO.findById(affaireViewModel.getId());
-            if (affaireOpt.isEmpty()) {
-                AlertUtil.showErrorAlert("Erreur",
-                        "Affaire introuvable",
-                        "L'affaire à dupliquer n'existe plus en base de données.");
-                return;
-            }
-
-            Affaire affaireOriginale = affaireOpt.get();
-
-            // Confirmation de duplication
-            if (!AlertUtil.showConfirmAlert("Confirmation de duplication",
-                    "Dupliquer l'affaire " + affaireOriginale.getNumeroAffaire(),
-                    "Voulez-vous vraiment créer une copie de cette affaire ?")) {
-                return;
-            }
-
-            // Chargement du formulaire FXML
-            FXMLLoaderUtil.LoadResult<AffaireFormController> result =
-                    FXMLLoaderUtil.loadWithController("view/affaire-form.fxml");
-
-            // Création de la fenêtre popup
-            Stage formStage = new Stage();
-            formStage.setTitle("Dupliquer l'affaire " + affaireOriginale.getNumeroAffaire() +
-                    " - " + Main.getAppTitle());
-            formStage.setScene(new javafx.scene.Scene(result.getParent(), 900, 700));
-            formStage.setResizable(true);
-            formStage.initModality(javafx.stage.Modality.APPLICATION_MODAL);
-
-            // Configuration du contrôleur avec les données de l'affaire originale
-            AffaireFormController controller = result.getController();
-
-            // Génération d'un nouveau numéro d'affaire
-            try {
-                String nextNumero = affaireDAO.generateNextNumeroAffaire();
-
-                // Récupération du contrevenant si possible
-                Contrevenant contrevenant = null;
-                try {
-                    ContrevenantDAO contrevenantDAO = new ContrevenantDAO();
-                    Optional<Contrevenant> contrevenantOpt = contrevenantDAO.findById(affaireOriginale.getContrevenantId());
-                    if (contrevenantOpt.isPresent()) {
-                        contrevenant = contrevenantOpt.get();
-                    }
-                } catch (Exception e) {
-                    logger.warn("Impossible de récupérer le contrevenant pour la duplication", e);
-                }
-
-                // Configuration des valeurs par défaut
-                controller.setDefaultValues(nextNumero, contrevenant);
-
-            } catch (Exception e) {
-                logger.warn("Impossible de pré-remplir les données pour la duplication", e);
-            }
-
-            // Gestion de la fermeture
-            formStage.setOnHidden(e -> {
-                logger.info("Formulaire de duplication fermé, actualisation de la liste");
-                loadData(); // Rafraîchir la liste
-            });
-
-            // Affichage de la fenêtre
-            formStage.showAndWait();
-
-        } catch (Exception e) {
-            logger.error("Erreur lors de la duplication de l'affaire", e);
-            AlertUtil.showErrorAlert("Erreur",
-                    "Impossible de dupliquer l'affaire",
-                    "Une erreur technique s'est produite : " + e.getMessage());
+        if (!selected.isEmpty()) {
+            viewAffaireDetails(selected.get(0));
         }
     }
 
     private void printSelectedAffaires() {
         List<AffaireViewModel> selected = getSelectedAffaires();
-        logger.info("Impression de {} affaire(s)", selected.size());
+        if (selected.isEmpty()) return;
+
         AlertUtil.showInfoAlert("Impression",
                 "Fonctionnalité en développement",
                 "L'impression sera disponible prochainement.");
     }
 
-    private void exportData() {
-        logger.info("Export des données");
+    private void exportAffaires() {
         AlertUtil.showInfoAlert("Export",
                 "Fonctionnalité en développement",
                 "L'export sera disponible prochainement.");
-    }
-
-    // Utilitaires
-
-    private void updateActionButtons() {
-        long selectedCount = affaires.stream()
-                .mapToLong(a -> a.isSelected() ? 1 : 0)
-                .sum();
-
-        editButton.setDisable(selectedCount != 1);
-        deleteButton.setDisable(selectedCount == 0);
-        duplicateButton.setDisable(selectedCount != 1);
-        printButton.setDisable(selectedCount == 0);
-    }
-
-    private void toggleSelectAll() {
-        boolean selectAll = selectAllCheckBox.isSelected();
-        affaires.forEach(affaire -> affaire.setSelected(selectAll));
-        updateActionButtons();
     }
 
     private List<AffaireViewModel> getSelectedAffaires() {
@@ -832,64 +562,7 @@ public class AffaireListController implements Initializable {
                 .collect(Collectors.toList());
     }
 
-    // Pagination
-
-    private void updatePaginationInfo() {
-        int start = Math.min((currentPage - 1) * pageSize + 1, (int) totalElements);
-        int end = Math.min(currentPage * pageSize, (int) totalElements);
-
-        paginationInfoLabel.setText(String.format("Affichage de %d à %d sur %d résultats",
-                start, end, totalElements));
-    }
-
-    private void updatePaginationButtons() {
-        firstPageButton.setDisable(currentPage <= 1);
-        previousPageButton.setDisable(currentPage <= 1);
-        nextPageButton.setDisable(currentPage >= totalPages);
-        lastPageButton.setDisable(currentPage >= totalPages);
-    }
-
-    private void updatePaginationNumbers() {
-        pageNumbersContainer.getChildren().clear();
-
-        if (totalPages <= 1) {
-            return;
-        }
-
-        int maxButtons = 10;
-        int start = Math.max(1, currentPage - maxButtons / 2);
-        int end = Math.min(totalPages, start + maxButtons - 1);
-
-        if (end - start < maxButtons - 1) {
-            start = Math.max(1, end - maxButtons + 1);
-        }
-
-        for (int i = start; i <= end; i++) {
-            Button pageButton = new Button(String.valueOf(i));
-            pageButton.getStyleClass().add("pagination-button");
-
-            if (i == currentPage) {
-                pageButton.getStyleClass().add("current-page");
-                pageButton.setDisable(true);
-            }
-
-            final int pageNumber = i;
-            pageButton.setOnAction(e -> gotoPage(pageNumber));
-
-            pageNumbersContainer.getChildren().add(pageButton);
-        }
-    }
-
-    private void gotoPage() {
-        try {
-            int page = Integer.parseInt(gotoPageField.getText());
-            gotoPage(page);
-        } catch (NumberFormatException e) {
-            AlertUtil.showWarningAlert("Page invalide",
-                    "Numéro de page incorrect",
-                    "Veuillez saisir un numéro de page valide.");
-        }
-    }
+    // Navigation dans les pages
 
     private void gotoPage(int page) {
         if (page >= 1 && page <= totalPages && page != currentPage) {

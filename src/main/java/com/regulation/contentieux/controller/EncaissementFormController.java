@@ -488,7 +488,13 @@ public class EncaissementFormController implements Initializable {
                         EncaissementHistoryViewModel vm = new EncaissementHistoryViewModel();
                         vm.setReference(e.getReference());
                         vm.setDateEncaissement(e.getDateEncaissement());
-                        vm.setMontantEncaisse(e.getMontantEncaisse());
+                        // CORRECTION: Convertir BigDecimal vers Double si nécessaire
+                        if (e.getMontantEncaisse() instanceof BigDecimal) {
+                            vm.setMontantEncaisse(((BigDecimal) e.getMontantEncaisse()).doubleValue());
+                        } else {
+                            BigDecimal montantEncaisse = e.getMontantEncaisse();
+                            vm.setMontantEncaisse(montantEncaisse != null ? montantEncaisse.doubleValue() : null);
+                        }
                         vm.setModeReglement(e.getModeReglement());
                         vm.setStatut(e.getStatut());
                         encaissementsHistory.add(vm);
@@ -631,8 +637,11 @@ public class EncaissementFormController implements Initializable {
                 // Remplissage des données
                 encaissement.setReference(referenceField.getText().trim());
                 encaissement.setDateEncaissement(dateEncaissementPicker.getValue());
+
+                // CORRECTION LIGNE 495: Conversion correcte vers BigDecimal
                 BigDecimal montant = new BigDecimal(montantEncaisseField.getText().replace(",", "."));
                 encaissement.setMontantEncaisse(montant);
+
                 encaissement.setStatut(statutComboBox.getValue());
                 encaissement.setAffaireId(affaireComboBox.getValue().getId());
                 encaissement.setModeReglement(modeReglementComboBox.getValue());
@@ -727,7 +736,6 @@ public class EncaissementFormController implements Initializable {
      * Vérifie s'il y a des modifications non sauvegardées
      */
     private boolean hasUnsavedChanges() {
-        BigDecimal currentMontant = currentEncaissement.getMontantEncaisse();
         if (currentEncaissement == null) {
             // Mode création - vérifier si des champs sont remplis
             return !referenceField.getText().trim().isEmpty() ||
@@ -736,9 +744,24 @@ public class EncaissementFormController implements Initializable {
                     modeReglementComboBox.getValue() != null;
         } else {
             // Mode édition - comparer avec les valeurs originales
+            BigDecimal currentMontant = currentEncaissement.getMontantEncaisse();
+
+            // CORRECTION LIGNE 642: Gérer la comparaison BigDecimal correctement
+            boolean montantChanged = false;
+            if (!montantEncaisseField.getText().trim().isEmpty()) {
+                try {
+                    BigDecimal fieldMontant = new BigDecimal(montantEncaisseField.getText().replace(",", "."));
+                    montantChanged = !fieldMontant.equals(currentMontant);
+                } catch (NumberFormatException e) {
+                    montantChanged = true; // Si le champ n'est pas un nombre valide, considérer qu'il y a des changements
+                }
+            } else {
+                montantChanged = currentMontant != null && !currentMontant.equals(BigDecimal.ZERO);
+            }
+
             return !referenceField.getText().equals(currentEncaissement.getReference()) ||
                     !dateEncaissementPicker.getValue().equals(currentEncaissement.getDateEncaissement()) ||
-                    !montantEncaisseField.getText().equals(currentMontant != null ? currentMontant.toString() : "0") ||
+                    montantChanged ||
                     !statutComboBox.getValue().equals(currentEncaissement.getStatut());
         }
     }

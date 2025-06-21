@@ -9,6 +9,7 @@ import java.io.File;
 
 /**
  * Outil de diagnostic pour vérifier quelle base de données est utilisée
+ * VERSION CORRIGÉE - Utilise les vraies colonnes de la BDD
  */
 public class DatabaseDiagnosticTool {
 
@@ -25,7 +26,7 @@ public class DatabaseDiagnosticTool {
             // 3. Examiner la structure de la table affaires
             examineAffairesTable();
 
-            // 4. Tester la requête de recherche
+            // 4. Tester la requête de recherche CORRIGÉE
             testSearchQuery();
 
         } catch (Exception e) {
@@ -146,17 +147,16 @@ public class DatabaseDiagnosticTool {
     }
 
     private static void testSearchQuery() {
-        System.out.println("4. TEST DE LA REQUÊTE DE RECHERCHE:");
-        System.out.println("-----------------------------------");
+        System.out.println("4. TEST DE LA REQUÊTE DE RECHERCHE CORRIGÉE:");
+        System.out.println("--------------------------------------------");
 
         try (Connection conn = DatabaseConfig.getSQLiteConnection()) {
-            // Tester la même requête que l'application
+            // CORRECTION: Requête avec les VRAIES colonnes de la BDD
             String searchQuery = """
                 SELECT id, numero_affaire, date_creation, montant_amende_total, 
-                       statut, contrevenant_id, contravention_id, bureau_id, 
-                       service_id, created_at, updated_at, created_by, updated_by 
+                       statut, contrevenant_id, contravention_id, bureau_id, service_id
                 FROM affaires WHERE 1=1 
-                ORDER BY created_at DESC LIMIT ? OFFSET ?
+                ORDER BY date_creation DESC LIMIT ? OFFSET ?
             """;
 
             try (PreparedStatement stmt = conn.prepareStatement(searchQuery)) {
@@ -165,29 +165,74 @@ public class DatabaseDiagnosticTool {
 
                 try (ResultSet rs = stmt.executeQuery()) {
                     int count = 0;
-                    System.out.println("Résultats de la requête de recherche:");
+                    System.out.println("✅ Résultats de la requête de recherche:");
                     while (rs.next()) {
                         count++;
-                        System.out.println("  " + count + ". " + rs.getString("numero_affaire") +
-                                " - " + rs.getString("date_creation"));
+                        System.out.println("  " + count + ". Affaire " + rs.getString("numero_affaire") +
+                                " - Statut: " + rs.getString("statut") +
+                                " - Montant: " + rs.getDouble("montant_amende_total"));
+
+                        if (count >= 3) { // Limiter l'affichage
+                            System.out.println("  ... (et " + (rs.getRow() > 0 ? "plus d'enregistrements" : "0 autres") + ")");
+                            break;
+                        }
                     }
-                    System.out.println("Total trouvé: " + count);
+
+                    if (count == 0) {
+                        System.out.println("  Aucun résultat trouvé");
+                    } else {
+                        System.out.println("  Total affiché: " + count + " enregistrements");
+                    }
                 }
+
+            } catch (SQLException e) {
+                System.err.println("❌ Erreur lors du test de la requête: " + e.getMessage());
+                e.printStackTrace();
             }
 
-            // Compter le total
-            String countQuery = "SELECT COUNT(*) FROM affaires WHERE 1=1";
-            try (PreparedStatement stmt = conn.prepareStatement(countQuery);
+        } catch (SQLException e) {
+            System.err.println("❌ Erreur de connexion: " + e.getMessage());
+        }
+
+        System.out.println();
+    }
+
+    /**
+     * NOUVEAU: Test pour vérifier les vraies colonnes disponibles
+     */
+    private static void listAllColumns() {
+        System.out.println("5. COLONNES DISPONIBLES DANS CHAQUE TABLE:");
+        System.out.println("------------------------------------------");
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection()) {
+            // Obtenir toutes les tables
+            String tablesQuery = "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name";
+            try (PreparedStatement stmt = conn.prepareStatement(tablesQuery);
                  ResultSet rs = stmt.executeQuery()) {
 
-                if (rs.next()) {
-                    System.out.println("Nombre total d'affaires: " + rs.getInt(1));
+                while (rs.next()) {
+                    String tableName = rs.getString("name");
+                    System.out.println("\nTable: " + tableName);
+
+                    // Lister les colonnes
+                    String columnsQuery = "PRAGMA table_info(" + tableName + ")";
+                    try (PreparedStatement columnStmt = conn.prepareStatement(columnsQuery);
+                         ResultSet columnRs = columnStmt.executeQuery()) {
+
+                        System.out.print("  Colonnes: ");
+                        boolean first = true;
+                        while (columnRs.next()) {
+                            if (!first) System.out.print(", ");
+                            System.out.print(columnRs.getString("name"));
+                            first = false;
+                        }
+                        System.out.println();
+                    }
                 }
             }
 
         } catch (SQLException e) {
-            System.err.println("Erreur lors du test de la requête: " + e.getMessage());
-            e.printStackTrace();
+            System.err.println("Erreur lors de la liste des colonnes: " + e.getMessage());
         }
     }
 }

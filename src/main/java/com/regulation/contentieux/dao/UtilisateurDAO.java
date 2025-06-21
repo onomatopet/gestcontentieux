@@ -15,6 +15,7 @@ import java.util.Optional;
 
 /**
  * DAO pour la gestion des utilisateurs
+ * CORRIGÉ pour correspondre à la vraie structure de la table utilisateurs
  * Hérite d'AbstractSQLiteDAO pour bénéficier des méthodes CRUD de base
  */
 public class UtilisateurDAO extends AbstractSQLiteDAO<Utilisateur, Long> {
@@ -33,41 +34,42 @@ public class UtilisateurDAO extends AbstractSQLiteDAO<Utilisateur, Long> {
 
     @Override
     protected String getInsertQuery() {
+        // CORRIGÉ : utilise les vraies colonnes de la base
         return """
-            INSERT INTO utilisateurs (login, mot_de_passe, nom, prenom, nom_complet, 
-                                    email, role, actif, date_creation, created_by, created_at) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO utilisateurs (username, password_hash, nom_complet, 
+                                    role, created_at, updated_at) 
+            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         """;
     }
 
     @Override
     protected String getUpdateQuery() {
+        // CORRIGÉ : utilise les vraies colonnes de la base
         return """
             UPDATE utilisateurs 
-            SET login = ?, mot_de_passe = ?, nom = ?, prenom = ?, nom_complet = ?,
-                email = ?, role = ?, actif = ?, derniere_connexion = ?,
-                updated_by = ?, updated_at = ?
+            SET username = ?, password_hash = ?, nom_complet = ?, role = ?, 
+                updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
         """;
     }
 
     @Override
     protected String getSelectAllQuery() {
+        // CORRIGÉ : utilise les vraies colonnes de la base
         return """
-            SELECT id, login, mot_de_passe, nom, prenom, nom_complet, email, 
-                   role, actif, date_creation, derniere_connexion,
-                   created_by, created_at, updated_by, updated_at
+            SELECT id, username, password_hash, nom_complet, role,
+                   created_at, updated_at
             FROM utilisateurs
-            ORDER BY nom, prenom
+            ORDER BY nom_complet
         """;
     }
 
     @Override
     protected String getSelectByIdQuery() {
+        // CORRIGÉ : utilise les vraies colonnes de la base
         return """
-            SELECT id, login, mot_de_passe, nom, prenom, nom_complet, email, 
-                   role, actif, date_creation, derniere_connexion,
-                   created_by, created_at, updated_by, updated_at
+            SELECT id, username, password_hash, nom_complet, role,
+                   created_at, updated_at
             FROM utilisateurs
             WHERE id = ?
         """;
@@ -78,12 +80,29 @@ public class UtilisateurDAO extends AbstractSQLiteDAO<Utilisateur, Long> {
         Utilisateur utilisateur = new Utilisateur();
 
         utilisateur.setId(rs.getLong("id"));
-        utilisateur.setLogin(rs.getString("login"));
-        utilisateur.setMotDePasse(rs.getString("mot_de_passe"));
-        utilisateur.setNom(rs.getString("nom"));
-        utilisateur.setPrenom(rs.getString("prenom"));
-        utilisateur.setNomComplet(rs.getString("nom_complet"));
-        utilisateur.setEmail(rs.getString("email"));
+
+        // MAPPING CORRIGÉ : username -> login dans l'objet Java
+        utilisateur.setLogin(rs.getString("username"));
+
+        // MAPPING CORRIGÉ : password_hash -> motDePasse dans l'objet Java
+        utilisateur.setMotDePasse(rs.getString("password_hash"));
+
+        // MAPPING CORRIGÉ : nom_complet -> nomComplet, et on peut séparer nom/prenom
+        String nomComplet = rs.getString("nom_complet");
+        utilisateur.setNomComplet(nomComplet);
+
+        // Séparer nom_complet en nom et prenom (basique)
+        if (nomComplet != null && nomComplet.contains(" ")) {
+            String[] parts = nomComplet.split(" ", 2);
+            utilisateur.setNom(parts[0]);
+            utilisateur.setPrenom(parts[1]);
+        } else {
+            utilisateur.setNom(nomComplet != null ? nomComplet : "");
+            utilisateur.setPrenom("");
+        }
+
+        // Email par défaut basé sur username
+        utilisateur.setEmail(rs.getString("username") + "@system.local");
 
         // Conversion du rôle
         String roleStr = rs.getString("role");
@@ -96,78 +115,63 @@ public class UtilisateurDAO extends AbstractSQLiteDAO<Utilisateur, Long> {
             }
         }
 
-        utilisateur.setActif(rs.getBoolean("actif"));
+        // Valeurs par défaut
+        utilisateur.setActif(true);
 
         // Gestion des timestamps
-        Timestamp dateCreation = rs.getTimestamp("date_creation");
-        if (dateCreation != null) {
-            utilisateur.setDateCreation(dateCreation.toLocalDateTime());
-        }
-
-        Timestamp derniereConnexion = rs.getTimestamp("derniere_connexion");
-        if (derniereConnexion != null) {
-            utilisateur.setDerniereConnexion(derniereConnexion.toLocalDateTime());
-        }
-
-        // Métadonnées
-        utilisateur.setCreatedBy(rs.getString("created_by"));
-
         Timestamp createdAt = rs.getTimestamp("created_at");
         if (createdAt != null) {
+            utilisateur.setDateCreation(createdAt.toLocalDateTime());
             utilisateur.setCreatedAt(createdAt.toLocalDateTime());
         }
-
-        utilisateur.setUpdatedBy(rs.getString("updated_by"));
 
         Timestamp updatedAt = rs.getTimestamp("updated_at");
         if (updatedAt != null) {
             utilisateur.setUpdatedAt(updatedAt.toLocalDateTime());
         }
 
+        // Métadonnées par défaut
+        utilisateur.setCreatedBy("system");
+        utilisateur.setUpdatedBy("system");
+
         return utilisateur;
     }
 
     @Override
     protected void setInsertParameters(PreparedStatement stmt, Utilisateur utilisateur) throws SQLException {
+        // MAPPING CORRIGÉ : login -> username en base
         stmt.setString(1, utilisateur.getLogin());
+
+        // MAPPING CORRIGÉ : motDePasse -> password_hash en base
         stmt.setString(2, utilisateur.getMotDePasse());
-        stmt.setString(3, utilisateur.getNom());
-        stmt.setString(4, utilisateur.getPrenom());
-        stmt.setString(5, utilisateur.getNomComplet());
-        stmt.setString(6, utilisateur.getEmail());
-        stmt.setString(7, utilisateur.getRole() != null ? utilisateur.getRole().name() : null);
-        stmt.setBoolean(8, utilisateur.isActif());
-        stmt.setTimestamp(9, Timestamp.valueOf(utilisateur.getDateCreation()));
-        stmt.setString(10, utilisateur.getCreatedBy());
-        stmt.setTimestamp(11, Timestamp.valueOf(utilisateur.getCreatedAt()));
+
+        // MAPPING CORRIGÉ : nomComplet -> nom_complet en base
+        String nomComplet = utilisateur.getNomComplet();
+        if (nomComplet == null || nomComplet.trim().isEmpty()) {
+            nomComplet = (utilisateur.getNom() + " " + utilisateur.getPrenom()).trim();
+        }
+        stmt.setString(3, nomComplet);
+
+        stmt.setString(4, utilisateur.getRole() != null ? utilisateur.getRole().name() : null);
     }
 
     @Override
     protected void setUpdateParameters(PreparedStatement stmt, Utilisateur utilisateur) throws SQLException {
+        // MAPPING CORRIGÉ : login -> username en base
         stmt.setString(1, utilisateur.getLogin());
+
+        // MAPPING CORRIGÉ : motDePasse -> password_hash en base
         stmt.setString(2, utilisateur.getMotDePasse());
-        stmt.setString(3, utilisateur.getNom());
-        stmt.setString(4, utilisateur.getPrenom());
-        stmt.setString(5, utilisateur.getNomComplet());
-        stmt.setString(6, utilisateur.getEmail());
-        stmt.setString(7, utilisateur.getRole() != null ? utilisateur.getRole().name() : null);
-        stmt.setBoolean(8, utilisateur.isActif());
 
-        if (utilisateur.getDerniereConnexion() != null) {
-            stmt.setTimestamp(9, Timestamp.valueOf(utilisateur.getDerniereConnexion()));
-        } else {
-            stmt.setNull(9, Types.TIMESTAMP);
+        // MAPPING CORRIGÉ : nomComplet -> nom_complet en base
+        String nomComplet = utilisateur.getNomComplet();
+        if (nomComplet == null || nomComplet.trim().isEmpty()) {
+            nomComplet = (utilisateur.getNom() + " " + utilisateur.getPrenom()).trim();
         }
+        stmt.setString(3, nomComplet);
 
-        stmt.setString(10, utilisateur.getUpdatedBy());
-
-        if (utilisateur.getUpdatedAt() != null) {
-            stmt.setTimestamp(11, Timestamp.valueOf(utilisateur.getUpdatedAt()));
-        } else {
-            stmt.setTimestamp(11, Timestamp.valueOf(LocalDateTime.now()));
-        }
-
-        stmt.setLong(12, utilisateur.getId());
+        stmt.setString(4, utilisateur.getRole() != null ? utilisateur.getRole().name() : null);
+        stmt.setLong(5, utilisateur.getId());
     }
 
     @Override
@@ -183,10 +187,16 @@ public class UtilisateurDAO extends AbstractSQLiteDAO<Utilisateur, Long> {
     // ========== MÉTHODES SPÉCIFIQUES AUX UTILISATEURS ==========
 
     /**
-     * Trouve un utilisateur par son login
+     * Trouve un utilisateur par son login (username en base)
      */
     public Optional<Utilisateur> findByLogin(String login) {
-        String sql = getSelectAllQuery().replace("ORDER BY nom, prenom", "WHERE login = ?");
+        // CORRIGÉ : cherche par username au lieu de login
+        String sql = """
+            SELECT id, username, password_hash, nom_complet, role,
+                   created_at, updated_at
+            FROM utilisateurs 
+            WHERE username = ?
+        """;
 
         try (Connection conn = getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -209,7 +219,8 @@ public class UtilisateurDAO extends AbstractSQLiteDAO<Utilisateur, Long> {
      * Vérifie si un login existe déjà
      */
     public boolean existsByLogin(String login) {
-        String sql = "SELECT COUNT(*) FROM utilisateurs WHERE login = ?";
+        // CORRIGÉ : cherche par username au lieu de login
+        String sql = "SELECT COUNT(*) FROM utilisateurs WHERE username = ?";
 
         try (Connection conn = getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -232,8 +243,13 @@ public class UtilisateurDAO extends AbstractSQLiteDAO<Utilisateur, Long> {
      * Trouve tous les utilisateurs par rôle
      */
     public List<Utilisateur> findByRole(RoleUtilisateur role) {
-        String sql = getSelectAllQuery().replace("ORDER BY nom, prenom",
-                "WHERE role = ? ORDER BY nom, prenom");
+        String sql = """
+            SELECT id, username, password_hash, nom_complet, role,
+                   created_at, updated_at
+            FROM utilisateurs 
+            WHERE role = ? 
+            ORDER BY nom_complet
+        """;
         List<Utilisateur> utilisateurs = new ArrayList<>();
 
         try (Connection conn = getConnection();
@@ -257,24 +273,8 @@ public class UtilisateurDAO extends AbstractSQLiteDAO<Utilisateur, Long> {
      * Trouve tous les utilisateurs actifs
      */
     public List<Utilisateur> findAllActifs() {
-        String sql = getSelectAllQuery().replace("ORDER BY nom, prenom",
-                "WHERE actif = true ORDER BY nom, prenom");
-        List<Utilisateur> utilisateurs = new ArrayList<>();
-
-        try (Connection conn = getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-            ResultSet rs = stmt.executeQuery();
-
-            while (rs.next()) {
-                utilisateurs.add(mapResultSetToEntity(rs));
-            }
-
-        } catch (SQLException e) {
-            logger.error("Erreur lors de la recherche des utilisateurs actifs", e);
-        }
-
-        return utilisateurs;
+        // Note: Si votre table n'a pas de colonne "actif", on considère tous comme actifs
+        return findAll();
     }
 
     /**
@@ -282,16 +282,18 @@ public class UtilisateurDAO extends AbstractSQLiteDAO<Utilisateur, Long> {
      */
     public List<Utilisateur> searchUtilisateurs(String searchTerm, RoleUtilisateur role,
                                                 Boolean actifOnly, int offset, int limit) {
-        StringBuilder sql = new StringBuilder(
-                "SELECT * FROM utilisateurs WHERE 1=1 ");
+        StringBuilder sql = new StringBuilder("""
+            SELECT id, username, password_hash, nom_complet, role,
+                   created_at, updated_at
+            FROM utilisateurs WHERE 1=1 
+        """);
 
         List<Object> parameters = new ArrayList<>();
 
         if (searchTerm != null && !searchTerm.trim().isEmpty()) {
-            sql.append("AND (login LIKE ? OR nom LIKE ? OR prenom LIKE ? OR email LIKE ?) ");
+            // CORRIGÉ : cherche dans username et nom_complet
+            sql.append("AND (username LIKE ? OR nom_complet LIKE ?) ");
             String searchPattern = "%" + searchTerm.trim() + "%";
-            parameters.add(searchPattern);
-            parameters.add(searchPattern);
             parameters.add(searchPattern);
             parameters.add(searchPattern);
         }
@@ -301,11 +303,7 @@ public class UtilisateurDAO extends AbstractSQLiteDAO<Utilisateur, Long> {
             parameters.add(role.name());
         }
 
-        if (actifOnly != null && actifOnly) {
-            sql.append("AND actif = true ");
-        }
-
-        sql.append("ORDER BY nom, prenom LIMIT ? OFFSET ?");
+        sql.append("ORDER BY nom_complet LIMIT ? OFFSET ?");
         parameters.add(limit);
         parameters.add(offset);
 
@@ -335,16 +333,13 @@ public class UtilisateurDAO extends AbstractSQLiteDAO<Utilisateur, Long> {
      * Compte les utilisateurs selon les critères
      */
     public long countSearchUtilisateurs(String searchTerm, RoleUtilisateur role, Boolean actifOnly) {
-        StringBuilder sql = new StringBuilder(
-                "SELECT COUNT(*) FROM utilisateurs WHERE 1=1 ");
+        StringBuilder sql = new StringBuilder("SELECT COUNT(*) FROM utilisateurs WHERE 1=1 ");
 
         List<Object> parameters = new ArrayList<>();
 
         if (searchTerm != null && !searchTerm.trim().isEmpty()) {
-            sql.append("AND (login LIKE ? OR nom LIKE ? OR prenom LIKE ? OR email LIKE ?) ");
+            sql.append("AND (username LIKE ? OR nom_complet LIKE ?) ");
             String searchPattern = "%" + searchTerm.trim() + "%";
-            parameters.add(searchPattern);
-            parameters.add(searchPattern);
             parameters.add(searchPattern);
             parameters.add(searchPattern);
         }
@@ -352,10 +347,6 @@ public class UtilisateurDAO extends AbstractSQLiteDAO<Utilisateur, Long> {
         if (role != null) {
             sql.append("AND role = ? ");
             parameters.add(role.name());
-        }
-
-        if (actifOnly != null && actifOnly) {
-            sql.append("AND actif = true ");
         }
 
         try (Connection conn = getConnection();

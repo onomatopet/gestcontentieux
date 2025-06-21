@@ -44,21 +44,148 @@ public class DatabaseConfig {
     private static void loadConfiguration() {
         dbProperties = new Properties();
 
-        try (InputStream input = DatabaseConfig.class.getClassLoader()
-                .getResourceAsStream(CONFIG_FILE)) {
+        // === DIAGNOSTIC COMPLET ===
+        logger.info("=== DIAGNOSTIC DE CHARGEMENT DE CONFIGURATION ===");
+        logger.info("Tentative de chargement du fichier: {}", CONFIG_FILE);
 
-            if (input != null) {
-                dbProperties.load(input);
-                logger.info("Configuration de base de données chargée depuis {}", CONFIG_FILE);
-            } else {
-                logger.warn("Fichier {} non trouvé, utilisation des valeurs par défaut", CONFIG_FILE);
-                setDefaultProperties();
-            }
+        // Diagnostic 1: Vérifier le ClassLoader
+        ClassLoader classLoader = DatabaseConfig.class.getClassLoader();
+        logger.info("ClassLoader utilisé: {}", classLoader.getClass().getName());
 
-        } catch (IOException e) {
-            logger.error("Erreur lors du chargement de la configuration", e);
-            setDefaultProperties();
+        // Diagnostic 2: Lister toutes les ressources disponibles
+        try {
+            logger.info("Working directory: {}", System.getProperty("user.dir"));
+            logger.info("Classpath: {}", System.getProperty("java.class.path"));
+        } catch (Exception e) {
+            logger.warn("Impossible d'obtenir les informations système: {}", e.getMessage());
         }
+
+        // Diagnostic 3: Tentative de chargement avec différentes méthodes
+        InputStream input = null;
+        boolean configFound = false;
+        String loadMethod = "AUCUN";
+
+        // Méthode 1: ClassLoader.getResourceAsStream (recommandée)
+        try {
+            input = classLoader.getResourceAsStream(CONFIG_FILE);
+            if (input != null) {
+                configFound = true;
+                loadMethod = "ClassLoader.getResourceAsStream";
+                logger.info("✅ Fichier trouvé avec ClassLoader.getResourceAsStream");
+            } else {
+                logger.warn("❌ ClassLoader.getResourceAsStream a retourné null");
+            }
+        } catch (Exception e) {
+            logger.error("❌ Erreur avec ClassLoader.getResourceAsStream: {}", e.getMessage());
+        }
+
+        // Méthode 2: Class.getResourceAsStream (alternative)
+        if (!configFound) {
+            try {
+                input = DatabaseConfig.class.getResourceAsStream("/" + CONFIG_FILE);
+                if (input != null) {
+                    configFound = true;
+                    loadMethod = "Class.getResourceAsStream";
+                    logger.info("✅ Fichier trouvé avec Class.getResourceAsStream");
+                } else {
+                    logger.warn("❌ Class.getResourceAsStream a retourné null");
+                }
+            } catch (Exception e) {
+                logger.error("❌ Erreur avec Class.getResourceAsStream: {}", e.getMessage());
+            }
+        }
+
+        // Méthode 3: Thread context ClassLoader (fallback)
+        if (!configFound) {
+            try {
+                ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
+                input = contextClassLoader.getResourceAsStream(CONFIG_FILE);
+                if (input != null) {
+                    configFound = true;
+                    loadMethod = "Thread.contextClassLoader.getResourceAsStream";
+                    logger.info("✅ Fichier trouvé avec Thread.contextClassLoader.getResourceAsStream");
+                } else {
+                    logger.warn("❌ Thread.contextClassLoader.getResourceAsStream a retourné null");
+                }
+            } catch (Exception e) {
+                logger.error("❌ Erreur avec Thread.contextClassLoader: {}", e.getMessage());
+            }
+        }
+
+        // Chargement du fichier si trouvé
+        if (configFound && input != null) {
+            try {
+                dbProperties.load(input);
+                logger.info("✅ Configuration chargée avec succès via: {}", loadMethod);
+                logger.info("✅ Propriétés chargées: {}", dbProperties.stringPropertyNames());
+
+                // Log des propriétés importantes
+                String sqlitePath = dbProperties.getProperty("sqlite.path");
+                String mysqlHost = dbProperties.getProperty("mysql.host");
+                logger.info("✅ sqlite.path configuré: {}", sqlitePath);
+                logger.info("✅ mysql.host configuré: {}", mysqlHost);
+
+            } catch (IOException e) {
+                logger.error("❌ Erreur lors du chargement des propriétés: {}", e.getMessage());
+                configFound = false;
+            } finally {
+                try {
+                    input.close();
+                } catch (IOException e) {
+                    logger.warn("Erreur lors de la fermeture du stream: {}", e.getMessage());
+                }
+            }
+        }
+
+        // Si aucune méthode n'a fonctionné, utiliser les valeurs par défaut
+        if (!configFound) {
+            logger.warn("❌ Aucune méthode de chargement n'a réussi");
+            logger.warn("🔄 Utilisation des valeurs par défaut");
+            setDefaultProperties();
+
+            // Log des valeurs par défaut pour diagnostic
+            logger.info("🔄 Valeurs par défaut appliquées:");
+            logger.info("🔄 sqlite.path: {}", dbProperties.getProperty("sqlite.path"));
+            logger.info("🔄 mysql.host: {}", dbProperties.getProperty("mysql.host"));
+        }
+
+        logger.info("=== FIN DU DIAGNOSTIC ===");
+    }
+
+    /**
+     * Méthode utilitaire pour forcer le rechargement de la configuration
+     */
+    public static void reloadConfiguration() {
+        logger.info("🔄 Rechargement forcé de la configuration...");
+        loadConfiguration();
+    }
+
+    /**
+     * Méthode utilitaire pour vérifier le contenu des propriétés chargées
+     */
+    public static void diagnosticProperties() {
+        logger.info("=== DIAGNOSTIC DES PROPRIÉTÉS CHARGÉES ===");
+        logger.info("Nombre de propriétés: {}", dbProperties.size());
+
+        // Lister toutes les propriétés
+        dbProperties.forEach((key, value) -> {
+            if (key.toString().toLowerCase().contains("password")) {
+                logger.info("{}=***MASQUÉ***", key);
+            } else {
+                logger.info("{}={}", key, value);
+            }
+        });
+
+        // Vérifications spécifiques
+        String sqlitePath = dbProperties.getProperty("sqlite.path", "NON_DÉFINI");
+        logger.info("🔍 Chemin SQLite final: {}", sqlitePath);
+
+        // Vérifier si le chemin est relatif ou absolu
+        java.nio.file.Path path = java.nio.file.Paths.get(sqlitePath);
+        logger.info("🔍 Chemin absolu: {}", path.isAbsolute());
+        logger.info("🔍 Chemin résolu: {}", path.toAbsolutePath());
+
+        logger.info("=== FIN DU DIAGNOSTIC DES PROPRIÉTÉS ===");
     }
 
     /**
@@ -82,32 +209,106 @@ public class DatabaseConfig {
     }
 
     /**
-     * Initialise la base de données SQLite avec TOUTES les tables
+     * Initialise la base de données SQLite avec diagnostic avancé
      */
     public static void initializeSQLite() {
         try {
-            String sqlitePath = dbProperties.getProperty("sqlite.path", DEFAULT_SQLITE_PATH);
+            // === DIAGNOSTIC AVANCÉ DU CHEMIN ===
+            logger.info("=== DIAGNOSTIC AVANCÉ DU CHEMIN DE BASE ===");
 
-            // Créer le dossier parent si nécessaire
+            // 1. Vérifier les System Properties qui pourraient override la config
+            String systemSqliteUrl = System.getProperty("db.sqlite.url");
+            String systemSqlitePath = System.getProperty("sqlite.path");
+            String systemDbPath = System.getProperty("database.path");
+
+            logger.info("🔍 System Property 'db.sqlite.url': {}", systemSqliteUrl);
+            logger.info("🔍 System Property 'sqlite.path': {}", systemSqlitePath);
+            logger.info("🔍 System Property 'database.path': {}", systemDbPath);
+
+            // 2. Récupérer le chemin depuis la configuration
+            String configSqlitePath = dbProperties.getProperty("sqlite.path", DEFAULT_SQLITE_PATH);
+            logger.info("🔍 Configuration sqlite.path: {}", configSqlitePath);
+            logger.info("🔍 DEFAULT_SQLITE_PATH: {}", DEFAULT_SQLITE_PATH);
+
+            // 3. Déterminer le chemin final utilisé
+            String sqlitePath;
+            String pathSource;
+
+            if (systemSqliteUrl != null && systemSqliteUrl.startsWith("jdbc:sqlite:")) {
+                // System property override (comme dans les tests)
+                sqlitePath = systemSqliteUrl.substring("jdbc:sqlite:".length());
+                pathSource = "System Property 'db.sqlite.url'";
+                logger.warn("⚠️ CHEMIN OVERRIDÉ par System Property: {}", sqlitePath);
+            } else if (systemSqlitePath != null) {
+                // System property direct
+                sqlitePath = systemSqlitePath;
+                pathSource = "System Property 'sqlite.path'";
+                logger.warn("⚠️ CHEMIN OVERRIDÉ par System Property: {}", sqlitePath);
+            } else if (systemDbPath != null) {
+                // System property alternatif
+                sqlitePath = systemDbPath;
+                pathSource = "System Property 'database.path'";
+                logger.warn("⚠️ CHEMIN OVERRIDÉ par System Property: {}", sqlitePath);
+            } else {
+                // Configuration normale
+                sqlitePath = configSqlitePath;
+                pathSource = "Fichier database.properties";
+                logger.info("✅ CHEMIN depuis configuration: {}", sqlitePath);
+            }
+
+            logger.info("🎯 CHEMIN FINAL utilisé: {} (source: {})", sqlitePath, pathSource);
+
+            // 4. Analyser le chemin final
             Path dbPath = Paths.get(sqlitePath);
+            logger.info("🔍 Chemin absolu: {}", dbPath.isAbsolute());
+            logger.info("🔍 Chemin résolu: {}", dbPath.toAbsolutePath());
+            logger.info("🔍 Nom du fichier: {}", dbPath.getFileName());
+            logger.info("🔍 Dossier parent: {}", dbPath.getParent());
+
+            // 5. Vérifier l'existence du dossier parent
             Path parentDir = dbPath.getParent();
-            if (parentDir != null && !Files.exists(parentDir)) {
-                Files.createDirectories(parentDir);
-                logger.info("Dossier créé: {}", parentDir);
+            if (parentDir != null) {
+                boolean parentExists = Files.exists(parentDir);
+                logger.info("🔍 Dossier parent existe: {}", parentExists);
+
+                if (!parentExists) {
+                    logger.info("📁 Création du dossier parent: {}", parentDir);
+                    Files.createDirectories(parentDir);
+                    logger.info("✅ Dossier créé: {}", parentDir);
+                } else {
+                    logger.info("✅ Dossier parent déjà existant: {}", parentDir);
+                }
+            } else {
+                logger.info("⚠️ Aucun dossier parent (fichier à la racine)");
             }
 
-            // Vérifier si la base de données existe
+            // 6. Vérifier l'existence de la base de données
             boolean dbExists = Files.exists(dbPath);
+            logger.info("🔍 Base de données existe: {}", dbExists);
 
-            logger.info("Vérification de la base SQLite: {}", sqlitePath);
-            logger.info("Base de données existante: {}", dbExists ? "OUI" : "NON");
             if (dbExists) {
-                logger.info("Taille de la base: {} MB", Files.size(dbPath) / (1024 * 1024));
+                long size = Files.size(dbPath);
+                logger.info("🔍 Taille de la base: {} bytes ({} MB)", size, size / (1024 * 1024));
+
+                if (size == 0) {
+                    logger.warn("⚠️ BASE DE DONNÉES VIDE - Sera réinitialisée");
+                } else {
+                    logger.info("✅ Base de données contient des données");
+                }
+            } else {
+                logger.info("📝 Base de données inexistante - Sera créée");
             }
 
-            // Configuration du pool de connexions SQLite
+            logger.info("=== FIN DU DIAGNOSTIC AVANCÉ ===");
+
+            // 7. Configuration du pool de connexions SQLite
+            logger.info("🔧 Configuration du pool de connexions SQLite...");
             HikariConfig config = new HikariConfig();
-            config.setJdbcUrl("jdbc:sqlite:" + sqlitePath);
+
+            String jdbcUrl = "jdbc:sqlite:" + sqlitePath;
+            logger.info("🔧 JDBC URL finale: {}", jdbcUrl);
+
+            config.setJdbcUrl(jdbcUrl);
             config.setDriverClassName("org.sqlite.JDBC");
             config.setMaximumPoolSize(Integer.parseInt(
                     dbProperties.getProperty("sqlite.poolSize", "10")));
@@ -121,32 +322,33 @@ public class DatabaseConfig {
             config.addDataSourceProperty("foreign_keys", "ON");
 
             sqliteDataSource = new HikariDataSource(config);
+            logger.info("✅ Pool de connexions SQLite configuré");
 
-            // Créer les tables si nécessaire et ajouter les données de test
-            if (!dbExists) {
-                logger.info("Base de données non trouvée, création complète...");
+            // 8. Initialisation si nécessaire
+            if (!dbExists || Files.size(dbPath) == 0) {
+                logger.info("🚀 Initialisation complète de la base de données...");
                 createAllSQLiteTables();
                 createInitialData();
                 DatabaseSchemaCompletion.executeSchemaCompletion();
 
-                logger.info("Base de données SQLite initialisée avec schéma complet : {}", sqlitePath);
-                logger.info("Base de données complète créée avec succès");
+                logger.info("✅ Base de données SQLite initialisée avec schéma complet : {}", sqlitePath);
+                logger.info("✅ Base de données complète créée avec succès");
             } else {
-                logger.info("Base de données existante détectée");
+                logger.info("ℹ️ Base de données existante détectée");
                 // Mettre à jour le schéma si nécessaire
                 DatabaseSchemaUpdate.updateSchemaIfNeeded();
 
                 // Vérifier la connexion et compter les enregistrements
                 try (Connection conn = getSQLiteConnection()) {
-                    logger.info("Connexion à la base existante: OK");
+                    logger.info("✅ Connexion à la base existante: OK");
                     logTableCounts(conn);
                 }
             }
 
-            logger.info("Base de données SQLite initialisée : {}", sqlitePath);
+            logger.info("✅ Base de données SQLite initialisée : {}", sqlitePath);
 
         } catch (Exception e) {
-            logger.error("Erreur lors de l'initialisation de la base SQLite", e);
+            logger.error("❌ Erreur lors de l'initialisation de la base SQLite", e);
             throw new RuntimeException("Impossible d'initialiser la base SQLite", e);
         }
     }

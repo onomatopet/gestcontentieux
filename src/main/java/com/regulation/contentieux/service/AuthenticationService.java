@@ -1,22 +1,21 @@
 package com.regulation.contentieux.service;
 
+import at.favre.lib.crypto.bcrypt.BCrypt;
 import com.regulation.contentieux.dao.UtilisateurDAO;
 import com.regulation.contentieux.model.Utilisateur;
 import com.regulation.contentieux.model.enums.RoleUtilisateur;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Optional;
 
 /**
- * Service d'authentification et gestion des utilisateurs
+ * Service d'authentification et de gestion des sessions
+ * Pattern Singleton pour garantir une instance unique
  */
 public class AuthenticationService {
+
     private static final Logger logger = LoggerFactory.getLogger(AuthenticationService.class);
     private static AuthenticationService instance;
 
@@ -27,7 +26,10 @@ public class AuthenticationService {
         this.utilisateurDAO = new UtilisateurDAO();
     }
 
-    public static AuthenticationService getInstance() {
+    /**
+     * Obtient l'instance unique du service
+     */
+    public static synchronized AuthenticationService getInstance() {
         if (instance == null) {
             instance = new AuthenticationService();
         }
@@ -37,72 +39,75 @@ public class AuthenticationService {
     /**
      * Authentifie un utilisateur
      */
-    public AuthenticationResult authenticate(String username, String password) {
+    public boolean authenticate(String login, String password) {
         try {
-            logger.info("Tentative de connexion pour: {}", username);
+            logger.info("Tentative de connexion pour l'utilisateur: {}", login);
 
-            // Vérifications de base
-            if (username == null || username.trim().isEmpty()) {
-                return new AuthenticationResult(false, "Nom d'utilisateur requis", null);
+            Optional<Utilisateur> optUser = utilisateurDAO.findByLogin(login);
+
+            if (optUser.isEmpty()) {
+                logger.warn("Utilisateur non trouvé: {}", login);
+                return false;
             }
 
-            if (password == null || password.trim().isEmpty()) {
-                return new AuthenticationResult(false, "Mot de passe requis", null);
+            Utilisateur utilisateur = optUser.get();
+
+            // Vérifier si l'utilisateur est actif
+            if (!utilisateur.isActif()) {
+                logger.warn("Tentative de connexion avec un compte désactivé: {}", login);
+                return false;
             }
 
-            // Recherche de l'utilisateur
-            Optional<Utilisateur> userOptional = utilisateurDAO.findByUsername(username.trim());
+            // Vérifier le mot de passe
+            BCrypt.Result result = BCrypt.verifyer().verify(password.toCharArray(),
+                    utilisateur.getMotDePasse());
 
-            if (userOptional.isEmpty()) {
-                logger.warn("Tentative de connexion avec un utilisateur inexistant: {}", username);
-                return new AuthenticationResult(false, "Utilisateur non trouvé", null);
+            if (result.verified) {
+                // Mise à jour de la dernière connexion
+                utilisateur.setDerniereConnexion(LocalDateTime.now());
+                utilisateurDAO.update(utilisateur);
+
+                // Stocker l'utilisateur courant
+                this.currentUser = utilisateur;
+
+                logger.info("Connexion réussie pour: {}", login);
+                return true;
+            } else {
+                logger.warn("Mot de passe incorrect pour: {}", login);
+                return false;
             }
-
-            Utilisateur user = userOptional.get();
-
-            // Vérification du statut actif
-            if (!user.isActif()) {
-                logger.warn("Tentative de connexion avec un compte désactivé: {}", username);
-                return new AuthenticationResult(false, "Compte désactivé", null);
-            }
-
-            // Vérification du mot de passe
-            String hashedPassword = hashPassword(password);
-            if (!hashedPassword.equals(user.getPasswordHash())) {
-                logger.warn("Mot de passe incorrect pour: {}", username);
-                return new AuthenticationResult(false, "Mot de passe incorrect", null);
-            }
-
-            // Mise à jour de la dernière connexion
-            utilisateurDAO.updateLastLogin(user.getId());
-
-            // Définition de l'utilisateur actuel
-            this.currentUser = user;
-
-            logger.info("Connexion réussie pour: {} ({})", username, user.getRole().getDisplayName());
-            return new AuthenticationResult(true, "Connexion réussie", user);
 
         } catch (Exception e) {
-            logger.error("Erreur lors de l'authentification: " + username, e);
-            return new AuthenticationResult(false, "Erreur lors de l'authentification", null);
+            logger.error("Erreur lors de l'authentification", e);
+            return false;
         }
     }
 
     /**
-     * Déconnecte l'utilisateur actuel
+     * Déconnecte l'utilisateur courant
      */
     public void logout() {
         if (currentUser != null) {
-            logger.info("Déconnexion de: {}", currentUser.getUsername());
-            this.currentUser = null;
+            logger.info("Déconnexion de l'utilisateur: {}", currentUser.getLogin());
+            currentUser = null;
         }
     }
 
     /**
-     * Retourne l'utilisateur actuellement connecté
+     * Retourne l'utilisateur connecté
      */
     public Utilisateur getCurrentUser() {
         return currentUser;
+    }
+
+    /**
+     * Retourne le nom d'utilisateur de l'utilisateur connecté
+     */
+    public String getCurrentUsername() {
+        if (currentUser != null) {
+            return currentUser.getUsername();
+        }
+        return "SYSTEM";
     }
 
     /**
@@ -113,203 +118,90 @@ public class AuthenticationService {
     }
 
     /**
-     * Vérifie si l'utilisateur actuel a un rôle spécifique
+     * Vérifie si l'utilisateur courant a une permission
      */
-    public boolean hasRole(RoleUtilisateur role) {
-        return currentUser != null && currentUser.getRole() == role;
+    public boolean hasPermission(String permission) {
+        if (currentUser == null) {
+            return false;
+        }
+        return currentUser.hasPermission(permission);
     }
 
     /**
-     * Vérifie si l'utilisateur actuel a l'autorisation pour une action
+     * Vérifie si l'utilisateur courant a une permission
      */
     public boolean hasPermission(RoleUtilisateur.Permission permission) {
-        return currentUser != null && currentUser.getRole().hasPermission(permission);
-    }
-
-    /**
-     * Crée un nouvel utilisateur
-     */
-    public AuthenticationResult createUser(String username, String password, String nomComplet, RoleUtilisateur role) {
-        try {
-            // Vérifications de base
-            if (username == null || username.trim().isEmpty()) {
-                return new AuthenticationResult(false, "Nom d'utilisateur requis", null);
-            }
-
-            if (password == null || password.length() < 6) {
-                return new AuthenticationResult(false, "Mot de passe trop court (minimum 6 caractères)", null);
-            }
-
-            if (nomComplet == null || nomComplet.trim().isEmpty()) {
-                return new AuthenticationResult(false, "Nom complet requis", null);
-            }
-
-            if (role == null) {
-                return new AuthenticationResult(false, "Rôle requis", null);
-            }
-
-            // Vérification d'unicité
-            if (utilisateurDAO.existsByUsername(username.trim())) {
-                return new AuthenticationResult(false, "Ce nom d'utilisateur existe déjà", null);
-            }
-
-            // Création de l'utilisateur
-            Utilisateur newUser = new Utilisateur();
-            newUser.setUsername(username.trim());
-            newUser.setPasswordHash(hashPassword(password));
-            newUser.setNomComplet(nomComplet.trim());
-            newUser.setRole(role);
-            newUser.setActif(true);
-            newUser.setCreatedAt(LocalDateTime.now());
-
-            if (currentUser != null) {
-                newUser.setCreatedBy(currentUser.getUsername());
-            }
-
-            Utilisateur savedUser = utilisateurDAO.save(newUser);
-
-            logger.info("Nouvel utilisateur créé: {} ({})", username, role.getDisplayName());
-            return new AuthenticationResult(true, "Utilisateur créé avec succès", savedUser);
-
-        } catch (Exception e) {
-            logger.error("Erreur lors de la création de l'utilisateur: " + username, e);
-            return new AuthenticationResult(false, "Erreur lors de la création de l'utilisateur", null);
+        if (currentUser == null) {
+            return false;
         }
+        return currentUser.getRole().hasPermission(permission);
     }
 
     /**
-     * Version alternative de createUser pour la compatibilité
+     * Change le mot de passe de l'utilisateur
      */
-    public AuthenticationResult createUser(Utilisateur utilisateur) {
-        if (utilisateur == null) {
-            return new AuthenticationResult(false, "L'utilisateur ne peut pas être null", null);
+    public boolean changePassword(String oldPassword, String newPassword) {
+        if (currentUser == null) {
+            return false;
         }
 
-        return createUser(
-                utilisateur.getUsername(),
-                utilisateur.getMotDePasse(),
-                utilisateur.getNomComplet(),
-                utilisateur.getRole()
-        );
-    }
-
-    /**
-     * Met à jour un utilisateur existant
-     */
-    public Utilisateur updateUser(Utilisateur utilisateur) {
         try {
-            // Validation
-            if (utilisateur == null || utilisateur.getUsername() == null) {
-                throw new IllegalArgumentException("Utilisateur ou nom d'utilisateur invalide");
-            }
+            // Vérifier l'ancien mot de passe
+            BCrypt.Result result = BCrypt.verifyer().verify(oldPassword.toCharArray(),
+                    currentUser.getMotDePasse());
 
-            // Vérifier que l'utilisateur existe
-            Optional<Utilisateur> existing = utilisateurDAO.findByUsername(utilisateur.getUsername());
-            if (existing.isEmpty()) {
-                throw new IllegalStateException("Utilisateur inexistant: " + utilisateur.getUsername());
-            }
-
-            // Mise à jour des métadonnées
-            utilisateur.setUpdatedAt(LocalDateTime.now());
-            if (currentUser != null) {
-                utilisateur.setUpdatedBy(currentUser.getUsername());
-            }
-
-            return utilisateurDAO.update(utilisateur);
-        } catch (Exception e) {
-            logger.error("Erreur lors de la mise à jour de l'utilisateur: {}", utilisateur.getUsername(), e);
-            throw new RuntimeException("Impossible de mettre à jour l'utilisateur", e);
-        }
-    }
-
-    /**
-     * Supprime un utilisateur
-     */
-    public boolean deleteUser(String username) {
-        try {
-            // Vérifications de sécurité
-            if (username == null || username.trim().isEmpty()) {
+            if (!result.verified) {
+                logger.warn("Échec du changement de mot de passe - ancien mot de passe incorrect");
                 return false;
             }
 
-            if (currentUser != null && username.equals(currentUser.getUsername())) {
-                throw new IllegalStateException("Impossible de supprimer son propre compte");
-            }
+            // Hasher le nouveau mot de passe
+            String hashedPassword = BCrypt.withDefaults().hashToString(12, newPassword.toCharArray());
+            currentUser.setMotDePasse(hashedPassword);
 
-            // Vérifier que l'utilisateur existe
-            Optional<Utilisateur> user = utilisateurDAO.findByUsername(username);
-            if (user.isEmpty()) {
-                return false;
-            }
+            // Sauvegarder
+            utilisateurDAO.update(currentUser);
 
-            // Suppression (désactivation)
-            utilisateurDAO.delete(user.get().getId());
+            logger.info("Mot de passe changé avec succès pour: {}", currentUser.getLogin());
             return true;
 
         } catch (Exception e) {
-            logger.error("Erreur lors de la suppression de l'utilisateur: {}", username, e);
+            logger.error("Erreur lors du changement de mot de passe", e);
             return false;
         }
     }
 
     /**
-     * Change le mot de passe de l'utilisateur actuel
+     * Crée un nouvel utilisateur
      */
-    public AuthenticationResult changePassword(String oldPassword, String newPassword) {
-        if (currentUser == null) {
-            return new AuthenticationResult(false, "Aucun utilisateur connecté", null);
-        }
-
+    public Utilisateur createUser(String login, String password, String nom, String prenom,
+                                  String email, RoleUtilisateur role) {
         try {
-            // Vérification de l'ancien mot de passe
-            String hashedOldPassword = hashPassword(oldPassword);
-            if (!hashedOldPassword.equals(currentUser.getPasswordHash())) {
-                return new AuthenticationResult(false, "Ancien mot de passe incorrect", null);
+            // Vérifier que le login n'existe pas déjà
+            if (utilisateurDAO.existsByLogin(login)) {
+                throw new IllegalArgumentException("Ce login existe déjà");
             }
 
-            // Validation du nouveau mot de passe
-            if (newPassword == null || newPassword.length() < 6) {
-                return new AuthenticationResult(false, "Le nouveau mot de passe doit contenir au moins 6 caractères", null);
-            }
+            // Créer l'utilisateur
+            Utilisateur newUser = new Utilisateur();
+            newUser.setLogin(login);
+            newUser.setMotDePasse(BCrypt.withDefaults().hashToString(12, password.toCharArray()));
+            newUser.setNom(nom);
+            newUser.setPrenom(prenom);
+            newUser.setEmail(email);
+            newUser.setRole(role);
+            newUser.setActif(true);
+            newUser.setCreatedBy(getCurrentUsername());
 
-            // Mise à jour du mot de passe
-            currentUser.setPasswordHash(hashPassword(newPassword));
-            currentUser.setUpdatedAt(LocalDateTime.now());
-            currentUser.setUpdatedBy(currentUser.getUsername());
+            // Sauvegarder
+            Utilisateur savedUser = utilisateurDAO.save(newUser);
+            logger.info("Utilisateur créé avec succès: {}", login);
 
-            utilisateurDAO.update(currentUser);
-
-            logger.info("Mot de passe changé pour: {}", currentUser.getUsername());
-            return new AuthenticationResult(true, "Mot de passe changé avec succès", currentUser);
+            return savedUser;
 
         } catch (Exception e) {
-            logger.error("Erreur lors du changement de mot de passe", e);
-            return new AuthenticationResult(false, "Erreur lors du changement de mot de passe", null);
-        }
-    }
-
-    /**
-     * Récupère tous les utilisateurs
-     */
-    public List<Utilisateur> getAllUsers() {
-        try {
-            return utilisateurDAO.findAll();
-        } catch (Exception e) {
-            logger.error("Erreur lors de la récupération de tous les utilisateurs", e);
-            return List.of();
-        }
-    }
-
-    /**
-     * Trouve un utilisateur par son login
-     */
-    public Utilisateur findUserByLogin(String login) {
-        try {
-            Optional<Utilisateur> user = utilisateurDAO.findByUsername(login);
-            return user.orElse(null);
-        } catch (Exception e) {
-            logger.error("Erreur lors de la recherche de l'utilisateur: {}", login, e);
-            return null;
+            logger.error("Erreur lors de la création de l'utilisateur", e);
+            throw new RuntimeException("Impossible de créer l'utilisateur: " + e.getMessage());
         }
     }
 
@@ -317,155 +209,35 @@ public class AuthenticationService {
      * Vérifie si un login existe déjà
      */
     public boolean loginExists(String login) {
-        try {
-            if (login == null || login.trim().isEmpty()) {
-                return false;
-            }
-            return utilisateurDAO.existsByUsername(login.trim());
-        } catch (Exception e) {
-            logger.error("Erreur lors de la vérification du login: {}", login, e);
-            return true; // Par sécurité, on assume que ça existe
-        }
+        return utilisateurDAO.existsByLogin(login);
     }
 
     /**
      * Réinitialise le mot de passe d'un utilisateur
      */
-    public AuthenticationResult resetPassword(String username, String newPassword) {
+    public boolean resetPassword(String login, String newPassword) {
         try {
-            Optional<Utilisateur> userOptional = utilisateurDAO.findByUsername(username);
-            if (userOptional.isEmpty()) {
-                return new AuthenticationResult(false, "Utilisateur non trouvé", null);
+            Optional<Utilisateur> optUser = utilisateurDAO.findByLogin(login);
+
+            if (optUser.isEmpty()) {
+                logger.warn("Tentative de réinitialisation pour un utilisateur inexistant: {}", login);
+                return false;
             }
 
-            Utilisateur user = userOptional.get();
-            user.setPasswordHash(hashPassword(newPassword));
-            user.setUpdatedAt(LocalDateTime.now());
-            if (currentUser != null) {
-                user.setUpdatedBy(currentUser.getUsername());
-            }
+            Utilisateur utilisateur = optUser.get();
+            String hashedPassword = BCrypt.withDefaults().hashToString(12, newPassword.toCharArray());
+            utilisateur.setMotDePasse(hashedPassword);
+            utilisateur.setUpdatedBy(getCurrentUsername());
+            utilisateur.setUpdatedAt(LocalDateTime.now());
 
-            utilisateurDAO.update(user);
+            utilisateurDAO.update(utilisateur);
 
-            logger.info("Mot de passe réinitialisé pour: {}", username);
-            return new AuthenticationResult(true, "Mot de passe réinitialisé avec succès", user);
+            logger.info("Mot de passe réinitialisé pour: {}", login);
+            return true;
 
         } catch (Exception e) {
-            logger.error("Erreur lors de la réinitialisation du mot de passe: {}", username, e);
-            return new AuthenticationResult(false, "Erreur lors de la réinitialisation", null);
+            logger.error("Erreur lors de la réinitialisation du mot de passe", e);
+            return false;
         }
-    }
-
-    /**
-     * Active ou désactive un utilisateur
-     */
-    public AuthenticationResult toggleUserStatus(String username, boolean actif) {
-        try {
-            Optional<Utilisateur> userOptional = utilisateurDAO.findByUsername(username);
-            if (userOptional.isEmpty()) {
-                return new AuthenticationResult(false, "Utilisateur non trouvé", null);
-            }
-
-            Utilisateur user = userOptional.get();
-            user.setActif(actif);
-            user.setUpdatedAt(LocalDateTime.now());
-            if (currentUser != null) {
-                user.setUpdatedBy(currentUser.getUsername());
-            }
-
-            utilisateurDAO.update(user);
-
-            String action = actif ? "activé" : "désactivé";
-            logger.info("Utilisateur {} : {}", action, username);
-            return new AuthenticationResult(true, "Utilisateur " + action + " avec succès", user);
-
-        } catch (Exception e) {
-            logger.error("Erreur lors de la modification du statut de l'utilisateur: {}", username, e);
-            return new AuthenticationResult(false, "Erreur lors de la modification du statut", null);
-        }
-    }
-
-    /**
-     * Hache un mot de passe avec SHA-256
-     */
-    private String hashPassword(String password) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(password.getBytes(StandardCharsets.UTF_8));
-
-            StringBuilder hexString = new StringBuilder();
-            for (byte b : hash) {
-                String hex = Integer.toHexString(0xff & b);
-                if (hex.length() == 1) {
-                    hexString.append('0');
-                }
-                hexString.append(hex);
-            }
-            return hexString.toString();
-        } catch (NoSuchAlgorithmException e) {
-            logger.error("Erreur lors du hachage du mot de passe", e);
-            throw new RuntimeException("Impossible de hacher le mot de passe", e);
-        }
-    }
-
-    /**
-     * Valide la force d'un mot de passe
-     */
-    public PasswordStrength validatePasswordStrength(String password) {
-        if (password == null || password.length() < 6) {
-            return PasswordStrength.WEAK;
-        }
-
-        int score = 0;
-
-        // Longueur
-        if (password.length() >= 8) score++;
-        if (password.length() >= 12) score++;
-
-        // Complexité
-        if (password.matches(".*[a-z].*")) score++; // Minuscules
-        if (password.matches(".*[A-Z].*")) score++; // Majuscules
-        if (password.matches(".*[0-9].*")) score++; // Chiffres
-        if (password.matches(".*[^a-zA-Z0-9].*")) score++; // Caractères spéciaux
-
-        if (score >= 5) return PasswordStrength.STRONG;
-        if (score >= 3) return PasswordStrength.MEDIUM;
-        return PasswordStrength.WEAK;
-    }
-
-    /**
-     * Classe pour le résultat d'authentification
-     */
-    public static class AuthenticationResult {
-        private final boolean success;
-        private final String message;
-        private final Utilisateur user;
-
-        public AuthenticationResult(boolean success, String message, Utilisateur user) {
-            this.success = success;
-            this.message = message;
-            this.user = user;
-        }
-
-        public boolean isSuccess() { return success; }
-        public String getMessage() { return message; }
-        public Utilisateur getUser() { return user; }
-    }
-
-    /**
-     * Énumération pour la force des mots de passe
-     */
-    public enum PasswordStrength {
-        WEAK("Faible"),
-        MEDIUM("Moyen"),
-        STRONG("Fort");
-
-        private final String libelle;
-
-        PasswordStrength(String libelle) {
-            this.libelle = libelle;
-        }
-
-        public String getLibelle() { return libelle; }
     }
 }

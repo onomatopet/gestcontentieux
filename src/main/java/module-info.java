@@ -37,6 +37,7 @@ module com.regulation.contentieux {
     requires org.kordamp.ikonli.javafx;
     requires org.kordamp.ikonli.material2;
     requires org.kordamp.ikonli.feather;
+    requires bcrypt;
 
     // Sécurité - COMMENTÉ TEMPORAIREMENT
     // requires com.favre.lib.bcrypt;

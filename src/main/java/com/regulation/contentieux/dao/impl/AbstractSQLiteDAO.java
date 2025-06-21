@@ -11,133 +11,133 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Implémentation abstraite de base pour les DAOs SQLite
+ * Classe abstraite de base pour tous les DAOs SQLite
+ * Implémente les opérations CRUD communes
  *
  * @param <T> Type de l'entité
- * @param <ID> Type de l'identifiant
+ * @param <ID> Type de l'identifiant (généralement Long)
  */
 public abstract class AbstractSQLiteDAO<T, ID> implements BaseDAO<T, ID> {
 
     protected final Logger logger = LoggerFactory.getLogger(getClass());
 
     /**
-     * @return Le nom de la table associée à cette entité
+     * Retourne le nom de la table
      */
     protected abstract String getTableName();
 
     /**
-     * @return Le nom de la colonne ID
+     * Retourne le nom de la colonne ID
      */
     protected abstract String getIdColumnName();
 
     /**
-     * @return La requête SQL pour l'insertion
+     * Retourne la requête INSERT
      */
     protected abstract String getInsertQuery();
 
     /**
-     * @return La requête SQL pour la mise à jour
+     * Retourne la requête UPDATE
      */
     protected abstract String getUpdateQuery();
 
     /**
-     * @return La requête SQL pour la sélection de tous les enregistrements
+     * Retourne la requête SELECT ALL
      */
     protected abstract String getSelectAllQuery();
 
     /**
-     * @return La requête SQL pour la sélection par ID
+     * Retourne la requête SELECT BY ID
      */
     protected abstract String getSelectByIdQuery();
 
     /**
      * Mappe un ResultSet vers une entité
-     *
-     * @param rs Le ResultSet
-     * @return L'entité mappée
-     * @throws SQLException En cas d'erreur SQL
      */
     protected abstract T mapResultSetToEntity(ResultSet rs) throws SQLException;
 
     /**
-     * Configure les paramètres pour l'insertion
-     *
-     * @param stmt L'PreparedStatement
-     * @param entity L'entité
-     * @throws SQLException En cas d'erreur SQL
+     * Définit les paramètres pour l'INSERT
      */
     protected abstract void setInsertParameters(PreparedStatement stmt, T entity) throws SQLException;
 
     /**
-     * Configure les paramètres pour la mise à jour
-     *
-     * @param stmt L'PreparedStatement
-     * @param entity L'entité
-     * @throws SQLException En cas d'erreur SQL
+     * Définit les paramètres pour l'UPDATE
      */
     protected abstract void setUpdateParameters(PreparedStatement stmt, T entity) throws SQLException;
 
     /**
-     * Récupère l'ID d'une entité
-     *
-     * @param entity L'entité
-     * @return L'ID
+     * Obtient l'ID de l'entité
      */
     protected abstract ID getEntityId(T entity);
 
     /**
-     * Définit l'ID d'une entité
-     *
-     * @param entity L'entité
-     * @param id L'ID à définir
+     * Définit l'ID de l'entité
      */
     protected abstract void setEntityId(T entity, ID id);
 
+    /**
+     * Obtient une connexion à la base de données
+     */
+    protected Connection getConnection() throws SQLException {
+        return DatabaseConfig.getSQLiteConnection();
+    }
+
     @Override
     public T save(T entity) {
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
-             PreparedStatement stmt = conn.prepareStatement(getInsertQuery(), Statement.RETURN_GENERATED_KEYS)) {
+        String sql = getInsertQuery();
+
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
             setInsertParameters(stmt, entity);
+
             int affectedRows = stmt.executeUpdate();
 
-            if (affectedRows > 0) {
-                try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
-                    if (generatedKeys.next()) {
-                        @SuppressWarnings("unchecked")
-                        ID generatedId = (ID) generatedKeys.getObject(1);
-                        setEntityId(entity, generatedId);
-                    }
+            if (affectedRows == 0) {
+                throw new SQLException("La création a échoué, aucune ligne affectée.");
+            }
+
+            try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
+                if (generatedKeys.next()) {
+                    @SuppressWarnings("unchecked")
+                    ID generatedId = (ID) Long.valueOf(generatedKeys.getLong(1));
+                    setEntityId(entity, generatedId);
+                } else {
+                    throw new SQLException("La création a échoué, aucun ID généré.");
                 }
             }
 
-            logger.debug("Entité sauvegardée dans {}: {}", getTableName(), getEntityId(entity));
+            logger.debug("Entité sauvegardée avec succès: {}", entity);
             return entity;
 
         } catch (SQLException e) {
-            logger.error("Erreur lors de la sauvegarde dans " + getTableName(), e);
-            throw new RuntimeException("Impossible de sauvegarder l'entité", e);
+            logger.error("Erreur lors de la sauvegarde de l'entité", e);
+            throw new RuntimeException("Erreur lors de la sauvegarde", e);
         }
     }
 
     @Override
     public T update(T entity) {
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
-             PreparedStatement stmt = conn.prepareStatement(getUpdateQuery())) {
+        String sql = getUpdateQuery();
+
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             setUpdateParameters(stmt, entity);
+
             int affectedRows = stmt.executeUpdate();
 
             if (affectedRows == 0) {
-                throw new RuntimeException("Aucune entité trouvée avec l'ID: " + getEntityId(entity));
+                throw new SQLException("La mise à jour a échoué, aucune ligne affectée.");
             }
 
-            logger.debug("Entité mise à jour dans {}: {}", getTableName(), getEntityId(entity));
+            logger.debug("Entité mise à jour avec succès: {}", entity);
             return entity;
 
         } catch (SQLException e) {
-            logger.error("Erreur lors de la mise à jour dans " + getTableName(), e);
-            throw new RuntimeException("Impossible de mettre à jour l'entité", e);
+            logger.error("Erreur lors de la mise à jour de l'entité", e);
+            throw new RuntimeException("Erreur lors de la mise à jour", e);
         }
     }
 
@@ -145,101 +145,96 @@ public abstract class AbstractSQLiteDAO<T, ID> implements BaseDAO<T, ID> {
     public void deleteById(ID id) {
         String sql = "DELETE FROM " + getTableName() + " WHERE " + getIdColumnName() + " = ?";
 
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+        try (Connection conn = getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setObject(1, id);
+
             int affectedRows = stmt.executeUpdate();
 
             if (affectedRows == 0) {
-                throw new RuntimeException("Aucune entité trouvée avec l'ID: " + id);
+                logger.warn("Aucune entité trouvée avec l'ID: {}", id);
+            } else {
+                logger.debug("Entité supprimée avec l'ID: {}", id);
             }
 
-            logger.debug("Entité supprimée de {}: {}", getTableName(), id);
-
         } catch (SQLException e) {
-            logger.error("Erreur lors de la suppression dans " + getTableName(), e);
-            throw new RuntimeException("Impossible de supprimer l'entité", e);
+            logger.error("Erreur lors de la suppression de l'entité avec l'ID: " + id, e);
+            throw new RuntimeException("Erreur lors de la suppression", e);
         }
     }
 
     @Override
     public void delete(T entity) {
-        deleteById(getEntityId(entity));
+        ID id = getEntityId(entity);
+        if (id != null) {
+            deleteById(id);
+        } else {
+            throw new IllegalArgumentException("L'entité n'a pas d'ID");
+        }
     }
 
     @Override
     public Optional<T> findById(ID id) {
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
-             PreparedStatement stmt = conn.prepareStatement(getSelectByIdQuery())) {
+        String sql = getSelectByIdQuery();
+
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setObject(1, id);
-            ResultSet rs = stmt.executeQuery();
 
-            if (rs.next()) {
-                return Optional.of(mapResultSetToEntity(rs));
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    T entity = mapResultSetToEntity(rs);
+                    return Optional.of(entity);
+                }
             }
 
-            return Optional.empty();
-
         } catch (SQLException e) {
-            logger.error("Erreur lors de la recherche par ID dans " + getTableName(), e);
-            throw new RuntimeException("Impossible de rechercher l'entité", e);
+            logger.error("Erreur lors de la recherche par ID: " + id, e);
+            throw new RuntimeException("Erreur lors de la recherche", e);
         }
+
+        return Optional.empty();
     }
 
     @Override
     public List<T> findAll() {
-        List<T> entities = new ArrayList<>();
-
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
-             PreparedStatement stmt = conn.prepareStatement(getSelectAllQuery());
-             ResultSet rs = stmt.executeQuery()) {
-
-            while (rs.next()) {
-                entities.add(mapResultSetToEntity(rs));
-            }
-
-            logger.debug("Récupération de {} entités de {}", entities.size(), getTableName());
-            return entities;
-
-        } catch (SQLException e) {
-            logger.error("Erreur lors de la récupération de toutes les entités de " + getTableName(), e);
-            throw new RuntimeException("Impossible de récupérer les entités", e);
-        }
+        return findAll(0, Integer.MAX_VALUE);
     }
 
     @Override
     public List<T> findAll(int offset, int limit) {
-        List<T> entities = new ArrayList<>();
         String sql = getSelectAllQuery() + " LIMIT ? OFFSET ?";
+        List<T> entities = new ArrayList<>();
 
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+        try (Connection conn = getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setInt(1, limit);
             stmt.setInt(2, offset);
-            ResultSet rs = stmt.executeQuery();
 
-            while (rs.next()) {
-                entities.add(mapResultSetToEntity(rs));
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    entities.add(mapResultSetToEntity(rs));
+                }
             }
 
-            logger.debug("Récupération de {} entités de {} (offset: {}, limit: {})",
-                    entities.size(), getTableName(), offset, limit);
-            return entities;
+            logger.debug("Trouvé {} entités", entities.size());
 
         } catch (SQLException e) {
-            logger.error("Erreur lors de la récupération paginée de " + getTableName(), e);
-            throw new RuntimeException("Impossible de récupérer les entités", e);
+            logger.error("Erreur lors de la recherche de toutes les entités", e);
+            throw new RuntimeException("Erreur lors de la recherche", e);
         }
+
+        return entities;
     }
 
     @Override
     public long count() {
         String sql = "SELECT COUNT(*) FROM " + getTableName();
 
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+        try (Connection conn = getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql);
              ResultSet rs = stmt.executeQuery()) {
 
@@ -247,71 +242,78 @@ public abstract class AbstractSQLiteDAO<T, ID> implements BaseDAO<T, ID> {
                 return rs.getLong(1);
             }
 
-            return 0;
-
         } catch (SQLException e) {
-            logger.error("Erreur lors du comptage dans " + getTableName(), e);
-            throw new RuntimeException("Impossible de compter les entités", e);
+            logger.error("Erreur lors du comptage des entités", e);
+            throw new RuntimeException("Erreur lors du comptage", e);
         }
+
+        return 0;
     }
 
     @Override
     public boolean existsById(ID id) {
-        String sql = "SELECT 1 FROM " + getTableName() + " WHERE " + getIdColumnName() + " = ? LIMIT 1";
+        String sql = "SELECT COUNT(*) FROM " + getTableName() +
+                " WHERE " + getIdColumnName() + " = ?";
 
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+        try (Connection conn = getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setObject(1, id);
-            ResultSet rs = stmt.executeQuery();
 
-            return rs.next();
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) > 0;
+                }
+            }
 
         } catch (SQLException e) {
-            logger.error("Erreur lors de la vérification d'existence dans " + getTableName(), e);
-            return false;
+            logger.error("Erreur lors de la vérification d'existence par ID: " + id, e);
+            throw new RuntimeException("Erreur lors de la vérification", e);
         }
+
+        return false;
     }
 
     @Override
     public List<T> saveAll(List<T> entities) {
-        List<T> savedEntities = new ArrayList<>();
+        if (entities == null || entities.isEmpty()) {
+            return new ArrayList<>();
+        }
 
-        try (Connection conn = DatabaseConfig.getSQLiteConnection()) {
+        List<T> savedEntities = new ArrayList<>();
+        Connection conn = null;
+
+        try {
+            conn = getConnection();
             conn.setAutoCommit(false);
 
-            try (PreparedStatement stmt = conn.prepareStatement(getInsertQuery(), Statement.RETURN_GENERATED_KEYS)) {
-
-                for (T entity : entities) {
-                    setInsertParameters(stmt, entity);
-                    stmt.addBatch();
-                }
-
-                int[] affectedRows = stmt.executeBatch();
-
-                try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
-                    int index = 0;
-                    while (generatedKeys.next() && index < entities.size()) {
-                        @SuppressWarnings("unchecked")
-                        ID generatedId = (ID) generatedKeys.getObject(1);
-                        T entity = entities.get(index);
-                        setEntityId(entity, generatedId);
-                        savedEntities.add(entity);
-                        index++;
-                    }
-                }
-
-                conn.commit();
-                logger.debug("Sauvegarde en lot de {} entités dans {}", savedEntities.size(), getTableName());
-
-            } catch (SQLException e) {
-                conn.rollback();
-                throw e;
+            for (T entity : entities) {
+                savedEntities.add(save(entity));
             }
 
-        } catch (SQLException e) {
-            logger.error("Erreur lors de la sauvegarde en lot dans " + getTableName(), e);
-            throw new RuntimeException("Impossible de sauvegarder les entités en lot", e);
+            conn.commit();
+            logger.debug("Sauvegardé {} entités en lot", savedEntities.size());
+
+        } catch (Exception e) {
+            if (conn != null) {
+                try {
+                    conn.rollback();
+                } catch (SQLException ex) {
+                    logger.error("Erreur lors du rollback", ex);
+                }
+            }
+            logger.error("Erreur lors de la sauvegarde en lot", e);
+            throw new RuntimeException("Erreur lors de la sauvegarde en lot", e);
+
+        } finally {
+            if (conn != null) {
+                try {
+                    conn.setAutoCommit(true);
+                    conn.close();
+                } catch (SQLException e) {
+                    logger.error("Erreur lors de la fermeture de la connexion", e);
+                }
+            }
         }
 
         return savedEntities;
@@ -321,94 +323,88 @@ public abstract class AbstractSQLiteDAO<T, ID> implements BaseDAO<T, ID> {
     public void deleteAll() {
         String sql = "DELETE FROM " + getTableName();
 
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+        try (Connection conn = getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-            int affectedRows = stmt.executeUpdate();
-            logger.debug("Suppression de {} entités de {}", affectedRows, getTableName());
+            int deletedRows = stmt.executeUpdate();
+            logger.info("Supprimé {} entités de la table {}", deletedRows, getTableName());
 
         } catch (SQLException e) {
-            logger.error("Erreur lors de la suppression de toutes les entités de " + getTableName(), e);
-            throw new RuntimeException("Impossible de supprimer toutes les entités", e);
+            logger.error("Erreur lors de la suppression de toutes les entités", e);
+            throw new RuntimeException("Erreur lors de la suppression", e);
         }
     }
 
     @Override
     public void deleteAllById(List<ID> ids) {
-        if (ids.isEmpty()) {
+        if (ids == null || ids.isEmpty()) {
             return;
         }
 
-        String placeholders = String.join(",", java.util.Collections.nCopies(ids.size(), "?"));
-        String sql = "DELETE FROM " + getTableName() + " WHERE " + getIdColumnName() + " IN (" + placeholders + ")";
+        String sql = "DELETE FROM " + getTableName() +
+                " WHERE " + getIdColumnName() + " IN (" +
+                String.join(",", ids.stream().map(id -> "?").toArray(String[]::new)) + ")";
 
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+        try (Connection conn = getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-            for (int i = 0; i < ids.size(); i++) {
-                stmt.setObject(i + 1, ids.get(i));
+            int index = 1;
+            for (ID id : ids) {
+                stmt.setObject(index++, id);
             }
 
-            int affectedRows = stmt.executeUpdate();
-            logger.debug("Suppression de {} entités de {} par IDs", affectedRows, getTableName());
+            int deletedRows = stmt.executeUpdate();
+            logger.debug("Supprimé {} entités", deletedRows);
 
         } catch (SQLException e) {
-            logger.error("Erreur lors de la suppression par IDs dans " + getTableName(), e);
-            throw new RuntimeException("Impossible de supprimer les entités par IDs", e);
+            logger.error("Erreur lors de la suppression multiple", e);
+            throw new RuntimeException("Erreur lors de la suppression multiple", e);
         }
     }
 
     /**
-     * Exécute une requête personnalisée
-     *
-     * @param sql La requête SQL
-     * @param parameters Les paramètres
-     * @return Liste des entités résultantes
+     * Méthode utilitaire pour exécuter une requête personnalisée
      */
-    protected List<T> executeQuery(String sql, Object... parameters) {
-        List<T> entities = new ArrayList<>();
+    protected List<T> executeQuery(String sql, Object... params) {
+        List<T> results = new ArrayList<>();
 
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+        try (Connection conn = getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-            for (int i = 0; i < parameters.length; i++) {
-                stmt.setObject(i + 1, parameters[i]);
+            for (int i = 0; i < params.length; i++) {
+                stmt.setObject(i + 1, params[i]);
             }
 
-            ResultSet rs = stmt.executeQuery();
-
-            while (rs.next()) {
-                entities.add(mapResultSetToEntity(rs));
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    results.add(mapResultSetToEntity(rs));
+                }
             }
-
-            return entities;
 
         } catch (SQLException e) {
-            logger.error("Erreur lors de l'exécution de la requête personnalisée", e);
-            throw new RuntimeException("Impossible d'exécuter la requête", e);
+            logger.error("Erreur lors de l'exécution de la requête: " + sql, e);
+            throw new RuntimeException("Erreur lors de l'exécution de la requête", e);
         }
+
+        return results;
     }
 
     /**
-     * Exécute une mise à jour personnalisée
-     *
-     * @param sql La requête SQL
-     * @param parameters Les paramètres
-     * @return Nombre de lignes affectées
+     * Méthode utilitaire pour exécuter une mise à jour personnalisée
      */
-    protected int executeUpdate(String sql, Object... parameters) {
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+    protected int executeUpdate(String sql, Object... params) {
+        try (Connection conn = getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-            for (int i = 0; i < parameters.length; i++) {
-                stmt.setObject(i + 1, parameters[i]);
+            for (int i = 0; i < params.length; i++) {
+                stmt.setObject(i + 1, params[i]);
             }
 
             return stmt.executeUpdate();
 
         } catch (SQLException e) {
-            logger.error("Erreur lors de l'exécution de la mise à jour personnalisée", e);
-            throw new RuntimeException("Impossible d'exécuter la mise à jour", e);
+            logger.error("Erreur lors de l'exécution de la mise à jour: " + sql, e);
+            throw new RuntimeException("Erreur lors de la mise à jour", e);
         }
     }
 }

@@ -2,172 +2,249 @@ package com.regulation.contentieux.model;
 
 import com.regulation.contentieux.model.enums.ModeReglement;
 import com.regulation.contentieux.model.enums.StatutEncaissement;
-import com.fasterxml.jackson.annotation.JsonFormat;
-import com.fasterxml.jackson.annotation.JsonIgnore;
-
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
 /**
- * Entité représentant un encaissement - VERSION COMPLÈTE
+ * Entité représentant un encaissement
+ * Un encaissement est lié à une affaire et représente un paiement partiel ou total
  */
 public class Encaissement {
+
     private Long id;
-    private Long affaireId;
-    private Double montantEncaisse;
-
-    @JsonFormat(pattern = "yyyy-MM-dd")
-    private LocalDate dateEncaissement;
-
-    private ModeReglement modeReglement;
     private String reference;
-    private Long banqueId;
+    private LocalDate dateEncaissement;
+    private BigDecimal montantEncaisse;
+    private ModeReglement modeReglement;
+    private String numeroPiece;
+    private String banque;
+    private String observations;
     private StatutEncaissement statut;
-    private String observations; // AJOUT MANQUANT
 
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private LocalDateTime createdAt;
-
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private LocalDateTime updatedAt;
-
-    private String createdBy;
-    private String updatedBy;
-
-    // Relations (optionnelles pour éviter les chargements circulaires)
-    @JsonIgnore
+    // Relations
     private Affaire affaire;
+    private Agent agentValidateur;
+
+    // Métadonnées
+    private String createdBy;
+    private LocalDateTime createdAt;
+    private String updatedBy;
+    private LocalDateTime updatedAt;
+    private String validatedBy;
+    private LocalDateTime validatedAt;
 
     // Constructeurs
     public Encaissement() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-        this.statut = StatutEncaissement.EN_ATTENTE;
         this.dateEncaissement = LocalDate.now();
+        this.statut = StatutEncaissement.EN_ATTENTE;
+        this.montantEncaisse = BigDecimal.ZERO;
+        this.createdAt = LocalDateTime.now();
     }
 
-    public Encaissement(Long affaireId, Double montantEncaisse, ModeReglement modeReglement) {
+    public Encaissement(String reference, BigDecimal montantEncaisse, ModeReglement modeReglement) {
         this();
-        this.affaireId = affaireId;
+        this.reference = reference;
         this.montantEncaisse = montantEncaisse;
         this.modeReglement = modeReglement;
     }
 
-    // ===== MÉTHODES ALIAS POUR RapportService =====
+    // Méthodes métier
 
     /**
-     * Alias pour getMontantEncaisse() - REQUIS PAR RapportService
+     * Vérifie si l'encaissement est validé
      */
-    public Double getMontant() {
-        return getMontantEncaisse();
+    public boolean isValide() {
+        return statut == StatutEncaissement.VALIDE;
     }
 
     /**
-     * Alias pour getReference() - REQUIS PAR RapportService
-     * Retourne la référence du mandat (même chose que reference générale)
+     * Vérifie si l'encaissement est en attente
      */
-    public String getReferenceMandat() {
-        return getReference();
+    public boolean isEnAttente() {
+        return statut == StatutEncaissement.EN_ATTENTE;
     }
 
-    // ===== MÉTHODES MÉTIER =====
+    /**
+     * Vérifie si l'encaissement est rejeté
+     */
+    public boolean isRejete() {
+        return statut == StatutEncaissement.REJETE;
+    }
+
+    /**
+     * Retourne une description du mode de règlement avec détails
+     */
+    public String getDescriptionReglement() {
+        StringBuilder desc = new StringBuilder(modeReglement.toString());
+
+        if (numeroPiece != null && !numeroPiece.trim().isEmpty()) {
+            desc.append(" N°").append(numeroPiece);
+        }
+
+        if (banque != null && !banque.trim().isEmpty()) {
+            desc.append(" - ").append(banque);
+        }
+
+        return desc.toString();
+    }
 
     /**
      * Vérifie si l'encaissement peut être modifié
      */
-    public boolean peutEtreModifie() {
-        return statut == StatutEncaissement.EN_ATTENTE || statut == StatutEncaissement.BROUILLON;
-    }
-
-    /**
-     * Vérifie si l'encaissement peut être supprimé
-     */
-    public boolean peutEtreSupprime() {
-        return statut == StatutEncaissement.EN_ATTENTE || statut == StatutEncaissement.BROUILLON;
+    public boolean canBeModified() {
+        return statut == StatutEncaissement.EN_ATTENTE;
     }
 
     /**
      * Vérifie si l'encaissement peut être validé
      */
-    public boolean peutEtreValide() {
+    public boolean canBeValidated() {
         return statut == StatutEncaissement.EN_ATTENTE &&
-                montantEncaisse != null && montantEncaisse > 0 &&
-                affaireId != null &&
-                modeReglement != null;
+                montantEncaisse != null &&
+                montantEncaisse.compareTo(BigDecimal.ZERO) > 0;
     }
 
-    /**
-     * Valide l'encaissement
-     */
-    public void valider(String validatedBy) {
-        if (!peutEtreValide()) {
-            throw new IllegalStateException("Cet encaissement ne peut pas être validé");
-        }
-        this.statut = StatutEncaissement.VALIDE;
-        this.updatedBy = validatedBy;
-        this.updatedAt = LocalDateTime.now();
+    // Getters et Setters
+
+    public Long getId() {
+        return id;
     }
 
-    /**
-     * Annule l'encaissement
-     */
-    public void annuler(String cancelledBy) {
-        this.statut = StatutEncaissement.ANNULE;
-        this.updatedBy = cancelledBy;
-        this.updatedAt = LocalDateTime.now();
+    public void setId(Long id) {
+        this.id = id;
     }
 
-    // ===== GETTERS ET SETTERS =====
+    public String getReference() {
+        return reference;
+    }
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public void setReference(String reference) {
+        this.reference = reference;
+    }
 
-    public Long getAffaireId() { return affaireId; }
-    public void setAffaireId(Long affaireId) { this.affaireId = affaireId; }
+    public LocalDate getDateEncaissement() {
+        return dateEncaissement;
+    }
 
-    public Double getMontantEncaisse() { return montantEncaisse; }
-    public void setMontantEncaisse(Double montantEncaisse) { this.montantEncaisse = montantEncaisse; }
+    public void setDateEncaissement(LocalDate dateEncaissement) {
+        this.dateEncaissement = dateEncaissement;
+    }
 
-    public LocalDate getDateEncaissement() { return dateEncaissement; }
-    public void setDateEncaissement(LocalDate dateEncaissement) { this.dateEncaissement = dateEncaissement; }
+    public BigDecimal getMontantEncaisse() {
+        return montantEncaisse;
+    }
 
-    public ModeReglement getModeReglement() { return modeReglement; }
-    public void setModeReglement(ModeReglement modeReglement) { this.modeReglement = modeReglement; }
+    public void setMontantEncaisse(BigDecimal montantEncaisse) {
+        this.montantEncaisse = montantEncaisse;
+    }
 
-    public String getReference() { return reference; }
-    public void setReference(String reference) { this.reference = reference; }
+    public ModeReglement getModeReglement() {
+        return modeReglement;
+    }
 
-    public Long getBanqueId() { return banqueId; }
-    public void setBanqueId(Long banqueId) { this.banqueId = banqueId; }
+    public void setModeReglement(ModeReglement modeReglement) {
+        this.modeReglement = modeReglement;
+    }
 
-    public StatutEncaissement getStatut() { return statut; }
+    public String getNumeroPiece() {
+        return numeroPiece;
+    }
+
+    public void setNumeroPiece(String numeroPiece) {
+        this.numeroPiece = numeroPiece;
+    }
+
+    public String getBanque() {
+        return banque;
+    }
+
+    public void setBanque(String banque) {
+        this.banque = banque;
+    }
+
+    public String getObservations() {
+        return observations;
+    }
+
+    public void setObservations(String observations) {
+        this.observations = observations;
+    }
+
+    public StatutEncaissement getStatut() {
+        return statut;
+    }
+
     public void setStatut(StatutEncaissement statut) {
         this.statut = statut;
-        this.updatedAt = LocalDateTime.now();
     }
 
-    // AJOUT MANQUANT - Observations
-    public String getObservations() { return observations; }
-    public void setObservations(String observations) { this.observations = observations; }
+    public Affaire getAffaire() {
+        return affaire;
+    }
 
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public void setAffaire(Affaire affaire) {
+        this.affaire = affaire;
+    }
 
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public Agent getAgentValidateur() {
+        return agentValidateur;
+    }
 
-    public String getCreatedBy() { return createdBy; }
-    public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
+    public void setAgentValidateur(Agent agentValidateur) {
+        this.agentValidateur = agentValidateur;
+    }
 
-    public String getUpdatedBy() { return updatedBy; }
+    public String getCreatedBy() {
+        return createdBy;
+    }
+
+    public void setCreatedBy(String createdBy) {
+        this.createdBy = createdBy;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public String getUpdatedBy() {
+        return updatedBy;
+    }
+
     public void setUpdatedBy(String updatedBy) {
         this.updatedBy = updatedBy;
-        this.updatedAt = LocalDateTime.now();
     }
 
-    public Affaire getAffaire() { return affaire; }
-    public void setAffaire(Affaire affaire) { this.affaire = affaire; }
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    public String getValidatedBy() {
+        return validatedBy;
+    }
+
+    public void setValidatedBy(String validatedBy) {
+        this.validatedBy = validatedBy;
+    }
+
+    public LocalDateTime getValidatedAt() {
+        return validatedAt;
+    }
+
+    public void setValidatedAt(LocalDateTime validatedAt) {
+        this.validatedAt = validatedAt;
+    }
+
+    // Equals, HashCode et ToString
 
     @Override
     public boolean equals(Object o) {
@@ -175,45 +252,23 @@ public class Encaissement {
         if (o == null || getClass() != o.getClass()) return false;
         Encaissement that = (Encaissement) o;
         return Objects.equals(id, that.id) &&
-                Objects.equals(affaireId, that.affaireId) &&
                 Objects.equals(reference, that.reference);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, affaireId, reference);
+        return Objects.hash(id, reference);
     }
 
     @Override
     public String toString() {
-        return String.format("Encaissement[%d] - Affaire %d - %s %.2f - %s",
-                id, affaireId,
-                modeReglement != null ? modeReglement.getLibelle() : "?",
-                montantEncaisse != null ? montantEncaisse : 0.0,
-                statut != null ? statut.getLibelle() : "?");
-    }
-
-    /**
-     * Retourne le libellé du mode de règlement
-     */
-    public String getModeReglementLibelle() {
-        return this.modeReglement != null ? this.modeReglement.getLibelle() : "Non défini";
-    }
-
-    /**
-     * Retourne le libellé du statut
-     */
-    public String getStatutLibelle() {
-        return this.statut != null ? this.statut.getLibelle() : "Non défini";
-    }
-
-    /**
-     * Vérifie si l'encaissement peut être annulé
-     */
-    public boolean peutEtreAnnule() {
-        return this.statut != null &&
-                (this.statut == StatutEncaissement.EN_ATTENTE ||
-                        this.statut == StatutEncaissement.VALIDE) &&
-                this.dateEncaissement.isAfter(LocalDate.now().minusDays(30));
+        return "Encaissement{" +
+                "id=" + id +
+                ", reference='" + reference + '\'' +
+                ", dateEncaissement=" + dateEncaissement +
+                ", montantEncaisse=" + montantEncaisse +
+                ", modeReglement=" + modeReglement +
+                ", statut=" + statut +
+                '}';
     }
 }

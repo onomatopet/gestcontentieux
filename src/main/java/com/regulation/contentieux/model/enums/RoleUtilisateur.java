@@ -1,146 +1,74 @@
 package com.regulation.contentieux.model.enums;
 
 import java.util.Arrays;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Set;
 
 /**
- * Énumération des rôles utilisateur dans l'application
- * Définit les permissions et la hiérarchie des utilisateurs
- *
- * @author Regulation Team
- * @version 1.0.0
+ * Énumération des rôles utilisateur avec leurs permissions
+ * Gère la hiérarchie des autorisations dans l'application
  */
 public enum RoleUtilisateur {
 
-    /**
-     * Gestionnaire - Droits en lecture et écriture uniquement
-     */
-    GESTIONNAIRE("Gestionnaire", 1, Set.of(
-            Permission.READ_AFFAIRES,
-            Permission.WRITE_AFFAIRES,
-            Permission.READ_CONTREVENANTS,
-            Permission.WRITE_CONTREVENANTS,
-            Permission.READ_ENCAISSEMENTS,
-            Permission.WRITE_ENCAISSEMENTS,
-            Permission.READ_RAPPORTS,
-            Permission.PRINT_RAPPORTS
-    )),
+    SUPER_ADMIN("Super Administrateur",
+            Permission.ALL),
 
-    /**
-     * Admin - Droits en lecture, écriture et modification
-     */
-    ADMIN("Administrateur", 2, Set.of(
-            Permission.READ_AFFAIRES,
-            Permission.WRITE_AFFAIRES,
-            Permission.UPDATE_AFFAIRES,
-            Permission.READ_CONTREVENANTS,
-            Permission.WRITE_CONTREVENANTS,
-            Permission.UPDATE_CONTREVENANTS,
-            Permission.READ_AGENTS,
-            Permission.WRITE_AGENTS,
-            Permission.UPDATE_AGENTS,
-            Permission.READ_ENCAISSEMENTS,
-            Permission.WRITE_ENCAISSEMENTS,
-            Permission.UPDATE_ENCAISSEMENTS,
-            Permission.READ_REPARTITIONS,
-            Permission.WRITE_REPARTITIONS,
-            Permission.UPDATE_REPARTITIONS,
-            Permission.READ_REFERENTIELS,
-            Permission.WRITE_REFERENTIELS,
-            Permission.UPDATE_REFERENTIELS,
-            Permission.READ_RAPPORTS,
-            Permission.WRITE_RAPPORTS,
-            Permission.PRINT_RAPPORTS,
-            Permission.EXPORT_DATA,
-            Permission.MANAGE_USERS
-    )),
+    ADMINISTRATEUR("Administrateur",
+            Permission.GESTION_UTILISATEURS,
+            Permission.GESTION_REFERENTIEL,
+            Permission.GESTION_AFFAIRES,
+            Permission.GESTION_AGENTS,
+            Permission.GESTION_CONTREVENANTS,
+            Permission.GESTION_ENCAISSEMENTS,
+            Permission.VALIDATION_ENCAISSEMENTS,
+            Permission.GENERATION_RAPPORTS,
+            Permission.EXPORT_DONNEES,
+            Permission.CONSULTATION),
 
-    /**
-     * Super Admin - Tous les droits (CRUD complet)
-     */
-    SUPER_ADMIN("Super Administrateur", 3, Set.of(
-            Permission.READ_AFFAIRES,
-            Permission.WRITE_AFFAIRES,
-            Permission.UPDATE_AFFAIRES,
-            Permission.DELETE_AFFAIRES,
-            Permission.READ_CONTREVENANTS,
-            Permission.WRITE_CONTREVENANTS,
-            Permission.UPDATE_CONTREVENANTS,
-            Permission.DELETE_CONTREVENANTS,
-            Permission.READ_AGENTS,
-            Permission.WRITE_AGENTS,
-            Permission.UPDATE_AGENTS,
-            Permission.DELETE_AGENTS,
-            Permission.READ_ENCAISSEMENTS,
-            Permission.WRITE_ENCAISSEMENTS,
-            Permission.UPDATE_ENCAISSEMENTS,
-            Permission.DELETE_ENCAISSEMENTS,
-            Permission.READ_REPARTITIONS,
-            Permission.WRITE_REPARTITIONS,
-            Permission.UPDATE_REPARTITIONS,
-            Permission.DELETE_REPARTITIONS,
-            Permission.READ_REFERENTIELS,
-            Permission.WRITE_REFERENTIELS,
-            Permission.UPDATE_REFERENTIELS,
-            Permission.DELETE_REFERENTIELS,
-            Permission.READ_RAPPORTS,
-            Permission.WRITE_RAPPORTS,
-            Permission.PRINT_RAPPORTS,
-            Permission.EXPORT_DATA,
-            Permission.IMPORT_DATA,
-            Permission.MANAGE_USERS,
-            Permission.MANAGE_SYSTEM,
-            Permission.MANAGE_DATABASE,
-            Permission.AUDIT_LOGS
-    ));
+    CHEF_SERVICE("Chef de Service",
+            Permission.GESTION_AFFAIRES,
+            Permission.GESTION_AGENTS,
+            Permission.GESTION_CONTREVENANTS,
+            Permission.GESTION_ENCAISSEMENTS,
+            Permission.VALIDATION_ENCAISSEMENTS,
+            Permission.GENERATION_RAPPORTS,
+            Permission.EXPORT_DONNEES,
+            Permission.CONSULTATION),
 
-    private final String displayName;
-    private final int niveau;
+    AGENT_SAISIE("Agent de Saisie",
+            Permission.GESTION_AFFAIRES,
+            Permission.GESTION_CONTREVENANTS,
+            Permission.GESTION_ENCAISSEMENTS,
+            Permission.CONSULTATION),
+
+    AGENT_CONSULTATION("Agent de Consultation",
+            Permission.CONSULTATION,
+            Permission.GENERATION_RAPPORTS);
+
+    private final String libelle;
     private final Set<Permission> permissions;
 
-    RoleUtilisateur(String displayName, int niveau, Set<Permission> permissions) {
-        this.displayName = displayName;
-        this.niveau = niveau;
-        this.permissions = permissions;
+    RoleUtilisateur(String libelle, Permission... permissions) {
+        this.libelle = libelle;
+        this.permissions = new HashSet<>(Arrays.asList(permissions));
     }
 
     /**
-     * @return Nom d'affichage du rôle
+     * Retourne le libellé du rôle
      */
-    public String getDisplayName() {
-        return displayName;
+    public String getLibelle() {
+        return libelle;
     }
 
     /**
-     * @return Niveau hiérarchique du rôle (plus élevé = plus de permissions)
-     */
-    public int getNiveau() {
-        return niveau;
-    }
-
-    /**
-     * @return Ensemble des permissions accordées à ce rôle
-     */
-    public Set<Permission> getPermissions() {
-        return permissions;
-    }
-
-    /**
-     * Vérifie si ce rôle possède une permission spécifique
-     *
-     * @param permission La permission à vérifier
-     * @return true si le rôle possède cette permission
+     * Vérifie si le rôle a une permission spécifique
      */
     public boolean hasPermission(Permission permission) {
-        return permissions.contains(permission);
+        return permissions.contains(Permission.ALL) || permissions.contains(permission);
     }
 
     /**
-     * Vérifie si ce rôle possède une permission spécifique par nom
-     *
-     * @param permissionName Le nom de la permission à vérifier
-     * @return true si le rôle possède cette permission
+     * Vérifie si le rôle a une permission par son nom
      */
     public boolean hasPermission(String permissionName) {
         try {
@@ -152,115 +80,46 @@ public enum RoleUtilisateur {
     }
 
     /**
-     * Vérifie si ce rôle est administrateur (niveau 2 ou plus)
-     *
-     * @return true si le rôle est administrateur
+     * Retourne l'ensemble des permissions du rôle
      */
-    public boolean isAdmin() {
-        return niveau >= 2;
+    public Set<Permission> getPermissions() {
+        return new HashSet<>(permissions);
     }
 
     /**
-     * Vérifie si ce rôle est super administrateur
-     *
-     * @return true si le rôle est super administrateur
+     * Énumération des permissions disponibles
      */
-    public boolean isSuperAdmin() {
-        return this == SUPER_ADMIN;
-    }
+    public enum Permission {
+        ALL("Toutes les permissions"),
+        GESTION_UTILISATEURS("Gestion des utilisateurs"),
+        GESTION_REFERENTIEL("Gestion du référentiel"),
+        GESTION_AFFAIRES("Gestion des affaires"),
+        GESTION_AGENTS("Gestion des agents"),
+        GESTION_CONTREVENANTS("Gestion des contrevenants"),
+        GESTION_ENCAISSEMENTS("Gestion des encaissements"),
+        VALIDATION_ENCAISSEMENTS("Validation des encaissements"),
+        GENERATION_RAPPORTS("Génération des rapports"),
+        EXPORT_DONNEES("Export des données"),
+        CONSULTATION("Consultation");
 
-    /**
-     * Vérifie si ce rôle a un niveau supérieur ou égal à un autre rôle
-     *
-     * @param other L'autre rôle à comparer
-     * @return true si ce rôle a un niveau supérieur ou égal
-     */
-    public boolean hasLevelOrHigher(RoleUtilisateur other) {
-        return this.niveau >= other.niveau;
-    }
+        private final String description;
 
-    /**
-     * Retourne la liste des rôles disponibles selon le rôle actuel
-     * Un utilisateur ne peut créer que des comptes de niveau inférieur
-     *
-     * @param currentRole Le rôle de l'utilisateur actuel
-     * @return Liste des rôles qu'il peut créer
-     */
-    public static List<RoleUtilisateur> getAvailableRoles(RoleUtilisateur currentRole) {
-        return Arrays.stream(RoleUtilisateur.values())
-                .filter(role -> role.niveau < currentRole.niveau)
-                .toList();
-    }
+        Permission(String description) {
+            this.description = description;
+        }
 
-    /**
-     * Trouve un rôle par son nom d'affichage
-     *
-     * @param displayName Le nom d'affichage à rechercher
-     * @return Le rôle correspondant ou null si non trouvé
-     */
-    public static RoleUtilisateur findByDisplayName(String displayName) {
-        return Arrays.stream(RoleUtilisateur.values())
-                .filter(role -> role.displayName.equalsIgnoreCase(displayName))
-                .findFirst()
-                .orElse(null);
+        public String getDescription() {
+            return description;
+        }
+
+        @Override
+        public String toString() {
+            return description;
+        }
     }
 
     @Override
     public String toString() {
-        return displayName;
-    }
-
-    /**
-     * Énumération des permissions spécifiques dans l'application
-     */
-    public enum Permission {
-        // Permissions sur les affaires
-        READ_AFFAIRES,
-        WRITE_AFFAIRES,
-        UPDATE_AFFAIRES,
-        DELETE_AFFAIRES,
-
-        // Permissions sur les contrevenants
-        READ_CONTREVENANTS,
-        WRITE_CONTREVENANTS,
-        UPDATE_CONTREVENANTS,
-        DELETE_CONTREVENANTS,
-
-        // Permissions sur les agents
-        READ_AGENTS,
-        WRITE_AGENTS,
-        UPDATE_AGENTS,
-        DELETE_AGENTS,
-
-        // Permissions sur les encaissements
-        READ_ENCAISSEMENTS,
-        WRITE_ENCAISSEMENTS,
-        UPDATE_ENCAISSEMENTS,
-        DELETE_ENCAISSEMENTS,
-
-        // Permissions sur les répartitions
-        READ_REPARTITIONS,
-        WRITE_REPARTITIONS,
-        UPDATE_REPARTITIONS,
-        DELETE_REPARTITIONS,
-
-        // Permissions sur les référentiels
-        READ_REFERENTIELS,
-        WRITE_REFERENTIELS,
-        UPDATE_REFERENTIELS,
-        DELETE_REFERENTIELS,
-
-        // Permissions sur les rapports
-        READ_RAPPORTS,
-        WRITE_RAPPORTS,
-        PRINT_RAPPORTS,
-
-        // Permissions système
-        EXPORT_DATA,
-        IMPORT_DATA,
-        MANAGE_USERS,
-        MANAGE_SYSTEM,
-        MANAGE_DATABASE,
-        AUDIT_LOGS
+        return libelle;
     }
 }

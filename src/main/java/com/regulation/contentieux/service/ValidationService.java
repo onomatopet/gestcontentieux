@@ -1,286 +1,330 @@
 package com.regulation.contentieux.service;
 
+import com.regulation.contentieux.model.*;
+import java.math.BigDecimal;
+import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.LocalDate;
-import java.util.regex.Pattern;
-
 /**
- * Service de validation des données
- * Centralise toutes les règles de validation métier
+ * Service de validation des données métier
+ * Centralise toutes les règles de validation de l'application
  */
 public class ValidationService {
 
     private static final Logger logger = LoggerFactory.getLogger(ValidationService.class);
 
     // Patterns de validation
-    private static final Pattern EMAIL_PATTERN = Pattern.compile(
-            "^[a-zA-Z0-9_+&*-]+(?:\\.[a-zA-Z0-9_+&*-]+)*@(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,7}$");
+    private static final Pattern EMAIL_PATTERN =
+            Pattern.compile("^[A-Za-z0-9+_.-]+@(.+)$");
 
-    private static final Pattern PHONE_PATTERN = Pattern.compile(
-            "^\\+241\\s?[0-9]{2}\\s?[0-9]{2}\\s?[0-9]{2}\\s?[0-9]{2}$");
+    private static final Pattern PHONE_PATTERN =
+            Pattern.compile("^\\+?[0-9\\s\\-\\.\\(\\)]+$");
 
-    private static final Pattern CODE_PATTERN = Pattern.compile(
-            "^[A-Z]{2,5}[0-9]{2,5}$");
+    private static final Pattern CODE_PATTERN =
+            Pattern.compile("^[A-Z0-9\\-]+$");
 
-    private static final Pattern NAME_PATTERN = Pattern.compile(
-            "^[a-zA-ZÀ-ÿ\\s\\-']{2,100}$");
+    private static final Pattern REFERENCE_ENCAISSEMENT_PATTERN =
+            Pattern.compile("^ENC-\\d{4}-\\d{5}$");
 
-    private static final Pattern USERNAME_PATTERN = Pattern.compile(
-            "^[a-zA-Z0-9_-]{3,50}$");
+    private static final Pattern NUMERO_AFFAIRE_PATTERN =
+            Pattern.compile("^AFF-\\d{4}-\\d{5}$");
+
+    // Longueurs minimales et maximales
+    private static final int MIN_LOGIN_LENGTH = 3;
+    private static final int MIN_PASSWORD_LENGTH = 6;
+    private static final int MIN_NAME_LENGTH = 2;
+    private static final int MAX_CODE_LENGTH = 20;
+    private static final int MAX_DESCRIPTION_LENGTH = 500;
 
     /**
-     * Valide une adresse email
+     * Valide un email
      */
     public boolean isValidEmail(String email) {
         if (email == null || email.trim().isEmpty()) {
-            return false;
+            return true; // Email optionnel
         }
         return EMAIL_PATTERN.matcher(email.trim()).matches();
     }
 
     /**
-     * Valide un numéro de téléphone (format Gabon)
+     * Valide un numéro de téléphone
      */
     public boolean isValidPhone(String phone) {
         if (phone == null || phone.trim().isEmpty()) {
-            return false;
+            return true; // Téléphone optionnel
         }
-        return PHONE_PATTERN.matcher(phone.trim()).matches();
+        String cleaned = phone.replaceAll("\\s", "");
+        return cleaned.length() >= 8 && PHONE_PATTERN.matcher(phone).matches();
     }
 
     /**
-     * Valide un code (affaire, contrevenant, etc.)
+     * Valide un code (format majuscule avec tirets)
      */
     public boolean isValidCode(String code) {
         if (code == null || code.trim().isEmpty()) {
             return false;
         }
-        return CODE_PATTERN.matcher(code.trim()).matches();
+        return code.length() <= MAX_CODE_LENGTH && CODE_PATTERN.matcher(code).matches();
     }
 
     /**
-     * Valide un nom de personne
+     * Valide une référence d'encaissement
      */
-    public boolean isValidPersonName(String name) {
-        if (name == null || name.trim().isEmpty()) {
+    public boolean isValidEncaissementReference(String reference) {
+        if (reference == null || reference.trim().isEmpty()) {
             return false;
         }
-        return NAME_PATTERN.matcher(name.trim()).matches();
+        return REFERENCE_ENCAISSEMENT_PATTERN.matcher(reference).matches();
     }
 
     /**
-     * Valide un nom d'utilisateur
+     * Valide un numéro d'affaire
      */
-    public boolean isValidUsername(String username) {
-        if (username == null || username.trim().isEmpty()) {
+    public boolean isValidNumeroAffaire(String numero) {
+        if (numero == null || numero.trim().isEmpty()) {
             return false;
         }
-        return USERNAME_PATTERN.matcher(username.trim()).matches();
+        return NUMERO_AFFAIRE_PATTERN.matcher(numero).matches();
     }
 
     /**
      * Valide un montant
      */
-    public boolean isValidAmount(Double amount) {
-        return amount != null && amount >= 0;
-    }
-
-    /**
-     * Valide un montant positif strict
-     */
-    public boolean isValidPositiveAmount(Double amount) {
-        return amount != null && amount > 0;
-    }
-
-    /**
-     * Valide une date (non nulle et pas dans le futur)
-     */
-    public boolean isValidDate(LocalDate date) {
-        if (date == null) {
+    public boolean isValidMontant(BigDecimal montant) {
+        if (montant == null) {
             return false;
         }
-        return !date.isAfter(LocalDate.now());
+        return montant.compareTo(BigDecimal.ZERO) > 0;
     }
 
     /**
-     * Valide une plage de dates
+     * Valide un utilisateur
      */
-    public boolean isValidDateRange(LocalDate startDate, LocalDate endDate) {
-        if (startDate == null || endDate == null) {
-            return false;
-        }
-        return !startDate.isAfter(endDate) && !endDate.isAfter(LocalDate.now());
-    }
-
-    /**
-     * Valide une chaîne de caractères non vide
-     */
-    public boolean isValidString(String value, int minLength, int maxLength) {
-        if (value == null || value.trim().isEmpty()) {
+    public boolean isValidUtilisateur(Utilisateur utilisateur) {
+        if (utilisateur == null) {
             return false;
         }
 
-        String trimmed = value.trim();
-        return trimmed.length() >= minLength && trimmed.length() <= maxLength;
-    }
-
-    /**
-     * Valide un grade d'agent
-     */
-    public boolean isValidGrade(String grade) {
-        if (grade == null || grade.trim().isEmpty()) {
+        // Login obligatoire
+        if (utilisateur.getLogin() == null ||
+                utilisateur.getLogin().trim().length() < MIN_LOGIN_LENGTH) {
+            logger.warn("Login invalide: {}", utilisateur.getLogin());
             return false;
         }
 
-        // Liste des grades valides
-        String[] validGrades = {
-                "Inspecteur", "Inspecteur Principal", "Inspecteur en Chef",
-                "Contrôleur", "Contrôleur Principal", "Contrôleur en Chef",
-                "Agent", "Agent Principal", "Agent en Chef"
-        };
-
-        for (String validGrade : validGrades) {
-            if (validGrade.equalsIgnoreCase(grade.trim())) {
-                return true;
-            }
+        // Nom obligatoire
+        if (utilisateur.getNom() == null ||
+                utilisateur.getNom().trim().length() < MIN_NAME_LENGTH) {
+            logger.warn("Nom invalide: {}", utilisateur.getNom());
+            return false;
         }
 
-        return false;
+        // Email valide si fourni
+        if (!isValidEmail(utilisateur.getEmail())) {
+            logger.warn("Email invalide: {}", utilisateur.getEmail());
+            return false;
+        }
+
+        // Rôle obligatoire
+        if (utilisateur.getRole() == null) {
+            logger.warn("Rôle manquant");
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Valide un agent
+     */
+    public boolean isValidAgent(Agent agent) {
+        if (agent == null) {
+            return false;
+        }
+
+        // Code obligatoire et valide
+        if (!isValidCode(agent.getCodeAgent())) {
+            logger.warn("Code agent invalide: {}", agent.getCodeAgent());
+            return false;
+        }
+
+        // Nom obligatoire
+        if (agent.getNom() == null ||
+                agent.getNom().trim().length() < MIN_NAME_LENGTH) {
+            logger.warn("Nom agent invalide: {}", agent.getNom());
+            return false;
+        }
+
+        // Prénom obligatoire
+        if (agent.getPrenom() == null ||
+                agent.getPrenom().trim().length() < MIN_NAME_LENGTH) {
+            logger.warn("Prénom agent invalide: {}", agent.getPrenom());
+            return false;
+        }
+
+        // Email valide si fourni
+        if (!isValidEmail(agent.getEmail())) {
+            logger.warn("Email agent invalide: {}", agent.getEmail());
+            return false;
+        }
+
+        // Téléphone valide si fourni
+        if (!isValidPhone(agent.getTelephone())) {
+            logger.warn("Téléphone agent invalide: {}", agent.getTelephone());
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Valide un contrevenant
+     */
+    public boolean isValidContrevenant(Contrevenant contrevenant) {
+        if (contrevenant == null) {
+            return false;
+        }
+
+        // Au moins nom ou raison sociale
+        boolean hasNom = contrevenant.getNom() != null &&
+                !contrevenant.getNom().trim().isEmpty();
+        boolean hasRaisonSociale = contrevenant.getRaisonSociale() != null &&
+                !contrevenant.getRaisonSociale().trim().isEmpty();
+
+        if (!hasNom && !hasRaisonSociale) {
+            logger.warn("Ni nom ni raison sociale fournis");
+            return false;
+        }
+
+        // Type obligatoire
+        if (contrevenant.getType() == null) {
+            logger.warn("Type contrevenant manquant");
+            return false;
+        }
+
+        // Email valide si fourni
+        if (!isValidEmail(contrevenant.getEmail())) {
+            logger.warn("Email contrevenant invalide: {}", contrevenant.getEmail());
+            return false;
+        }
+
+        // Téléphone valide si fourni
+        if (!isValidPhone(contrevenant.getTelephone())) {
+            logger.warn("Téléphone contrevenant invalide: {}", contrevenant.getTelephone());
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Valide une affaire
+     */
+    public boolean isValidAffaire(Affaire affaire) {
+        if (affaire == null) {
+            return false;
+        }
+
+        // Contrevenant obligatoire
+        if (affaire.getContrevenant() == null) {
+            logger.warn("Contrevenant manquant");
+            return false;
+        }
+
+        // Date de constatation obligatoire
+        if (affaire.getDateConstatation() == null) {
+            logger.warn("Date de constatation manquante");
+            return false;
+        }
+
+        // Lieu de constatation obligatoire
+        if (affaire.getLieuConstatation() == null ||
+                affaire.getLieuConstatation().trim().isEmpty()) {
+            logger.warn("Lieu de constatation manquant");
+            return false;
+        }
+
+        // Au moins une contravention
+        if (affaire.getContraventions() == null ||
+                affaire.getContraventions().isEmpty()) {
+            logger.warn("Aucune contravention dans l'affaire");
+            return false;
+        }
+
+        // Montant total cohérent
+        if (!isValidMontant(affaire.getMontantTotal())) {
+            logger.warn("Montant total invalide: {}", affaire.getMontantTotal());
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Valide un encaissement
+     */
+    public boolean isValidEncaissement(Encaissement encaissement) {
+        if (encaissement == null) {
+            return false;
+        }
+
+        // Référence obligatoire et valide
+        if (!isValidEncaissementReference(encaissement.getReference())) {
+            logger.warn("Référence encaissement invalide: {}", encaissement.getReference());
+            return false;
+        }
+
+        // Affaire obligatoire
+        if (encaissement.getAffaire() == null) {
+            logger.warn("Affaire manquante pour l'encaissement");
+            return false;
+        }
+
+        // Montant valide
+        if (!isValidMontant(encaissement.getMontantEncaisse())) {
+            logger.warn("Montant encaissement invalide: {}", encaissement.getMontantEncaisse());
+            return false;
+        }
+
+        // Mode de règlement obligatoire
+        if (encaissement.getModeReglement() == null) {
+            logger.warn("Mode de règlement manquant");
+            return false;
+        }
+
+        // Date obligatoire
+        if (encaissement.getDateEncaissement() == null) {
+            logger.warn("Date encaissement manquante");
+            return false;
+        }
+
+        return true;
     }
 
     /**
      * Valide un mot de passe
      */
     public boolean isValidPassword(String password) {
-        if (password == null || password.length() < 8) {
+        if (password == null || password.length() < MIN_PASSWORD_LENGTH) {
             return false;
         }
 
-        // Au moins une lettre et un chiffre
-        boolean hasLetter = password.matches(".*[a-zA-Z].*");
-        boolean hasDigit = password.matches(".*[0-9].*");
+        // Au moins une majuscule, une minuscule et un chiffre
+        boolean hasUpper = password.chars().anyMatch(Character::isUpperCase);
+        boolean hasLower = password.chars().anyMatch(Character::isLowerCase);
+        boolean hasDigit = password.chars().anyMatch(Character::isDigit);
 
-        return hasLetter && hasDigit;
+        return hasUpper && hasLower && hasDigit;
     }
 
     /**
-     * Valide un pourcentage
+     * Valide une description
      */
-    public boolean isValidPercentage(Double percentage) {
-        return percentage != null && percentage >= 0 && percentage <= 100;
-    }
-
-    /**
-     * Valide un numéro de mandat
-     */
-    public boolean isValidNumeroMandat(String numeroMandat) {
-        if (numeroMandat == null || numeroMandat.trim().isEmpty()) {
-            return false;
+    public boolean isValidDescription(String description) {
+        if (description == null) {
+            return true; // Description optionnelle
         }
-
-        // Format: lettres et chiffres, 5 à 20 caractères
-        Pattern mandatPattern = Pattern.compile("^[A-Z0-9]{5,20}$");
-        return mandatPattern.matcher(numeroMandat.trim().toUpperCase()).matches();
-    }
-
-    /**
-     * Valide une référence bancaire
-     */
-    public boolean isValidReferenceBancaire(String reference) {
-        if (reference == null || reference.trim().isEmpty()) {
-            return false;
-        }
-
-        return isValidString(reference, 5, 50);
-    }
-
-    /**
-     * Normalise une chaîne (supprime espaces superflus, met en forme)
-     */
-    public String normalizeString(String value) {
-        if (value == null) {
-            return null;
-        }
-
-        return value.trim().replaceAll("\\s+", " ");
-    }
-
-    /**
-     * Normalise un code (majuscules, supprime espaces)
-     */
-    public String normalizeCode(String code) {
-        if (code == null) {
-            return null;
-        }
-
-        return code.trim().toUpperCase().replaceAll("\\s", "");
-    }
-
-    /**
-     * Normalise un email (minuscules, supprime espaces)
-     */
-    public String normalizeEmail(String email) {
-        if (email == null) {
-            return null;
-        }
-
-        return email.trim().toLowerCase();
-    }
-
-    /**
-     * Normalise un nom de personne (première lettre en majuscule)
-     */
-    public String normalizePersonName(String name) {
-        if (name == null) {
-            return null;
-        }
-
-        String normalized = normalizeString(name);
-        if (normalized.length() == 0) return name;
-
-        // Capitaliser chaque mot
-        String[] words = normalized.split(" ");
-        StringBuilder result = new StringBuilder();
-
-        for (String word : words) {
-            if (word.length() > 0) {
-                result.append(Character.toUpperCase(word.charAt(0)));
-                if (word.length() > 1) {
-                    result.append(word.substring(1).toLowerCase());
-                }
-                result.append(" ");
-            }
-        }
-
-        return result.toString().trim();
-    }
-
-    /**
-     * Valide un numéro RCCM (pour personnes morales)
-     */
-    public boolean isValidRCCM(String rccm) {
-        if (rccm == null || rccm.trim().isEmpty()) {
-            return false;
-        }
-
-        // Format RCCM: lettres et chiffres, 8 à 20 caractères
-        Pattern rccmPattern = Pattern.compile("^[A-Z0-9\\-/]{8,20}$");
-        return rccmPattern.matcher(rccm.trim().toUpperCase()).matches();
-    }
-
-    /**
-     * Génère un nom de fichier sécurisé
-     */
-    public String sanitizeFileName(String fileName) {
-        if (fileName == null) {
-            return "document";
-        }
-
-        // Remplacer les caractères interdits
-        return fileName.replaceAll("[^a-zA-Z0-9\\-_\\.]", "_")
-                .replaceAll("_{2,}", "_")
-                .toLowerCase();
+        return description.length() <= MAX_DESCRIPTION_LENGTH;
     }
 }

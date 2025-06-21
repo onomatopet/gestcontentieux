@@ -115,11 +115,11 @@ public class ContrevenantFormController implements Initializable {
 
     public void initializeForNew() {
         isEditMode = false;
-        clearForm();
+        resetForm(); // Utilise la méthode resetForm() qui existe déjà
         updateUIMode();
         Platform.runLater(() -> {
             if (codeField != null && codeField.getText().isEmpty()) {
-                String newCode = contrevenantService.generateNextCode();
+                String newCode = contrevenantDAO.generateNextCode(); // Utilise le DAO qui est déclaré
                 codeField.setText(newCode);
             }
         });

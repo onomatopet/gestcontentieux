@@ -26,6 +26,7 @@ import javafx.util.StringConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.math.BigDecimal;
 import java.net.URL;
 import java.time.LocalDate;
 import java.util.List;
@@ -346,10 +347,12 @@ public class EncaissementFormController implements Initializable {
     private void checkMontantVsSolde(double montant) {
         if (affaireComboBox.getValue() != null) {
             Affaire affaire = affaireComboBox.getValue();
-            Double totalEncaisse = encaissementService.getTotalEncaisseByAffaire(affaire.getId());
-            double soldeRestant = affaire.getMontantAmendeTotal() - (totalEncaisse != null ? totalEncaisse : 0.0);
+            BigDecimal totalEncaisse = encaissementService.getTotalEncaisseByAffaire(affaire.getId());
+            BigDecimal totalEncaisseNonNull = totalEncaisse != null ? totalEncaisse : BigDecimal.ZERO;
+            BigDecimal montantTotal = affaire.getMontantAmendeTotal();
+            BigDecimal soldeRestant = montantTotal.subtract(totalEncaisse != null ? totalEncaisse : BigDecimal.ZERO);
 
-            if (montant > soldeRestant) {
+            if (BigDecimal.valueOf(montant).compareTo(soldeRestant) > 0) {
                 montantEncaisseField.setStyle("-fx-border-color: orange;");
                 // Note: Orange pour avertissement, pas erreur bloquante
             }
@@ -370,15 +373,17 @@ public class EncaissementFormController implements Initializable {
         // TODO: Récupérer le nom du contrevenant via ContrevenantDAO
         contrevenantLabel.setText("Contrevenant #" + affaire.getContrevenantId());
 
-        montantTotalLabel.setText(CurrencyFormatter.format(affaire.getMontantAmendeTotal()));
+        BigDecimal montantTotal = affaire.getMontantAmendeTotal();
+        montantTotalLabel.setText(CurrencyFormatter.format(montantTotal.doubleValue()));
 
         // Calculer le montant déjà encaissé
-        Double totalEncaisse = encaissementService.getTotalEncaisseByAffaire(affaire.getId());
-        montantEncaisseAnterieurLabel.setText(CurrencyFormatter.format(totalEncaisse != null ? totalEncaisse : 0.0));
+        BigDecimal totalEncaisse = encaissementService.getTotalEncaisseByAffaire(affaire.getId());
+        BigDecimal totalEncaisseNonNull = totalEncaisse != null ? totalEncaisse : BigDecimal.ZERO;
+        montantEncaisseAnterieurLabel.setText(CurrencyFormatter.format(totalEncaisseNonNull.doubleValue()));
 
         // Calculer le solde restant
-        double soldeRestant = affaire.getMontantAmendeTotal() - (totalEncaisse != null ? totalEncaisse : 0.0);
-        soldeRestantLabel.setText(CurrencyFormatter.format(soldeRestant));
+        BigDecimal soldeRestant = montantTotal.subtract(totalEncaisseNonNull);
+        soldeRestantLabel.setText(CurrencyFormatter.format(soldeRestant.doubleValue()));
 
         // Afficher la section
         affaireDetailsBox.setVisible(true);
@@ -626,7 +631,8 @@ public class EncaissementFormController implements Initializable {
                 // Remplissage des données
                 encaissement.setReference(referenceField.getText().trim());
                 encaissement.setDateEncaissement(dateEncaissementPicker.getValue());
-                encaissement.setMontantEncaisse(Double.parseDouble(montantEncaisseField.getText().replace(",", ".")));
+                BigDecimal montant = new BigDecimal(montantEncaisseField.getText().replace(",", "."));
+                encaissement.setMontantEncaisse(montant);
                 encaissement.setStatut(statutComboBox.getValue());
                 encaissement.setAffaireId(affaireComboBox.getValue().getId());
                 encaissement.setModeReglement(modeReglementComboBox.getValue());
@@ -721,6 +727,7 @@ public class EncaissementFormController implements Initializable {
      * Vérifie s'il y a des modifications non sauvegardées
      */
     private boolean hasUnsavedChanges() {
+        BigDecimal currentMontant = currentEncaissement.getMontantEncaisse();
         if (currentEncaissement == null) {
             // Mode création - vérifier si des champs sont remplis
             return !referenceField.getText().trim().isEmpty() ||
@@ -731,7 +738,7 @@ public class EncaissementFormController implements Initializable {
             // Mode édition - comparer avec les valeurs originales
             return !referenceField.getText().equals(currentEncaissement.getReference()) ||
                     !dateEncaissementPicker.getValue().equals(currentEncaissement.getDateEncaissement()) ||
-                    !montantEncaisseField.getText().equals(String.valueOf(currentEncaissement.getMontantEncaisse())) ||
+                    !montantEncaisseField.getText().equals(currentMontant != null ? currentMontant.toString() : "0") ||
                     !statutComboBox.getValue().equals(currentEncaissement.getStatut());
         }
     }

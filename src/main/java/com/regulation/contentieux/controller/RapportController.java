@@ -292,9 +292,9 @@ public class RapportController implements Initializable {
                                 (RapportService.RapportRepartitionDTO) dernierRapportData);
 
                     case SITUATION_GENERALE:
-                        dernierRapportData = rapportService.genererSituationGenerale(dateDebut, dateFin);
-                        return rapportService.genererHtmlSituationGenerale(
-                                (RapportService.SituationGeneraleDTO) dernierRapportData);
+                        RapportService.SituationGeneraleDTO situationData = rapportService.genererSituationGenerale(dateDebut, dateFin);
+                        dernierRapportData = situationData;
+                        return rapportService.genererHtmlSituationGenerale(situationData);
 
                     case TABLEAU_AMENDES_SERVICE:
                         dernierRapportData = rapportService.genererTableauAmendesParServices(dateDebut, dateFin);

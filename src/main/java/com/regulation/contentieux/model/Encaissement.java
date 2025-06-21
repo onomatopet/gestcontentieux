@@ -112,12 +112,14 @@ public class Encaissement {
      */
 
     public long getMontant() {
-        return getMontantEncaisse();
+        BigDecimal montant = getMontantEncaisse();
+        return montant != null ? montant.longValue() : 0L;
     }
 
     public boolean peutEtreAnnule() {
         return statut == StatutEncaissement.VALIDE &&
-                montant != null &&
+                montantEncaisse != null &&  // Utilise la vraie propriété 'montantEncaisse'
+                montantEncaisse.compareTo(BigDecimal.ZERO) > 0 &&
                 dateEncaissement != null;
     }
 

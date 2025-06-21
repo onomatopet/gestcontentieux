@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -135,7 +136,7 @@ public class AffaireService {
 
             // Mise à jour des métadonnées
             affaire.setUpdatedBy(authService.getCurrentUsername());
-            affaire.setUpdatedAt(LocalDate.now());
+            affaire.setUpdatedAt(LocalDateTime.now());
 
             // Recalcul du montant total si contraventions modifiées
             if (affaire.getContraventions() != null) {
@@ -170,7 +171,7 @@ public class AffaireService {
             Affaire affaire = optAffaire.get();
             affaire.setStatut(nouveauStatut);
             affaire.setUpdatedBy(authService.getCurrentUsername());
-            affaire.setUpdatedAt(LocalDate.now());
+            affaire.setUpdatedAt(LocalDateTime.now());
 
             affaireDAO.update(affaire);
             logger.info("Statut de l'affaire {} changé en {}", affaire.getNumeroAffaire(), nouveauStatut);
@@ -201,7 +202,7 @@ public class AffaireService {
             // Suppression logique
             affaire.setDeleted(true);
             affaire.setDeletedBy(authService.getCurrentUsername());
-            affaire.setDeletedAt(LocalDate.from(LocalDate.now().atStartOfDay()));
+            affaire.setDeletedAt(LocalDate.now());
 
             affaireDAO.update(affaire);
             logger.info("Affaire {} supprimée (logiquement)", affaire.getNumeroAffaire());

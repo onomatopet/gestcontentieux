@@ -100,11 +100,8 @@ public class LoginController implements Initializable {
         // Authentification (dans un thread séparé si nécessaire)
         try {
             boolean success = authService.authenticate(username, password);
-            AuthenticationService.AuthenticationResult result = success ?
-                    AuthenticationService.AuthenticationResult.SUCCESS :
-                    AuthenticationService.AuthenticationResult.INVALID_CREDENTIALS;
 
-            if (result.isSuccess()) {
+            if (success) {
                 statusLabel.setText("Connexion réussie !");
                 logger.info("Connexion réussie pour: {}", username);
 
@@ -122,7 +119,7 @@ public class LoginController implements Initializable {
                 AlertUtil.showErrorAlert(
                         "Erreur de connexion",
                         "Échec de l'authentification",
-                        result.getMessage()
+                        "Nom d'utilisateur ou mot de passe incorrect."
                 );
 
                 // Focus sur le champ approprié

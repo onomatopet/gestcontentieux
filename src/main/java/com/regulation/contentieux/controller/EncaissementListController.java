@@ -418,7 +418,8 @@ public class EncaissementListController implements Initializable {
                 viewModel.setReference(encaissement.getReference());
                 viewModel.setAffaireId(encaissement.getAffaireId());
                 viewModel.setAffaireNumero("Affaire #" + encaissement.getAffaireId()); // Simplifié
-                viewModel.setMontantEncaisse(encaissement.getMontantEncaisse());
+                BigDecimal montantEncaisse = encaissement.getMontantEncaisse();
+                viewModel.setMontantEncaisse(montantEncaisse != null ? montantEncaisse.doubleValue() : 0.0);
                 viewModel.setDateEncaissement(encaissement.getDateEncaissement());
                 viewModel.setModeReglement(encaissement.getModeReglement());
                 viewModel.setStatut(encaissement.getStatut());

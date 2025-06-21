@@ -262,7 +262,8 @@ public class Affaire {
     }
 
     public long getMontantAmende() {
-        return getMontantAmendeTotal(); // Alias pour RapportService
+        BigDecimal montant = getMontantAmendeTotal();
+        return montant != null ? montant.longValue() : 0L;
     }
 
     public StatutAffaire getStatut() {

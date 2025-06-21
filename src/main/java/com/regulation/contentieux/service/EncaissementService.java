@@ -9,6 +9,7 @@ import com.regulation.contentieux.model.enums.StatutEncaissement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -266,8 +267,9 @@ public class EncaissementService {
     /**
      * Calcule le montant total encaissé pour une affaire
      */
-    public Double getTotalEncaisseByAffaire(Long affaireId) {
-        return encaissementDAO.getTotalEncaisseByAffaire(affaireId);
+    public BigDecimal getTotalEncaisseByAffaire(Long affaireId) {
+        Double total = encaissementDAO.getTotalEncaisseByAffaire(affaireId);
+        return total != null ? BigDecimal.valueOf(total) : BigDecimal.ZERO;
     }
 
     /**
@@ -298,7 +300,8 @@ public class EncaissementService {
         }
 
         // Validation du montant
-        if (encaissement.getMontantEncaisse() == null || encaissement.getMontantEncaisse() <= 0) {
+        if (encaissement.getMontantEncaisse() == null ||
+                encaissement.getMontantEncaisse().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Le montant encaissé doit être positif");
         }
 
@@ -388,7 +391,8 @@ public class EncaissementService {
         long validEncaissements = encaissementDAO.findByStatut(StatutEncaissement.VALIDE).size();
         long pendingEncaissements = encaissementDAO.findByStatut(StatutEncaissement.EN_ATTENTE).size();
 
-        Double totalMontant = encaissementDAO.getTotalEncaissementsByPeriod(null, null, StatutEncaissement.VALIDE);
+        Double totalMontantDouble = encaissementDAO.getTotalEncaissementsByPeriod(null, null, StatutEncaissement.VALIDE);
+        BigDecimal totalMontant = totalMontantDouble != null ? BigDecimal.valueOf(totalMontantDouble) : BigDecimal.ZERO;
 
         return new EncaissementStatistics(totalEncaissements, validEncaissements, pendingEncaissements, totalMontant);
     }
@@ -403,11 +407,11 @@ public class EncaissementService {
         private final Double totalMontant;
 
         public EncaissementStatistics(long totalEncaissements, long validEncaissements,
-                                      long pendingEncaissements, Double totalMontant) {
+                                      long pendingEncaissements, BigDecimal totalMontant) {
             this.totalEncaissements = totalEncaissements;
             this.validEncaissements = validEncaissements;
             this.pendingEncaissements = pendingEncaissements;
-            this.totalMontant = totalMontant != null ? totalMontant : 0.0;
+            this.totalMontant = totalMontant != null ? totalMontant : BigDecimal.ZERO;
         }
 
         public long getTotalEncaissements() { return totalEncaissements; }

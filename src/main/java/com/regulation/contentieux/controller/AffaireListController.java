@@ -7,6 +7,8 @@ import com.regulation.contentieux.dao.ContrevenantDAO;
 import com.regulation.contentieux.model.Contrevenant;
 import javafx.stage.Stage;
 import javafx.stage.Modality;
+
+import java.math.BigDecimal;
 import java.util.Optional;
 
 import com.regulation.contentieux.dao.AffaireDAO;
@@ -361,11 +363,17 @@ public class AffaireListController implements Initializable {
             }
 
             private AffaireViewModel convertToViewModel(Affaire affaire) {
+                BigDecimal montantAmendeTotal = affaire.getMontantAmendeTotal();
+                viewModel.setMontantAmendeTotal(montantAmendeTotal != null ? montantAmendeTotal.doubleValue() : 0.0);
                 AffaireViewModel viewModel = new AffaireViewModel();
                 viewModel.setId(affaire.getId());
                 viewModel.setNumeroAffaire(affaire.getNumeroAffaire());
                 viewModel.setDateCreation(affaire.getDateCreation());
-                viewModel.setMontantAmendeTotal(affaire.getMontantAmendeTotal());
+
+                // CORRECTION : Déclaration et conversion propre
+                BigDecimal montantAmendeTotal = affaire.getMontantAmendeTotal();
+                viewModel.setMontantAmendeTotal(montantAmendeTotal != null ? montantAmendeTotal.doubleValue() : 0.0);
+
                 viewModel.setStatut(affaire.getStatut());
 
                 // OPTIMISÉ: Affichage simple pour éviter les jointures coûteuses

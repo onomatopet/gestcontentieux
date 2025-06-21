@@ -1,107 +1,317 @@
 package com.regulation.contentieux.model;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
-import com.fasterxml.jackson.annotation.JsonIgnore;
-
+import com.regulation.contentieux.model.enums.TypeContrevenant;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Objects;
 
+/**
+ * Entité représentant un contrevenant
+ * Peut être une personne physique ou morale
+ */
 public class Contrevenant {
+
     private Long id;
-    private String code;
-    private String nomComplet;
+    private TypeContrevenant type;
+
+    // Personne physique
+    private String nom;
+    private String prenom;
+    private String cin;
+
+    // Personne morale
+    private String raisonSociale;
+    private String numeroRegistreCommerce;
+    private String numeroIdentificationFiscale;
+
+    // Informations communes
     private String adresse;
     private String telephone;
     private String email;
-    private String typePersonne; // PHYSIQUE ou MORALE
+    private String ville;
+    private String codePostal;
+    private boolean actif;
 
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    // Métadonnées
+    private String createdBy;
     private LocalDateTime createdAt;
-
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private String updatedBy;
     private LocalDateTime updatedAt;
-
-    // Relations
-    @JsonIgnore
-    private List<Affaire> affaires = new ArrayList<>();
 
     // Constructeurs
     public Contrevenant() {
+        this.actif = true;
         this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
     }
 
-    public Contrevenant(String code, String nomComplet) {
+    // Constructeur pour personne physique
+    public Contrevenant(String nom, String prenom, String cin) {
         this();
-        this.code = code;
-        this.nomComplet = nomComplet;
+        this.type = TypeContrevenant.PERSONNE_PHYSIQUE;
+        this.nom = nom;
+        this.prenom = prenom;
+        this.cin = cin;
+    }
+
+    // Constructeur pour personne morale
+    public Contrevenant(String raisonSociale, String numeroRegistreCommerce) {
+        this();
+        this.type = TypeContrevenant.PERSONNE_MORALE;
+        this.raisonSociale = raisonSociale;
+        this.numeroRegistreCommerce = numeroRegistreCommerce;
     }
 
     // Méthodes métier
-    public String getFormattedAddress() {
-        return adresse != null ? adresse.replace("\n", ", ") : "";
+
+    /**
+     * Retourne le nom d'affichage selon le type
+     */
+    public String getDisplayName() {
+        if (type == TypeContrevenant.PERSONNE_PHYSIQUE) {
+            StringBuilder display = new StringBuilder();
+            if (nom != null) {
+                display.append(nom);
+            }
+            if (prenom != null) {
+                if (display.length() > 0) display.append(" ");
+                display.append(prenom);
+            }
+            if (cin != null) {
+                display.append(" (CIN: ").append(cin).append(")");
+            }
+            return display.toString();
+        } else if (type == TypeContrevenant.PERSONNE_MORALE) {
+            StringBuilder display = new StringBuilder();
+            if (raisonSociale != null) {
+                display.append(raisonSociale);
+            }
+            if (numeroRegistreCommerce != null) {
+                display.append(" (RC: ").append(numeroRegistreCommerce).append(")");
+            }
+            return display.toString();
+        }
+        return "Contrevenant non défini";
     }
 
-    public boolean isPersonnePhysique() {
-        return "PHYSIQUE".equals(typePersonne);
+    /**
+     * Retourne le nom court
+     */
+    public String getShortName() {
+        if (type == TypeContrevenant.PERSONNE_PHYSIQUE) {
+            return nom != null ? nom : "N/A";
+        } else {
+            return raisonSociale != null ? raisonSociale : "N/A";
+        }
     }
 
-    public boolean isPersonneMorale() {
-        return "MORALE".equals(typePersonne);
+    /**
+     * Retourne l'identifiant principal selon le type
+     */
+    public String getIdentifiantPrincipal() {
+        if (type == TypeContrevenant.PERSONNE_PHYSIQUE) {
+            return cin;
+        } else {
+            return numeroRegistreCommerce;
+        }
     }
 
-    public int getNombreAffaires() {
-        return affaires.size();
+    /**
+     * Vérifie si toutes les informations obligatoires sont renseignées
+     */
+    public boolean isComplete() {
+        if (type == TypeContrevenant.PERSONNE_PHYSIQUE) {
+            return nom != null && !nom.trim().isEmpty();
+        } else {
+            return raisonSociale != null && !raisonSociale.trim().isEmpty();
+        }
+    }
+
+    /**
+     * Retourne l'adresse complète
+     */
+    public String getAdresseComplete() {
+        StringBuilder addr = new StringBuilder();
+        if (adresse != null && !adresse.trim().isEmpty()) {
+            addr.append(adresse);
+        }
+        if (codePostal != null && !codePostal.trim().isEmpty()) {
+            if (addr.length() > 0) addr.append(", ");
+            addr.append(codePostal);
+        }
+        if (ville != null && !ville.trim().isEmpty()) {
+            if (addr.length() > 0) addr.append(" ");
+            addr.append(ville);
+        }
+        return addr.toString();
     }
 
     // Getters et Setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
 
-    public String getCode() { return code; }
-    public void setCode(String code) { this.code = code; }
+    public Long getId() {
+        return id;
+    }
 
-    public String getNomComplet() { return nomComplet; }
-    public void setNomComplet(String nomComplet) { this.nomComplet = nomComplet; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public String getAdresse() { return adresse; }
-    public void setAdresse(String adresse) { this.adresse = adresse; }
+    public TypeContrevenant getType() {
+        return type;
+    }
 
-    public String getTelephone() { return telephone; }
-    public void setTelephone(String telephone) { this.telephone = telephone; }
+    public void setType(TypeContrevenant type) {
+        this.type = type;
+    }
 
-    public String getEmail() { return email; }
-    public void setEmail(String email) { this.email = email; }
+    public String getNom() {
+        return nom;
+    }
 
-    public String getTypePersonne() { return typePersonne; }
-    public void setTypePersonne(String typePersonne) { this.typePersonne = typePersonne; }
+    public void setNom(String nom) {
+        this.nom = nom;
+    }
 
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public String getPrenom() {
+        return prenom;
+    }
 
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public void setPrenom(String prenom) {
+        this.prenom = prenom;
+    }
 
-    public List<Affaire> getAffaires() { return affaires; }
-    public void setAffaires(List<Affaire> affaires) { this.affaires = affaires; }
+    public String getCin() {
+        return cin;
+    }
+
+    public void setCin(String cin) {
+        this.cin = cin;
+    }
+
+    public String getRaisonSociale() {
+        return raisonSociale;
+    }
+
+    public void setRaisonSociale(String raisonSociale) {
+        this.raisonSociale = raisonSociale;
+    }
+
+    public String getNumeroRegistreCommerce() {
+        return numeroRegistreCommerce;
+    }
+
+    public void setNumeroRegistreCommerce(String numeroRegistreCommerce) {
+        this.numeroRegistreCommerce = numeroRegistreCommerce;
+    }
+
+    public String getNumeroIdentificationFiscale() {
+        return numeroIdentificationFiscale;
+    }
+
+    public void setNumeroIdentificationFiscale(String numeroIdentificationFiscale) {
+        this.numeroIdentificationFiscale = numeroIdentificationFiscale;
+    }
+
+    public String getAdresse() {
+        return adresse;
+    }
+
+    public void setAdresse(String adresse) {
+        this.adresse = adresse;
+    }
+
+    public String getTelephone() {
+        return telephone;
+    }
+
+    public void setTelephone(String telephone) {
+        this.telephone = telephone;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getVille() {
+        return ville;
+    }
+
+    public void setVille(String ville) {
+        this.ville = ville;
+    }
+
+    public String getCodePostal() {
+        return codePostal;
+    }
+
+    public void setCodePostal(String codePostal) {
+        this.codePostal = codePostal;
+    }
+
+    public boolean isActif() {
+        return actif;
+    }
+
+    public void setActif(boolean actif) {
+        this.actif = actif;
+    }
+
+    public String getCreatedBy() {
+        return createdBy;
+    }
+
+    public void setCreatedBy(String createdBy) {
+        this.createdBy = createdBy;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public String getUpdatedBy() {
+        return updatedBy;
+    }
+
+    public void setUpdatedBy(String updatedBy) {
+        this.updatedBy = updatedBy;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    // Equals, HashCode et ToString
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Contrevenant that = (Contrevenant) o;
-        return Objects.equals(id, that.id) && Objects.equals(code, that.code);
+        return Objects.equals(id, that.id);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, code);
+        return Objects.hash(id);
     }
 
     @Override
     public String toString() {
-        return code + " - " + nomComplet;
+        return "Contrevenant{" +
+                "id=" + id +
+                ", type=" + type +
+                ", displayName='" + getDisplayName() + '\'' +
+                ", actif=" + actif +
+                '}';
     }
 }

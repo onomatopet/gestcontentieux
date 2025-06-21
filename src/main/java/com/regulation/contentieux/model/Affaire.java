@@ -22,6 +22,7 @@ public class Affaire {
     private String description;
     private BigDecimal montantTotal;
     private BigDecimal montantEncaisse;
+    private BigDecimal montantAmendeTotal; // Pour compatibilité avec AffaireDAO
     private StatutAffaire statut;
     private String observations;
 
@@ -33,11 +34,17 @@ public class Affaire {
     private List<Contravention> contraventions;
     private List<Encaissement> encaissements;
 
+    // IDs pour compatibilité avec AffaireDAO existant
+    private Long contrevenantId;
+    private Long contraventionId;
+    private Long bureauId;
+    private Long serviceId;
+
     // Métadonnées
     private String createdBy;
     private LocalDateTime createdAt;
     private String updatedBy;
-    private LocalDate updatedAt;
+    private LocalDateTime updatedAt;
     private boolean deleted;
     private String deletedBy;
     private LocalDate deletedAt;
@@ -48,6 +55,7 @@ public class Affaire {
         this.statut = StatutAffaire.OUVERTE;
         this.montantTotal = BigDecimal.ZERO;
         this.montantEncaisse = BigDecimal.ZERO;
+        this.montantAmendeTotal = BigDecimal.ZERO;
         this.contraventions = new ArrayList<>();
         this.encaissements = new ArrayList<>();
         this.deleted = false;
@@ -82,7 +90,7 @@ public class Affaire {
      */
     public BigDecimal getSoldeRestant() {
         BigDecimal encaisseTotal = getMontantEncaisseTotal();
-        return montantTotal.subtract(encaisseTotal);
+        return getMontantTotal().subtract(encaisseTotal);
     }
 
     /**
@@ -124,8 +132,10 @@ public class Affaire {
             montantTotal = contraventions.stream()
                     .map(Contravention::getMontant)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
+            montantAmendeTotal = montantTotal; // Synchroniser pour compatibilité
         } else {
             montantTotal = BigDecimal.ZERO;
+            montantAmendeTotal = BigDecimal.ZERO;
         }
     }
 
@@ -144,6 +154,35 @@ public class Affaire {
      */
     public boolean canBeClosed() {
         return isFullyPaid() && statut != StatutAffaire.CLOSE;
+    }
+
+    /**
+     * Vérifie si l'affaire peut être modifiée
+     */
+    public boolean peutEtreModifiee() {
+        return statut == StatutAffaire.OUVERTE || statut == StatutAffaire.EN_COURS;
+    }
+
+    /**
+     * Vérifie si l'affaire peut recevoir un encaissement
+     */
+    public boolean peutRecevoirEncaissement() {
+        return statut == StatutAffaire.OUVERTE || statut == StatutAffaire.EN_COURS;
+    }
+
+    /**
+     * Synchronise les IDs des relations (pour compatibilité DAO)
+     */
+    public void synchronizeRelationIds() {
+        if (contrevenant != null) {
+            contrevenantId = contrevenant.getId();
+        }
+        if (bureau != null) {
+            bureauId = bureau.getId();
+        }
+        if (service != null) {
+            serviceId = service.getId();
+        }
     }
 
     // Getters et Setters
@@ -197,11 +236,12 @@ public class Affaire {
     }
 
     public BigDecimal getMontantTotal() {
-        return montantTotal;
+        return montantTotal != null ? montantTotal : BigDecimal.ZERO;
     }
 
     public void setMontantTotal(BigDecimal montantTotal) {
         this.montantTotal = montantTotal;
+        this.montantAmendeTotal = montantTotal; // Synchroniser
     }
 
     public BigDecimal getMontantEncaisse() {
@@ -210,6 +250,19 @@ public class Affaire {
 
     public void setMontantEncaisse(BigDecimal montantEncaisse) {
         this.montantEncaisse = montantEncaisse;
+    }
+
+    public BigDecimal getMontantAmendeTotal() {
+        return montantAmendeTotal != null ? montantAmendeTotal : montantTotal;
+    }
+
+    public void setMontantAmendeTotal(BigDecimal montantAmendeTotal) {
+        this.montantAmendeTotal = montantAmendeTotal;
+        this.montantTotal = montantAmendeTotal; // Synchroniser
+    }
+
+    public BigDecimal getMontantAmende() {
+        return getMontantAmendeTotal(); // Alias pour RapportService
     }
 
     public StatutAffaire getStatut() {
@@ -234,6 +287,9 @@ public class Affaire {
 
     public void setContrevenant(Contrevenant contrevenant) {
         this.contrevenant = contrevenant;
+        if (contrevenant != null) {
+            this.contrevenantId = contrevenant.getId();
+        }
     }
 
     public Agent getAgentVerbalisateur() {
@@ -250,6 +306,9 @@ public class Affaire {
 
     public void setBureau(Bureau bureau) {
         this.bureau = bureau;
+        if (bureau != null) {
+            this.bureauId = bureau.getId();
+        }
     }
 
     public Service getService() {
@@ -258,6 +317,9 @@ public class Affaire {
 
     public void setService(Service service) {
         this.service = service;
+        if (service != null) {
+            this.serviceId = service.getId();
+        }
     }
 
     public List<Contravention> getContraventions() {
@@ -276,6 +338,43 @@ public class Affaire {
     public void setEncaissements(List<Encaissement> encaissements) {
         this.encaissements = encaissements;
         this.montantEncaisse = getMontantEncaisseTotal();
+    }
+
+    // Getters/Setters pour IDs (compatibilité DAO)
+
+    public Long getContrevenantId() {
+        return contrevenantId != null ? contrevenantId :
+                (contrevenant != null ? contrevenant.getId() : null);
+    }
+
+    public void setContrevenantId(Long contrevenantId) {
+        this.contrevenantId = contrevenantId;
+    }
+
+    public Long getContraventionId() {
+        return contraventionId;
+    }
+
+    public void setContraventionId(Long contraventionId) {
+        this.contraventionId = contraventionId;
+    }
+
+    public Long getBureauId() {
+        return bureauId != null ? bureauId :
+                (bureau != null ? bureau.getId() : null);
+    }
+
+    public void setBureauId(Long bureauId) {
+        this.bureauId = bureauId;
+    }
+
+    public Long getServiceId() {
+        return serviceId != null ? serviceId :
+                (service != null ? service.getId() : null);
+    }
+
+    public void setServiceId(Long serviceId) {
+        this.serviceId = serviceId;
     }
 
     public String getCreatedBy() {
@@ -302,11 +401,11 @@ public class Affaire {
         this.updatedBy = updatedBy;
     }
 
-    public LocalDate getUpdatedAt() {
+    public LocalDateTime getUpdatedAt() {
         return updatedAt;
     }
 
-    public void setUpdatedAt(LocalDate updatedAt) {
+    public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
     }
 

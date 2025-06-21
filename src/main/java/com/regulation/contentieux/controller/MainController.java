@@ -166,6 +166,17 @@ public class MainController implements Initializable {
         }
     }
 
+    /**
+     * Charge une vue avec titre (surcharge pour WelcomeController)
+     */
+    public void loadView(String fxmlPath, String title) {
+        loadView(fxmlPath);
+        // Le titre pourrait être utilisé pour mettre à jour un label dans l'interface
+        if (title != null && currentStage != null) {
+            currentStage.setTitle(APP_TITLE + " - " + title);
+        }
+    }
+
     // ==================== GESTIONNAIRES D'ÉVÉNEMENTS ====================
 
     // Menu Affaires

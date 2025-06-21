@@ -240,4 +240,73 @@ public class AuthenticationService {
             return false;
         }
     }
+
+    /**
+     * Classe interne pour le résultat d'authentification
+     */
+    public static class AuthenticationResult {
+        private final boolean success;
+        private final String message;
+        private final Utilisateur user;
+
+        private AuthenticationResult(boolean success, String message, Utilisateur user) {
+            this.success = success;
+            this.message = message;
+            this.user = user;
+        }
+
+        public static AuthenticationResult success(Utilisateur user) {
+            return new AuthenticationResult(true, "Authentification réussie", user);
+        }
+
+        public static AuthenticationResult failure(String message) {
+            return new AuthenticationResult(false, message, null);
+        }
+
+        public boolean isSuccess() { return success; }
+        public String getMessage() { return message; }
+        public Utilisateur getUser() { return user; }
+    }
+
+    /**
+     * Authentifie un utilisateur avec résultat détaillé
+     */
+    public AuthenticationResult authenticateWithResult(String login, String password) {
+        try {
+            logger.info("Tentative de connexion pour l'utilisateur: {}", login);
+
+            Optional<Utilisateur> optUser = utilisateurDAO.findByLogin(login);
+
+            if (optUser.isEmpty()) {
+                logger.warn("Utilisateur non trouvé: {}", login);
+                return AuthenticationResult.failure("Identifiants incorrects");
+            }
+
+            Utilisateur utilisateur = optUser.get();
+
+            if (!utilisateur.isActif()) {
+                logger.warn("Tentative de connexion avec un compte désactivé: {}", login);
+                return AuthenticationResult.failure("Compte désactivé");
+            }
+
+            BCrypt.Result result = BCrypt.verifyer().verify(password.toCharArray(),
+                    utilisateur.getMotDePasse());
+
+            if (result.verified) {
+                utilisateur.setDerniereConnexion(LocalDateTime.now());
+                utilisateurDAO.update(utilisateur);
+                this.currentUser = utilisateur;
+
+                logger.info("Connexion réussie pour: {}", login);
+                return AuthenticationResult.success(utilisateur);
+            } else {
+                logger.warn("Mot de passe incorrect pour: {}", login);
+                return AuthenticationResult.failure("Identifiants incorrects");
+            }
+
+        } catch (Exception e) {
+            logger.error("Erreur lors de l'authentification", e);
+            return AuthenticationResult.failure("Erreur technique");
+        }
+    }
 }

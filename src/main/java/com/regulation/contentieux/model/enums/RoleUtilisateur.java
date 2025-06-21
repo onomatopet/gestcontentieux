@@ -61,6 +61,13 @@ public enum RoleUtilisateur {
     }
 
     /**
+     * Alias pour getLibelle() - compatibilité
+     */
+    public String getDisplayName() {
+        return getLibelle();
+    }
+
+    /**
      * Vérifie si le rôle a une permission spécifique
      */
     public boolean hasPermission(Permission permission) {

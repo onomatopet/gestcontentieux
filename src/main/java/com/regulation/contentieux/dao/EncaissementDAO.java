@@ -506,4 +506,40 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
 
         return encaissements;
     }
+
+    /**
+     * Trouve les encaissements d'une affaire pour une période donnée
+     */
+    public List<Encaissement> findByAffaireAndPeriod(Long affaireId, LocalDate dateDebut, LocalDate dateFin) {
+        String sql = """
+            SELECT e.*, a.numero_affaire, a.montant_total
+            FROM encaissements e
+            LEFT JOIN affaires a ON e.affaire_id = a.id
+            WHERE e.affaire_id = ?
+              AND e.date_encaissement BETWEEN ? AND ?
+              AND e.statut = 'VALIDE'
+            ORDER BY e.date_encaissement
+        """;
+
+        List<Encaissement> encaissements = new ArrayList<>();
+
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setLong(1, affaireId);
+            stmt.setDate(2, Date.valueOf(dateDebut));
+            stmt.setDate(3, Date.valueOf(dateFin));
+
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                encaissements.add(mapResultSetToEntity(rs));
+            }
+
+        } catch (SQLException e) {
+            logger.error("Erreur lors de la recherche par affaire et période", e);
+        }
+
+        return encaissements;
+    }
 }

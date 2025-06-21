@@ -84,6 +84,14 @@ public class Utilisateur {
         return login;
     }
 
+    /**
+     * Vérifie si l'utilisateur est administrateur
+     */
+    public boolean isAdmin() {
+        return role == RoleUtilisateur.SUPER_ADMIN ||
+                role == RoleUtilisateur.ADMINISTRATEUR;
+    }
+
     // Getters et Setters
 
     public Long getId() {

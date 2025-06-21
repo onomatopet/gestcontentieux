@@ -2,27 +2,26 @@ package com.regulation.contentieux.dao;
 
 import com.regulation.contentieux.dao.impl.AbstractSQLiteDAO;
 import com.regulation.contentieux.model.Affaire;
-import com.regulation.contentieux.model.Contravention;
+import com.regulation.contentieux.model.Agent;
+import com.regulation.contentieux.model.Bureau;
+import com.regulation.contentieux.model.Service;
+import com.regulation.contentieux.model.Contrevenant;
 import com.regulation.contentieux.model.enums.StatutAffaire;
 import com.regulation.contentieux.config.DatabaseConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.math.BigDecimal;
 import java.sql.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-
-import static java.sql.DriverManager.getConnection;
 
 /**
  * DAO pour la gestion des affaires contentieuses
- * VERSION NETTOYÉE - IMPORTS DUPLIQUÉS SUPPRIMÉS
+ * Gère la persistance des affaires et leurs relations
  */
 public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
 
@@ -41,10 +40,12 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
     @Override
     protected String getInsertQuery() {
         return """
-            INSERT INTO affaires (numero_affaire, date_creation, montant_amende_total, 
-                                statut, contrevenant_id, contravention_id, bureau_id, 
-                                service_id, created_by) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO affaires (numero_affaire, date_creation, date_constatation, 
+                                lieu_constatation, description, montant_total, montant_encaisse,
+                                montant_amende_total, statut, observations, 
+                                contrevenant_id, agent_verbalisateur_id,
+                                bureau_id, service_id, created_by, created_at) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """;
     }
 
@@ -52,10 +53,11 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
     protected String getUpdateQuery() {
         return """
             UPDATE affaires 
-            SET numero_affaire = ?, date_creation = ?, montant_amende_total = ?, 
-                statut = ?, contrevenant_id = ?, contravention_id = ?, 
-                bureau_id = ?, service_id = ?, updated_by = ?, 
-                updated_at = CURRENT_TIMESTAMP 
+            SET date_constatation = ?, lieu_constatation = ?, description = ?,
+                montant_total = ?, montant_encaisse = ?, montant_amende_total = ?,
+                statut = ?, observations = ?,
+                contrevenant_id = ?, agent_verbalisateur_id = ?, bureau_id = ?, 
+                service_id = ?, updated_by = ?, updated_at = ?
             WHERE id = ?
         """;
     }
@@ -63,22 +65,37 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
     @Override
     protected String getSelectAllQuery() {
         return """
-            SELECT id, numero_affaire, date_creation, montant_amende_total, 
-                   statut, contrevenant_id, contravention_id, bureau_id, 
-                   service_id, created_at, updated_at, created_by, updated_by 
-            FROM affaires 
-            ORDER BY created_at DESC
+            SELECT a.*, 
+                   c.nom as contrevenant_nom, c.prenom as contrevenant_prenom, 
+                   c.raison_sociale as contrevenant_raison_sociale,
+                   ag.code_agent, ag.nom as agent_nom, ag.prenom as agent_prenom,
+                   b.code_bureau, b.nom_bureau,
+                   s.code_service, s.nom_service
+            FROM affaires a
+            LEFT JOIN contrevenants c ON a.contrevenant_id = c.id
+            LEFT JOIN agents ag ON a.agent_verbalisateur_id = ag.id
+            LEFT JOIN bureaux b ON a.bureau_id = b.id
+            LEFT JOIN services s ON a.service_id = s.id
+            WHERE a.deleted = false 
+            ORDER BY a.date_creation DESC
         """;
     }
 
     @Override
     protected String getSelectByIdQuery() {
         return """
-            SELECT id, numero_affaire, date_creation, montant_amende_total, 
-                   statut, contrevenant_id, contravention_id, bureau_id, 
-                   service_id, created_at, updated_at, created_by, updated_by 
-            FROM affaires 
-            WHERE id = ?
+            SELECT a.*, 
+                   c.nom as contrevenant_nom, c.prenom as contrevenant_prenom, 
+                   c.raison_sociale as contrevenant_raison_sociale,
+                   ag.code_agent, ag.nom as agent_nom, ag.prenom as agent_prenom,
+                   b.code_bureau, b.nom_bureau,
+                   s.code_service, s.nom_service
+            FROM affaires a
+            LEFT JOIN contrevenants c ON a.contrevenant_id = c.id
+            LEFT JOIN agents ag ON a.agent_verbalisateur_id = ag.id
+            LEFT JOIN bureaux b ON a.bureau_id = b.id
+            LEFT JOIN services s ON a.service_id = s.id
+            WHERE a.id = ? AND a.deleted = false
         """;
     }
 
@@ -86,52 +103,145 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
     protected Affaire mapResultSetToEntity(ResultSet rs) throws SQLException {
         Affaire affaire = new Affaire();
 
+        // Champs de base
         affaire.setId(rs.getLong("id"));
         affaire.setNumeroAffaire(rs.getString("numero_affaire"));
 
-        // Gestion de la date de création
+        // Dates
         Date dateCreation = rs.getDate("date_creation");
         if (dateCreation != null) {
             affaire.setDateCreation(dateCreation.toLocalDate());
         }
 
-        affaire.setMontantAmendeTotal(rs.getDouble("montant_amende_total"));
+        Date dateConstatation = rs.getDate("date_constatation");
+        if (dateConstatation != null) {
+            affaire.setDateConstatation(dateConstatation.toLocalDate());
+        }
 
-        // Gestion du statut
+        affaire.setLieuConstatation(rs.getString("lieu_constatation"));
+        affaire.setDescription(rs.getString("description"));
+
+        // Montants
+        BigDecimal montantTotal = rs.getBigDecimal("montant_total");
+        affaire.setMontantTotal(montantTotal != null ? montantTotal : BigDecimal.ZERO);
+
+        BigDecimal montantEncaisse = rs.getBigDecimal("montant_encaisse");
+        affaire.setMontantEncaisse(montantEncaisse != null ? montantEncaisse : BigDecimal.ZERO);
+
+        // Montant amende total (pour compatibilité)
+        try {
+            BigDecimal montantAmendeTotal = rs.getBigDecimal("montant_amende_total");
+            if (montantAmendeTotal != null) {
+                affaire.setMontantAmendeTotal(montantAmendeTotal);
+            } else {
+                affaire.setMontantAmendeTotal(affaire.getMontantTotal());
+            }
+        } catch (SQLException e) {
+            // Colonne optionnelle
+            affaire.setMontantAmendeTotal(affaire.getMontantTotal());
+        }
+
+        // Statut
         String statutStr = rs.getString("statut");
         if (statutStr != null) {
             try {
                 affaire.setStatut(StatutAffaire.valueOf(statutStr));
             } catch (IllegalArgumentException e) {
-                logger.warn("Statut d'affaire inconnu: {}", statutStr);
+                logger.warn("Statut invalide dans la base: {}", statutStr);
                 affaire.setStatut(StatutAffaire.OUVERTE);
             }
         }
 
-        affaire.setContrevenantId(rs.getLong("contrevenant_id"));
-        affaire.setContraventionId(rs.getLong("contravention_id"));
-        affaire.setBureauId(rs.getLong("bureau_id"));
-        affaire.setServiceId(rs.getLong("service_id"));
-        affaire.setCreatedBy(rs.getString("created_by"));
-        affaire.setUpdatedBy(rs.getString("updated_by"));
+        affaire.setObservations(rs.getString("observations"));
 
-        // Gestion des timestamps
-        try {
-            Timestamp createdAt = rs.getTimestamp("created_at");
-            if (createdAt != null) {
-                affaire.setCreatedAt(createdAt.toLocalDateTime());
+        // IDs des relations
+        long contrevenantId = rs.getLong("contrevenant_id");
+        if (!rs.wasNull()) {
+            affaire.setContrevenantId(contrevenantId);
+
+            // Charger les infos de base du contrevenant si disponibles
+            try {
+                Contrevenant contrevenant = new Contrevenant();
+                contrevenant.setId(contrevenantId);
+                String nom = rs.getString("contrevenant_nom");
+                String prenom = rs.getString("contrevenant_prenom");
+                String raisonSociale = rs.getString("contrevenant_raison_sociale");
+
+                if (nom != null) {
+                    contrevenant.setNom(nom);
+                    contrevenant.setPrenom(prenom);
+                } else if (raisonSociale != null) {
+                    contrevenant.setRaisonSociale(raisonSociale);
+                }
+                affaire.setContrevenant(contrevenant);
+            } catch (SQLException e) {
+                // Colonnes optionnelles
             }
-        } catch (SQLException e) {
-            logger.debug("Échec du parsing de created_at pour l'affaire {}", affaire.getId());
         }
 
-        try {
-            Timestamp updatedAt = rs.getTimestamp("updated_at");
-            if (updatedAt != null) {
-                affaire.setUpdatedAt(updatedAt.toLocalDateTime());
+        long agentId = rs.getLong("agent_verbalisateur_id");
+        if (!rs.wasNull()) {
+            try {
+                Agent agent = new Agent();
+                agent.setId(agentId);
+                agent.setCodeAgent(rs.getString("code_agent"));
+                agent.setNom(rs.getString("agent_nom"));
+                agent.setPrenom(rs.getString("agent_prenom"));
+                affaire.setAgentVerbalisateur(agent);
+            } catch (SQLException e) {
+                // Colonnes optionnelles
             }
-        } catch (SQLException e) {
-            logger.debug("Échec du parsing de updated_at pour l'affaire {}", affaire.getId());
+        }
+
+        long bureauId = rs.getLong("bureau_id");
+        if (!rs.wasNull()) {
+            affaire.setBureauId(bureauId);
+            try {
+                Bureau bureau = new Bureau();
+                bureau.setId(bureauId);
+                bureau.setCodeBureau(rs.getString("code_bureau"));
+                bureau.setNomBureau(rs.getString("nom_bureau"));
+                affaire.setBureau(bureau);
+            } catch (SQLException e) {
+                // Colonnes optionnelles
+            }
+        }
+
+        long serviceId = rs.getLong("service_id");
+        if (!rs.wasNull()) {
+            affaire.setServiceId(serviceId);
+            try {
+                Service service = new Service();
+                service.setId(serviceId);
+                service.setCodeService(rs.getString("code_service"));
+                service.setNomService(rs.getString("nom_service"));
+                affaire.setService(service);
+            } catch (SQLException e) {
+                // Colonnes optionnelles
+            }
+        }
+
+        // Métadonnées
+        affaire.setCreatedBy(rs.getString("created_by"));
+
+        Timestamp createdAt = rs.getTimestamp("created_at");
+        if (createdAt != null) {
+            affaire.setCreatedAt(createdAt.toLocalDateTime());
+        }
+
+        affaire.setUpdatedBy(rs.getString("updated_by"));
+
+        Timestamp updatedAt = rs.getTimestamp("updated_at");
+        if (updatedAt != null) {
+            affaire.setUpdatedAt(updatedAt.toLocalDateTime());
+        }
+
+        affaire.setDeleted(rs.getBoolean("deleted"));
+        affaire.setDeletedBy(rs.getString("deleted_by"));
+
+        Date deletedAt = rs.getDate("deleted_at");
+        if (deletedAt != null) {
+            affaire.setDeletedAt(deletedAt.toLocalDate());
         }
 
         return affaire;
@@ -140,29 +250,83 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
     @Override
     protected void setInsertParameters(PreparedStatement stmt, Affaire affaire) throws SQLException {
         stmt.setString(1, affaire.getNumeroAffaire());
+        stmt.setDate(2, Date.valueOf(affaire.getDateCreation()));
+        stmt.setDate(3, Date.valueOf(affaire.getDateConstatation()));
+        stmt.setString(4, affaire.getLieuConstatation());
+        stmt.setString(5, affaire.getDescription());
+        stmt.setBigDecimal(6, affaire.getMontantTotal());
+        stmt.setBigDecimal(7, affaire.getMontantEncaisse());
+        stmt.setBigDecimal(8, affaire.getMontantAmendeTotal());
+        stmt.setString(9, affaire.getStatut().name());
+        stmt.setString(10, affaire.getObservations());
 
-        if (affaire.getDateCreation() != null) {
-            stmt.setDate(2, Date.valueOf(affaire.getDateCreation()));
+        // IDs des relations
+        if (affaire.getContrevenantId() != null) {
+            stmt.setLong(11, affaire.getContrevenantId());
         } else {
-            stmt.setNull(2, Types.DATE);
+            stmt.setNull(11, Types.BIGINT);
         }
 
-        stmt.setDouble(3, affaire.getMontantAmendeTotal() != null ? affaire.getMontantAmendeTotal() : 0.0);
-        stmt.setString(4, affaire.getStatut() != null ? affaire.getStatut().name() : StatutAffaire.OUVERTE.name());
+        if (affaire.getAgentVerbalisateur() != null && affaire.getAgentVerbalisateur().getId() != null) {
+            stmt.setLong(12, affaire.getAgentVerbalisateur().getId());
+        } else {
+            stmt.setNull(12, Types.BIGINT);
+        }
 
-        stmt.setObject(5, affaire.getContrevenantId(), Types.BIGINT);
-        stmt.setObject(6, affaire.getContraventionId(), Types.BIGINT);
-        stmt.setObject(7, affaire.getBureauId(), Types.BIGINT);
-        stmt.setObject(8, affaire.getServiceId(), Types.BIGINT);
+        if (affaire.getBureauId() != null) {
+            stmt.setLong(13, affaire.getBureauId());
+        } else {
+            stmt.setNull(13, Types.BIGINT);
+        }
 
-        stmt.setString(9, affaire.getCreatedBy());
+        if (affaire.getServiceId() != null) {
+            stmt.setLong(14, affaire.getServiceId());
+        } else {
+            stmt.setNull(14, Types.BIGINT);
+        }
+
+        stmt.setString(15, affaire.getCreatedBy());
+        stmt.setTimestamp(16, Timestamp.valueOf(affaire.getCreatedAt()));
     }
 
     @Override
     protected void setUpdateParameters(PreparedStatement stmt, Affaire affaire) throws SQLException {
-        setInsertParameters(stmt, affaire);
-        stmt.setString(10, affaire.getUpdatedBy());
-        stmt.setLong(11, affaire.getId());
+        stmt.setDate(1, Date.valueOf(affaire.getDateConstatation()));
+        stmt.setString(2, affaire.getLieuConstatation());
+        stmt.setString(3, affaire.getDescription());
+        stmt.setBigDecimal(4, affaire.getMontantTotal());
+        stmt.setBigDecimal(5, affaire.getMontantEncaisse());
+        stmt.setBigDecimal(6, affaire.getMontantAmendeTotal());
+        stmt.setString(7, affaire.getStatut().name());
+        stmt.setString(8, affaire.getObservations());
+
+        if (affaire.getContrevenantId() != null) {
+            stmt.setLong(9, affaire.getContrevenantId());
+        } else {
+            stmt.setNull(9, Types.BIGINT);
+        }
+
+        if (affaire.getAgentVerbalisateur() != null && affaire.getAgentVerbalisateur().getId() != null) {
+            stmt.setLong(10, affaire.getAgentVerbalisateur().getId());
+        } else {
+            stmt.setNull(10, Types.BIGINT);
+        }
+
+        if (affaire.getBureauId() != null) {
+            stmt.setLong(11, affaire.getBureauId());
+        } else {
+            stmt.setNull(11, Types.BIGINT);
+        }
+
+        if (affaire.getServiceId() != null) {
+            stmt.setLong(12, affaire.getServiceId());
+        } else {
+            stmt.setNull(12, Types.BIGINT);
+        }
+
+        stmt.setString(13, affaire.getUpdatedBy());
+        stmt.setTimestamp(14, Timestamp.valueOf(LocalDateTime.now()));
+        stmt.setLong(15, affaire.getId());
     }
 
     @Override
@@ -180,53 +344,54 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
     /**
      * Recherche d'affaires avec critères multiples
      */
-    public List<Affaire> searchAffaires(String numeroOuContrevenant, StatutAffaire statut,
+    public List<Affaire> searchAffaires(String searchTerm, StatutAffaire statut,
                                         LocalDate dateDebut, LocalDate dateFin,
-                                        int offset, int limit) {
-        StringBuilder sql = new StringBuilder();
-        sql.append("SELECT id, numero_affaire, date_creation, montant_amende_total, ");
-        sql.append("statut, contrevenant_id, contravention_id, bureau_id, service_id, ");
-        sql.append("created_at, updated_at, created_by, updated_by ");
-        sql.append("FROM affaires WHERE 1=1 ");
+                                        Integer bureauId, int offset, int limit) {
+        StringBuilder sql = new StringBuilder(getSelectAllQuery().replace(
+                "WHERE a.deleted = false",
+                "WHERE a.deleted = false"));
 
         List<Object> parameters = new ArrayList<>();
 
-        if (numeroOuContrevenant != null && !numeroOuContrevenant.trim().isEmpty()) {
-            sql.append("AND numero_affaire LIKE ? ");
-            parameters.add("%" + numeroOuContrevenant.trim() + "%");
+        if (searchTerm != null && !searchTerm.trim().isEmpty()) {
+            sql.append(" AND (a.numero_affaire LIKE ? OR a.description LIKE ? OR a.lieu_constatation LIKE ?)");
+            String searchPattern = "%" + searchTerm.trim() + "%";
+            parameters.add(searchPattern);
+            parameters.add(searchPattern);
+            parameters.add(searchPattern);
         }
 
         if (statut != null) {
-            sql.append("AND statut = ? ");
+            sql.append(" AND a.statut = ?");
             parameters.add(statut.name());
         }
 
         if (dateDebut != null) {
-            sql.append("AND date_creation >= ? ");
-            parameters.add(dateDebut);
+            sql.append(" AND a.date_constatation >= ?");
+            parameters.add(Date.valueOf(dateDebut));
         }
 
         if (dateFin != null) {
-            sql.append("AND date_creation <= ? ");
-            parameters.add(dateFin);
+            sql.append(" AND a.date_constatation <= ?");
+            parameters.add(Date.valueOf(dateFin));
         }
 
-        sql.append("ORDER BY created_at DESC LIMIT ? OFFSET ?");
+        if (bureauId != null) {
+            sql.append(" AND a.bureau_id = ?");
+            parameters.add(bureauId.longValue());
+        }
+
+        sql.append(" ORDER BY a.date_creation DESC LIMIT ? OFFSET ?");
         parameters.add(limit);
         parameters.add(offset);
 
         List<Affaire> affaires = new ArrayList<>();
 
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+        try (Connection conn = getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
 
             for (int i = 0; i < parameters.size(); i++) {
-                Object param = parameters.get(i);
-                if (param instanceof LocalDate) {
-                    stmt.setDate(i + 1, Date.valueOf((LocalDate) param));
-                } else {
-                    stmt.setObject(i + 1, param);
-                }
+                stmt.setObject(i + 1, parameters.get(i));
             }
 
             ResultSet rs = stmt.executeQuery();
@@ -243,45 +408,49 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
     }
 
     /**
-     * Compte les affaires correspondant aux critères
+     * Compte les affaires selon les critères de recherche
      */
-    public long countSearchAffaires(String numeroOuContrevenant, StatutAffaire statut,
-                                    LocalDate dateDebut, LocalDate dateFin) {
-        StringBuilder sql = new StringBuilder();
-        sql.append("SELECT COUNT(*) FROM affaires WHERE 1=1 ");
+    public long countSearchAffaires(String searchTerm, StatutAffaire statut,
+                                    LocalDate dateDebut, LocalDate dateFin,
+                                    Integer bureauId) {
+        StringBuilder sql = new StringBuilder(
+                "SELECT COUNT(*) FROM affaires a WHERE a.deleted = false");
 
         List<Object> parameters = new ArrayList<>();
 
-        if (numeroOuContrevenant != null && !numeroOuContrevenant.trim().isEmpty()) {
-            sql.append("AND numero_affaire LIKE ? ");
-            parameters.add("%" + numeroOuContrevenant.trim() + "%");
+        if (searchTerm != null && !searchTerm.trim().isEmpty()) {
+            sql.append(" AND (a.numero_affaire LIKE ? OR a.description LIKE ? OR a.lieu_constatation LIKE ?)");
+            String searchPattern = "%" + searchTerm.trim() + "%";
+            parameters.add(searchPattern);
+            parameters.add(searchPattern);
+            parameters.add(searchPattern);
         }
 
         if (statut != null) {
-            sql.append("AND statut = ? ");
+            sql.append(" AND a.statut = ?");
             parameters.add(statut.name());
         }
 
         if (dateDebut != null) {
-            sql.append("AND date_creation >= ? ");
-            parameters.add(dateDebut);
+            sql.append(" AND a.date_constatation >= ?");
+            parameters.add(Date.valueOf(dateDebut));
         }
 
         if (dateFin != null) {
-            sql.append("AND date_creation <= ? ");
-            parameters.add(dateFin);
+            sql.append(" AND a.date_constatation <= ?");
+            parameters.add(Date.valueOf(dateFin));
         }
 
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+        if (bureauId != null) {
+            sql.append(" AND a.bureau_id = ?");
+            parameters.add(bureauId.longValue());
+        }
+
+        try (Connection conn = getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
 
             for (int i = 0; i < parameters.size(); i++) {
-                Object param = parameters.get(i);
-                if (param instanceof LocalDate) {
-                    stmt.setDate(i + 1, Date.valueOf((LocalDate) param));
-                } else {
-                    stmt.setObject(i + 1, param);
-                }
+                stmt.setObject(i + 1, parameters.get(i));
             }
 
             ResultSet rs = stmt.executeQuery();
@@ -300,9 +469,9 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
      * Trouve une affaire par son numéro
      */
     public Optional<Affaire> findByNumeroAffaire(String numeroAffaire) {
-        String sql = getSelectAllQuery().replace("ORDER BY created_at DESC", "WHERE numero_affaire = ?");
+        String sql = getSelectByIdQuery().replace("WHERE a.id = ?", "WHERE a.numero_affaire = ?");
 
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+        try (Connection conn = getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setString(1, numeroAffaire);
@@ -313,238 +482,100 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
             }
 
         } catch (SQLException e) {
-            logger.error("Erreur lors de la recherche par numéro d'affaire: " + numeroAffaire, e);
+            logger.error("Erreur lors de la recherche par numéro: " + numeroAffaire, e);
         }
 
         return Optional.empty();
     }
 
     /**
-     * Génère le prochain numéro d'affaire
-     */
-    public String generateNextNumeroAffaire() {
-        LocalDate today = LocalDate.now();
-        String prefix = today.format(DateTimeFormatter.ofPattern("yyyyMM"));
-
-        String sql = """
-            SELECT numero_affaire FROM affaires 
-            WHERE numero_affaire LIKE ? 
-            ORDER BY numero_affaire DESC 
-            LIMIT 1
-        """;
-
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-            stmt.setString(1, prefix + "%");
-            ResultSet rs = stmt.executeQuery();
-
-            if (rs.next()) {
-                String lastNumero = rs.getString("numero_affaire");
-                return generateNextNumeroFromLast(lastNumero, prefix);
-            } else {
-                return prefix + "001";
-            }
-
-        } catch (SQLException e) {
-            logger.error("Erreur lors de la génération du numéro d'affaire", e);
-            return prefix + "001";
-        }
-    }
-
-    private String generateNextNumeroFromLast(String lastNumero, String prefix) {
-        try {
-            if (lastNumero != null && lastNumero.startsWith(prefix) && lastNumero.length() == 9) {
-                String numericPart = lastNumero.substring(6);
-                int lastNumber = Integer.parseInt(numericPart);
-                return prefix + String.format("%03d", lastNumber + 1);
-            }
-            return prefix + "001";
-        } catch (Exception e) {
-            logger.warn("Erreur lors du parsing du dernier numéro d'affaire: {}", lastNumero, e);
-            return prefix + "001";
-        }
-    }
-
-    /**
-     * Vérifie si un numéro d'affaire existe déjà
-     */
-    public boolean existsByNumeroAffaire(String numeroAffaire) {
-        String sql = "SELECT 1 FROM affaires WHERE numero_affaire = ? LIMIT 1";
-
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-            stmt.setString(1, numeroAffaire);
-            ResultSet rs = stmt.executeQuery();
-            return rs.next();
-
-        } catch (SQLException e) {
-            logger.error("Erreur lors de la vérification du numéro d'affaire", e);
-            return false;
-        }
-    }
-
-    /**
-     * Trouve les affaires par contrevenant
+     * Trouve les affaires d'un contrevenant
      */
     public List<Affaire> findByContrevenantId(Long contrevenantId) {
-        String sql = """
-            SELECT id, numero_affaire, date_creation, montant_amende_total, 
-                   statut, contrevenant_id, contravention_id, bureau_id, 
-                   service_id, created_at, updated_at, created_by, updated_by 
-            FROM affaires 
-            WHERE contrevenant_id = ?
-            ORDER BY created_at DESC
-        """;
+        String sql = getSelectAllQuery().replace(
+                "WHERE a.deleted = false",
+                "WHERE a.deleted = false AND a.contrevenant_id = ?");
 
-        List<Affaire> affaires = new ArrayList<>();
-
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-            stmt.setLong(1, contrevenantId);
-            ResultSet rs = stmt.executeQuery();
-
-            while (rs.next()) {
-                affaires.add(mapResultSetToEntity(rs));
-            }
-
-        } catch (SQLException e) {
-            logger.error("Erreur lors de la récupération des affaires par contrevenant: " + contrevenantId, e);
-        }
-
-        return affaires;
+        return executeQuery(sql, contrevenantId);
     }
 
     /**
-     * Statistiques des affaires par statut
+     * Compte les affaires par statut
      */
-    public Map<StatutAffaire, Long> getStatistiquesParStatut() {
-        String sql = """
-            SELECT statut, COUNT(*) as count 
-            FROM affaires 
-            GROUP BY statut
-        """;
+    public long countByStatut(StatutAffaire statut) {
+        String sql = "SELECT COUNT(*) FROM affaires WHERE statut = ? AND deleted = false";
 
-        Map<StatutAffaire, Long> stats = new HashMap<>();
-
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+        try (Connection conn = getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
+            stmt.setString(1, statut.name());
             ResultSet rs = stmt.executeQuery();
 
-            while (rs.next()) {
-                String statutStr = rs.getString("statut");
-                Long count = rs.getLong("count");
-
-                try {
-                    StatutAffaire statut = StatutAffaire.valueOf(statutStr);
-                    stats.put(statut, count);
-                } catch (IllegalArgumentException e) {
-                    logger.warn("Statut inconnu trouvé: {}", statutStr);
-                }
-            }
-
-        } catch (SQLException e) {
-            logger.error("Erreur lors de la récupération des statistiques par statut", e);
-        }
-
-        return stats;
-    }
-
-    /**
-     * Calcule le montant total des amendes pour une période
-     */
-    public Double getMontantTotalAmendes(LocalDate dateDebut, LocalDate dateFin) {
-        StringBuilder sql = new StringBuilder();
-        sql.append("SELECT SUM(montant_amende_total) as total FROM affaires WHERE 1=1 ");
-
-        List<Object> parameters = new ArrayList<>();
-
-        if (dateDebut != null) {
-            sql.append("AND date_creation >= ? ");
-            parameters.add(dateDebut);
-        }
-
-        if (dateFin != null) {
-            sql.append("AND date_creation <= ? ");
-            parameters.add(dateFin);
-        }
-
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
-
-            for (int i = 0; i < parameters.size(); i++) {
-                stmt.setDate(i + 1, Date.valueOf((LocalDate) parameters.get(i)));
-            }
-
-            ResultSet rs = stmt.executeQuery();
             if (rs.next()) {
-                return rs.getDouble("total");
+                return rs.getLong(1);
             }
 
         } catch (SQLException e) {
-            logger.error("Erreur lors du calcul du montant total des amendes", e);
+            logger.error("Erreur lors du comptage par statut: " + statut, e);
         }
 
-        return 0.0;
+        return 0;
     }
 
     /**
-     * Obtient les affaires récentes pour le tableau de bord
+     * Compte les affaires créées dans une année
      */
-    public List<Affaire> getRecentAffaires(int limit) {
-        String sql = """
-            SELECT id, numero_affaire, date_creation, montant_amende_total, 
-                   statut, contrevenant_id, contravention_id, bureau_id, 
-                   service_id, created_at, updated_at, created_by, updated_by 
-            FROM affaires 
-            ORDER BY created_at DESC 
-            LIMIT ?
-        """;
+    public long countByYear(int year) {
+        String sql = "SELECT COUNT(*) FROM affaires WHERE strftime('%Y', date_creation) = ? AND deleted = false";
 
-        List<Affaire> affaires = new ArrayList<>();
-
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+        try (Connection conn = getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-            stmt.setInt(1, limit);
+            stmt.setString(1, String.valueOf(year));
             ResultSet rs = stmt.executeQuery();
 
-            while (rs.next()) {
-                affaires.add(mapResultSetToEntity(rs));
+            if (rs.next()) {
+                return rs.getLong(1);
             }
 
         } catch (SQLException e) {
-            logger.error("Erreur lors de la récupération des affaires récentes", e);
+            logger.error("Erreur lors du comptage par année: " + year, e);
         }
 
-        return affaires;
+        return 0;
     }
 
     /**
-     * Trouve les affaires avec encaissements par période - MÉTHODE MANQUANTE AJOUTÉE
+     * Trouve les affaires avec encaissements validés pour une période
      */
     public List<Affaire> findAffairesWithEncaissementsByPeriod(LocalDate dateDebut, LocalDate dateFin) {
         String sql = """
-            SELECT DISTINCT a.id, a.numero_affaire, a.date_creation, a.montant_amende_total, 
-                   a.statut, a.contrevenant_id, a.contravention_id, a.bureau_id, 
-                   a.service_id, a.created_at, a.updated_at, a.created_by, a.updated_by 
+            SELECT DISTINCT a.*, 
+                   c.nom as contrevenant_nom, c.prenom as contrevenant_prenom, 
+                   c.raison_sociale as contrevenant_raison_sociale,
+                   ag.code_agent, ag.nom as agent_nom, ag.prenom as agent_prenom,
+                   b.code_bureau, b.nom_bureau,
+                   s.code_service, s.nom_service
             FROM affaires a
             INNER JOIN encaissements e ON a.id = e.affaire_id
-            WHERE e.date_encaissement >= ? AND e.date_encaissement <= ?
-            AND e.statut = 'VALIDE'
-            ORDER BY a.created_at DESC
+            LEFT JOIN contrevenants c ON a.contrevenant_id = c.id
+            LEFT JOIN agents ag ON a.agent_verbalisateur_id = ag.id
+            LEFT JOIN bureaux b ON a.bureau_id = b.id
+            LEFT JOIN services s ON a.service_id = s.id
+            WHERE e.date_encaissement BETWEEN ? AND ?
+              AND e.statut = 'VALIDE'
+              AND a.deleted = false
+            ORDER BY a.numero_affaire
         """;
 
         List<Affaire> affaires = new ArrayList<>();
 
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+        try (Connection conn = getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setDate(1, Date.valueOf(dateDebut));
             stmt.setDate(2, Date.valueOf(dateFin));
+
             ResultSet rs = stmt.executeQuery();
 
             while (rs.next()) {
@@ -552,106 +583,67 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
             }
 
         } catch (SQLException e) {
-            logger.error("Erreur lors de la récupération des affaires avec encaissements par période", e);
+            logger.error("Erreur lors de la recherche des affaires avec encaissements", e);
         }
 
         return affaires;
     }
 
     /**
-     * Recherche des affaires avec pagination
-     * CORRIGER la signature pour correspondre aux appels
+     * Met à jour le montant encaissé d'une affaire
      */
-    public List<Affaire> searchAffaires(String searchText, StatutAffaire statut,
-                                        LocalDate dateDebut, LocalDate dateFin,
-                                        Integer contrevenantId, int offset, int limit) {
-        StringBuilder query = new StringBuilder("SELECT * FROM affaires WHERE 1=1");
-        List<Object> params = new ArrayList<>();
+    public void updateMontantEncaisse(Long affaireId, BigDecimal montantEncaisse) {
+        String sql = """
+            UPDATE affaires 
+            SET montant_encaisse = ?, updated_at = ?
+            WHERE id = ?
+        """;
 
-        if (searchText != null && !searchText.trim().isEmpty()) {
-            query.append(" AND (numero_affaire LIKE ? OR observations LIKE ?)");
-            params.add("%" + searchText + "%");
-            params.add("%" + searchText + "%");
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setBigDecimal(1, montantEncaisse);
+            stmt.setTimestamp(2, Timestamp.valueOf(LocalDateTime.now()));
+            stmt.setLong(3, affaireId);
+
+            int updated = stmt.executeUpdate();
+
+            if (updated > 0) {
+                logger.debug("Montant encaissé mis à jour pour l'affaire {}", affaireId);
+            }
+
+        } catch (SQLException e) {
+            logger.error("Erreur lors de la mise à jour du montant encaissé", e);
         }
-
-        if (statut != null) {
-            query.append(" AND statut = ?");
-            params.add(statut.name());
-        }
-
-        if (dateDebut != null) {
-            query.append(" AND date_creation >= ?");
-            params.add(dateDebut);
-        }
-
-        if (dateFin != null) {
-            query.append(" AND date_creation <= ?");
-            params.add(dateFin);
-        }
-
-        if (contrevenantId != null) {
-            query.append(" AND contrevenant_id = ?");
-            params.add(contrevenantId);
-        }
-
-        query.append(" ORDER BY date_creation DESC LIMIT ? OFFSET ?");
-        params.add(limit);
-        params.add(offset);
-
-        return executeQuery(query.toString(), params.toArray());
     }
 
     /**
-     * Compte les affaires correspondant aux critères de recherche
-     * CORRIGER la signature pour correspondre aux appels
+     * Suppression logique d'une affaire
      */
-    public long countSearchAffaires(String searchText, StatutAffaire statut,
-                                    LocalDate dateDebut, LocalDate dateFin,
-                                    Integer contrevenantId) {
-        StringBuilder query = new StringBuilder("SELECT COUNT(*) FROM affaires WHERE 1=1");
-        List<Object> params = new ArrayList<>();
-
-        if (searchText != null && !searchText.trim().isEmpty()) {
-            query.append(" AND (numero_affaire LIKE ? OR observations LIKE ?)");
-            params.add("%" + searchText + "%");
-            params.add("%" + searchText + "%");
-        }
-
-        if (statut != null) {
-            query.append(" AND statut = ?");
-            params.add(statut.name());
-        }
-
-        if (dateDebut != null) {
-            query.append(" AND date_creation >= ?");
-            params.add(dateDebut);
-        }
-
-        if (dateFin != null) {
-            query.append(" AND date_creation <= ?");
-            params.add(dateFin);
-        }
-
-        if (contrevenantId != null) {
-            query.append(" AND contrevenant_id = ?");
-            params.add(contrevenantId);
-        }
+    @Override
+    public void deleteById(Long id) {
+        String sql = """
+            UPDATE affaires 
+            SET deleted = true, deleted_by = ?, deleted_at = ?
+            WHERE id = ?
+        """;
 
         try (Connection conn = getConnection();
-             PreparedStatement stmt = conn.prepareStatement(query.toString())) {
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-            for (int i = 0; i < params.size(); i++) {
-                stmt.setObject(i + 1, params.get(i));
+            stmt.setString(1, "SYSTEM"); // À remplacer par l'utilisateur courant
+            stmt.setTimestamp(2, Timestamp.valueOf(LocalDateTime.now()));
+            stmt.setLong(3, id);
+
+            int updated = stmt.executeUpdate();
+
+            if (updated > 0) {
+                logger.info("Affaire {} supprimée logiquement", id);
             }
 
-            ResultSet rs = stmt.executeQuery();
-            if (rs.next()) {
-                return rs.getLong(1);
-            }
-            return 0;
         } catch (SQLException e) {
-            logger.error("Erreur lors du comptage des affaires", e);
-            return 0;
+            logger.error("Erreur lors de la suppression logique de l'affaire", e);
+            throw new RuntimeException("Erreur lors de la suppression", e);
         }
     }
 }

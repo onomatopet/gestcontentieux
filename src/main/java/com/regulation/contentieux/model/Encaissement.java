@@ -106,6 +106,51 @@ public class Encaissement {
                 montantEncaisse.compareTo(BigDecimal.ZERO) > 0;
     }
 
+    /**
+     * Alias pour getMontantEncaisse() - compatibilité RapportService
+     */
+    public BigDecimal getMontant() {
+        return getMontantEncaisse();
+    }
+
+    /**
+     * Retourne le libellé du mode de règlement
+     */
+    public String getModeReglementLibelle() {
+        return modeReglement != null ? modeReglement.toString() : "";
+    }
+
+    /**
+     * Retourne le libellé du statut
+     */
+    public String getStatutLibelle() {
+        return statut != null ? statut.toString() : "";
+    }
+
+    /**
+     * Retourne l'ID de l'affaire associée
+     */
+    public Long getAffaireId() {
+        return affaire != null ? affaire.getId() : null;
+    }
+
+    /**
+     * Définit l'affaire par son ID (pour compatibilité)
+     */
+    public void setAffaireId(Long affaireId) {
+        if (affaire == null) {
+            affaire = new Affaire();
+        }
+        affaire.setId(affaireId);
+    }
+
+    /**
+     * Vérifie si l'encaissement peut être modifié
+     */
+    public boolean peutEtreModifie() {
+        return canBeModified();
+    }
+
     // Getters et Setters
 
     public Long getId() {

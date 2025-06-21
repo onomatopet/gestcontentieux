@@ -1,40 +1,37 @@
 package com.regulation.contentieux.model;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
-import com.fasterxml.jackson.annotation.JsonIgnore;
-
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Objects;
 
 /**
- * Entité représentant un agent
+ * Entité représentant un agent de la régulation
+ * Un agent peut verbaliser et gérer des affaires contentieuses
  */
 public class Agent {
+
     private Long id;
     private String codeAgent;
     private String nom;
     private String prenom;
     private String grade;
-    private Long serviceId;
-    private Boolean actif;
-
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private LocalDateTime createdAt;
-
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private LocalDateTime updatedAt;
+    private String email;
+    private String telephone;
+    private boolean actif;
 
     // Relations
-    @JsonIgnore
-    private List<AffaireActeur> affaireActeurs = new ArrayList<>();
+    private Service service;
+    private Bureau bureau;
+
+    // Métadonnées
+    private String createdBy;
+    private LocalDateTime createdAt;
+    private String updatedBy;
+    private LocalDateTime updatedAt;
 
     // Constructeurs
     public Agent() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
         this.actif = true;
+        this.createdAt = LocalDateTime.now();
     }
 
     public Agent(String codeAgent, String nom, String prenom) {
@@ -45,59 +42,165 @@ public class Agent {
     }
 
     // Méthodes métier
+
+    /**
+     * Retourne le nom complet de l'agent
+     */
     public String getNomComplet() {
         return prenom + " " + nom;
     }
 
-    public String getNomFormate() {
-        return nom.toUpperCase() + " " + prenom;
+    /**
+     * Retourne le nom d'affichage (Code - Nom complet)
+     */
+    public String getDisplayName() {
+        return codeAgent + " - " + getNomComplet();
     }
 
-    public boolean isActif() {
-        return actif != null && actif;
+    /**
+     * Vérifie si l'agent appartient à un service
+     */
+    public boolean hasService() {
+        return service != null;
     }
 
-    public int getChargesTravail() {
-        return affaireActeurs.size(); // Simplifié
+    /**
+     * Vérifie si l'agent appartient à un bureau
+     */
+    public boolean hasBureau() {
+        return bureau != null;
+    }
+
+    /**
+     * Retourne une représentation courte
+     */
+    public String getShortDisplay() {
+        return codeAgent + " (" + nom + ")";
     }
 
     // Getters et Setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
 
-    public String getCodeAgent() { return codeAgent; }
-    public void setCodeAgent(String codeAgent) { this.codeAgent = codeAgent; }
+    public Long getId() {
+        return id;
+    }
 
-    public String getNom() { return nom; }
-    public void setNom(String nom) { this.nom = nom; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public String getPrenom() { return prenom; }
-    public void setPrenom(String prenom) { this.prenom = prenom; }
+    public String getCodeAgent() {
+        return codeAgent;
+    }
 
-    public String getGrade() { return grade; }
-    public void setGrade(String grade) { this.grade = grade; }
+    public void setCodeAgent(String codeAgent) {
+        this.codeAgent = codeAgent;
+    }
 
-    public Long getServiceId() { return serviceId; }
-    public void setServiceId(Long serviceId) { this.serviceId = serviceId; }
+    public String getNom() {
+        return nom;
+    }
 
-    public Boolean getActif() { return actif; }
-    public void setActif(Boolean actif) { this.actif = actif; }
+    public void setNom(String nom) {
+        this.nom = nom;
+    }
 
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public String getPrenom() {
+        return prenom;
+    }
 
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public void setPrenom(String prenom) {
+        this.prenom = prenom;
+    }
 
-    public List<AffaireActeur> getAffaireActeurs() { return affaireActeurs; }
-    public void setAffaireActeurs(List<AffaireActeur> affaireActeurs) { this.affaireActeurs = affaireActeurs; }
+    public String getGrade() {
+        return grade;
+    }
+
+    public void setGrade(String grade) {
+        this.grade = grade;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getTelephone() {
+        return telephone;
+    }
+
+    public void setTelephone(String telephone) {
+        this.telephone = telephone;
+    }
+
+    public boolean isActif() {
+        return actif;
+    }
+
+    public void setActif(boolean actif) {
+        this.actif = actif;
+    }
+
+    public Service getService() {
+        return service;
+    }
+
+    public void setService(Service service) {
+        this.service = service;
+    }
+
+    public Bureau getBureau() {
+        return bureau;
+    }
+
+    public void setBureau(Bureau bureau) {
+        this.bureau = bureau;
+    }
+
+    public String getCreatedBy() {
+        return createdBy;
+    }
+
+    public void setCreatedBy(String createdBy) {
+        this.createdBy = createdBy;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public String getUpdatedBy() {
+        return updatedBy;
+    }
+
+    public void setUpdatedBy(String updatedBy) {
+        this.updatedBy = updatedBy;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    // Equals, HashCode et ToString
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Agent agent = (Agent) o;
-        return Objects.equals(id, agent.id) && Objects.equals(codeAgent, agent.codeAgent);
+        return Objects.equals(id, agent.id) &&
+                Objects.equals(codeAgent, agent.codeAgent);
     }
 
     @Override
@@ -107,6 +210,13 @@ public class Agent {
 
     @Override
     public String toString() {
-        return codeAgent + " - " + getNomComplet();
+        return "Agent{" +
+                "id=" + id +
+                ", codeAgent='" + codeAgent + '\'' +
+                ", nom='" + nom + '\'' +
+                ", prenom='" + prenom + '\'' +
+                ", grade='" + grade + '\'' +
+                ", actif=" + actif +
+                '}';
     }
 }

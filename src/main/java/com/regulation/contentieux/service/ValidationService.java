@@ -327,4 +327,64 @@ public class ValidationService {
         }
         return description.length() <= MAX_DESCRIPTION_LENGTH;
     }
+
+    /**
+     * Valide une chaîne de caractères avec longueur min/max
+     */
+    public boolean isValidString(String str, int minLength, int maxLength) {
+        if (str == null) {
+            return minLength == 0; // Valide si optionnel (minLength = 0)
+        }
+        String trimmed = str.trim();
+        return trimmed.length() >= minLength && trimmed.length() <= maxLength;
+    }
+
+    /**
+     * Normalise un nom de personne (majuscule première lettre)
+     */
+    public String normalizePersonName(String name) {
+        if (name == null || name.trim().isEmpty()) {
+            return name;
+        }
+
+        String trimmed = name.trim().toLowerCase();
+        return Character.toUpperCase(trimmed.charAt(0)) + trimmed.substring(1);
+    }
+
+    /**
+     * Valide un nom de personne
+     */
+    public boolean isValidPersonName(String name) {
+        if (name == null || name.trim().isEmpty()) {
+            return false;
+        }
+
+        // Au moins 2 caractères, que des lettres, espaces, tirets et apostrophes
+        String trimmed = name.trim();
+        return trimmed.length() >= MIN_NAME_LENGTH &&
+                trimmed.matches("^[a-zA-ZÀ-ÿ\\s\\-']+$");
+    }
+
+    /**
+     * Valide un grade d'agent
+     */
+    public boolean isValidGrade(String grade) {
+        if (grade == null || grade.trim().isEmpty()) {
+            return true; // Grade optionnel
+        }
+
+        // Liste des grades valides (à adapter selon les besoins)
+        String[] gradesValides = {
+                "Inspecteur", "Contrôleur", "Agent", "Chef de service",
+                "Directeur", "Directeur adjoint", "Stagiaire"
+        };
+
+        for (String gradeValide : gradesValides) {
+            if (gradeValide.equalsIgnoreCase(grade.trim())) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

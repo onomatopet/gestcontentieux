@@ -438,6 +438,25 @@ public class AffaireFormController implements Initializable {
         this.currentStage = stage;
     }
 
+    /**
+     * Méthode pour compatibilité avec AffaireListController
+     */
+    public void setAffaireToEdit(Affaire affaire) {
+        initializeForEdit(affaire);
+    }
+
+    /**
+     * Définit des valeurs par défaut
+     */
+    public void setDefaultValues(String numeroAffaire, Contrevenant contrevenant) {
+        if (numeroAffaire != null && !numeroAffaire.trim().isEmpty()) {
+            numeroAffaireLabel.setText(numeroAffaire);
+        }
+        if (contrevenant != null) {
+            contrevenantComboBox.setValue(contrevenant);
+        }
+    }
+
     // ==================== ACTIONS FXML ====================
 
     @FXML

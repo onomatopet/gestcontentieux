@@ -351,6 +351,24 @@ public class ServiceDAO extends AbstractSQLiteDAO<Service, Long> {
         return services;
     }
 
+    public List<Service> findAllActifs() {
+        String sql = "SELECT * FROM services WHERE actif = 1 ORDER BY nom_service";
+        List<Service> services = new ArrayList<>();
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+
+            while (rs.next()) {
+                services.add(mapResultSetToEntity(rs));
+            }
+        } catch (SQLException e) {
+            logger.error("Erreur lors de la récupération des services actifs", e);
+        }
+
+        return services;
+    }
+
     /**
      * Génère le prochain code service selon le format SRVNNN
      */

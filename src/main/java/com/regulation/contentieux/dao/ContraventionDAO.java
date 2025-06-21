@@ -325,6 +325,25 @@ public class ContraventionDAO extends AbstractSQLiteDAO<Contravention, Long> {
         }
     }
 
+    public List<Contravention> findAllActives() {
+        String sql = "SELECT * FROM contraventions WHERE actif = 1 ORDER BY libelle";
+        List<Contravention> contraventions = new ArrayList<>();
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+
+            while (rs.next()) {
+                contraventions.add(mapResultSetToEntity(rs));
+            }
+        } catch (SQLException e) {
+            logger.error("Erreur lors de la récupération des contraventions actives", e);
+        }
+
+        return contraventions;
+    }
+
+
     /**
      * Vérifie si un code contravention existe déjà
      */

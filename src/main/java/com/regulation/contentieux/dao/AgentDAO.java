@@ -126,6 +126,10 @@ public class AgentDAO extends AbstractSQLiteDAO<Agent, Long> {
         stmt.setBoolean(6, agent.getActif() != null ? agent.getActif() : true);
     }
 
+    public List<Agent> findAllActifs() {
+        return findActiveAgents(); // Utilise la méthode existante
+    }
+
     @Override
     protected void setUpdateParameters(PreparedStatement stmt, Agent agent) throws SQLException {
         stmt.setString(1, agent.getCodeAgent());

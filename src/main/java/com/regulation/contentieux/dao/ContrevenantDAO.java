@@ -196,6 +196,24 @@ public class ContrevenantDAO extends AbstractSQLiteDAO<Contrevenant, Long> {
         return contrevenants;
     }
 
+    public List<Contrevenant> findAllActifs() {
+        String sql = getSelectAllQuery() + " WHERE actif = 1";
+        List<Contrevenant> contrevenants = new ArrayList<>();
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+
+            while (rs.next()) {
+                contrevenants.add(mapResultSetToEntity(rs));
+            }
+        } catch (SQLException e) {
+            logger.error("Erreur lors de la récupération des contrevenants actifs", e);
+        }
+
+        return contrevenants;
+    }
+
     /**
      * Recherche de contrevenants avec critères multiples - COMME AffaireDAO
      */

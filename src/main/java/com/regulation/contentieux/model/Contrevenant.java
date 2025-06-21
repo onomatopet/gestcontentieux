@@ -11,7 +11,10 @@ import java.util.Objects;
 public class Contrevenant {
 
     private Long id;
+    private String code; // Ajout du champ code
     private TypeContrevenant type;
+    private String nomComplet; // Ajout du champ nomComplet
+    private String typePersonne; // Ajout pour compatibilité avec DAO existant
 
     // Personne physique
     private String nom;
@@ -47,20 +50,41 @@ public class Contrevenant {
     public Contrevenant(String nom, String prenom, String cin) {
         this();
         this.type = TypeContrevenant.PERSONNE_PHYSIQUE;
+        this.typePersonne = "PHYSIQUE";
         this.nom = nom;
         this.prenom = prenom;
         this.cin = cin;
+        updateNomComplet();
     }
 
     // Constructeur pour personne morale
     public Contrevenant(String raisonSociale, String numeroRegistreCommerce) {
         this();
         this.type = TypeContrevenant.PERSONNE_MORALE;
+        this.typePersonne = "MORALE";
         this.raisonSociale = raisonSociale;
         this.numeroRegistreCommerce = numeroRegistreCommerce;
+        updateNomComplet();
     }
 
     // Méthodes métier
+
+    /**
+     * Met à jour le nom complet basé sur le type de contrevenant
+     */
+    private void updateNomComplet() {
+        if (type == TypeContrevenant.PERSONNE_PHYSIQUE || "PHYSIQUE".equals(typePersonne)) {
+            if (nom != null && prenom != null) {
+                this.nomComplet = prenom + " " + nom;
+            } else if (nom != null) {
+                this.nomComplet = nom;
+            } else if (prenom != null) {
+                this.nomComplet = prenom;
+            }
+        } else if (type == TypeContrevenant.PERSONNE_MORALE || "MORALE".equals(typePersonne)) {
+            this.nomComplet = raisonSociale;
+        }
+    }
 
     /**
      * Retourne le nom d'affichage selon le type
@@ -154,12 +178,53 @@ public class Contrevenant {
         this.id = id;
     }
 
+    public String getCode() {
+        return code;
+    }
+
+    public void setCode(String code) {
+        this.code = code;
+    }
+
     public TypeContrevenant getType() {
         return type;
     }
 
     public void setType(TypeContrevenant type) {
         this.type = type;
+        // Synchroniser typePersonne avec type
+        if (type == TypeContrevenant.PERSONNE_PHYSIQUE) {
+            this.typePersonne = "PHYSIQUE";
+        } else if (type == TypeContrevenant.PERSONNE_MORALE) {
+            this.typePersonne = "MORALE";
+        }
+        updateNomComplet();
+    }
+
+    public String getNomComplet() {
+        if (nomComplet == null) {
+            updateNomComplet();
+        }
+        return nomComplet;
+    }
+
+    public void setNomComplet(String nomComplet) {
+        this.nomComplet = nomComplet;
+    }
+
+    public String getTypePersonne() {
+        return typePersonne;
+    }
+
+    public void setTypePersonne(String typePersonne) {
+        this.typePersonne = typePersonne;
+        // Synchroniser type avec typePersonne
+        if ("PHYSIQUE".equals(typePersonne)) {
+            this.type = TypeContrevenant.PERSONNE_PHYSIQUE;
+        } else if ("MORALE".equals(typePersonne)) {
+            this.type = TypeContrevenant.PERSONNE_MORALE;
+        }
+        updateNomComplet();
     }
 
     public String getNom() {
@@ -168,6 +233,7 @@ public class Contrevenant {
 
     public void setNom(String nom) {
         this.nom = nom;
+        updateNomComplet();
     }
 
     public String getPrenom() {
@@ -176,6 +242,7 @@ public class Contrevenant {
 
     public void setPrenom(String prenom) {
         this.prenom = prenom;
+        updateNomComplet();
     }
 
     public String getCin() {
@@ -192,6 +259,7 @@ public class Contrevenant {
 
     public void setRaisonSociale(String raisonSociale) {
         this.raisonSociale = raisonSociale;
+        updateNomComplet();
     }
 
     public String getNumeroRegistreCommerce() {
@@ -290,28 +358,21 @@ public class Contrevenant {
         this.updatedAt = updatedAt;
     }
 
-    // Equals, HashCode et ToString
-
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Contrevenant that = (Contrevenant) o;
-        return Objects.equals(id, that.id);
+        return Objects.equals(id, that.id) && Objects.equals(code, that.code);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id);
+        return Objects.hash(id, code);
     }
 
     @Override
     public String toString() {
-        return "Contrevenant{" +
-                "id=" + id +
-                ", type=" + type +
-                ", displayName='" + getDisplayName() + '\'' +
-                ", actif=" + actif +
-                '}';
+        return getDisplayName();
     }
 }

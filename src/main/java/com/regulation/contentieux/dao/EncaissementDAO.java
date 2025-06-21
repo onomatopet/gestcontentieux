@@ -473,6 +473,47 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
         return 0;
     }
 
+    public List<Encaissement> findByStatut(StatutEncaissement statut) {
+        String sql = "SELECT * FROM encaissements WHERE statut = ? ORDER BY date_encaissement DESC";
+        List<Encaissement> encaissements = new ArrayList<>();
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, statut.name());
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                encaissements.add(mapResultSetToEntity(rs));
+            }
+        } catch (SQLException e) {
+            logger.error("Erreur lors de la recherche par statut", e);
+        }
+
+        return encaissements;
+    }
+
+    public BigDecimal getTotalEncaissementsByPeriod(LocalDate debut, LocalDate fin, StatutEncaissement statut) {
+        String sql = "SELECT SUM(montant) as total FROM encaissements WHERE date_encaissement BETWEEN ? AND ? AND statut = ?";
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setDate(1, Date.valueOf(debut));
+            stmt.setDate(2, Date.valueOf(fin));
+            stmt.setString(3, statut.name());
+
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                return rs.getBigDecimal("total");
+            }
+        } catch (SQLException e) {
+            logger.error("Erreur lors du calcul du total", e);
+        }
+
+        return BigDecimal.ZERO;
+    }
+
     /**
      * Trouve les encaissements pour une période donnée (pour les rapports)
      */

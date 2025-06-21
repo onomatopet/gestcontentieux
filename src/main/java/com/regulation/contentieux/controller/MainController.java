@@ -1,5 +1,9 @@
 package com.regulation.contentieux.controller;
 
+import javafx.stage.Stage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.regulation.contentieux.model.enums.RoleUtilisateur;
 import com.regulation.contentieux.service.AuthenticationService;
 import com.regulation.contentieux.util.StageManager;
@@ -59,6 +63,22 @@ public class MainController implements Initializable {
 
     private final AuthenticationService authService = AuthenticationService.getInstance();
     private final StageManager stageManager = StageManager.getInstance();
+
+    // Référence à la fenêtre principale
+    private Stage currentStage;
+
+    // Titre de l'application
+    private static final String APP_TITLE = "Gestion des Affaires Contentieuses";
+
+    // Méthode pour définir le stage actuel (à ajouter dans MainController)
+    public void setCurrentStage(Stage stage) {
+        this.currentStage = stage;
+    }
+
+    // Méthode pour obtenir le stage actuel (à ajouter dans MainController)
+    public Stage getCurrentStage() {
+        return currentStage;
+    }
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
@@ -134,6 +154,17 @@ public class MainController implements Initializable {
         });
         dateTimeThread.setDaemon(true);
         dateTimeThread.start();
+    }
+
+    // Méthode pour mettre à jour le titre de la fenêtre (exemple d'utilisation)
+    public void updateWindowTitle(String subtitle) {
+        if (currentStage != null) {
+            if (subtitle != null && !subtitle.isEmpty()) {
+                currentStage.setTitle(APP_TITLE + " - " + subtitle);
+            } else {
+                currentStage.setTitle(APP_TITLE);
+            }
+        }
     }
 
     /**

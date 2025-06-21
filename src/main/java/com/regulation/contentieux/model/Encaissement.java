@@ -109,7 +109,7 @@ public class Encaissement {
     /**
      * Alias pour getMontantEncaisse() - compatibilité RapportService
      */
-    public BigDecimal getMontant() {
+    public long getMontant() {
         return getMontantEncaisse();
     }
 

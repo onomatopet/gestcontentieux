@@ -80,7 +80,7 @@ public class RapportService {
 
                 BigDecimal totalMontant = encaissements.stream()
                         .map(encaissement -> BigDecimal.valueOf(encaissement.getMontant()))
-                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                        .reduce(BigDecimal.ZERO, (a, b) -> a.add(b));
 
                 BigDecimal montantAffaire = BigDecimal.valueOf(affaire.getMontantAmende());
 
@@ -776,7 +776,7 @@ public class RapportService {
         BigDecimal montantEncaisse = encaissements.stream()
                 .filter(enc -> enc.getStatut() == StatutEncaissement.VALIDE)
                 .map(enc -> BigDecimal.valueOf(enc.getMontant()))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+                .reduce(BigDecimal.ZERO, (a, b) -> a.add(b));
 
         dto.setMontantEncaissement(montantEncaisse);
         dto.setPartIndicateur(montantEncaisse.multiply(new BigDecimal("0.05")));
@@ -805,6 +805,10 @@ public class RapportService {
         private Map<String, BigDecimal> repartitionParAgent;
         private Map<String, Integer> nombreAffairesParStatut;
 
+        private BigDecimal totalMontant;      // Ajouter ce champ
+        private BigDecimal totalPartEtat;      // Ajouter ce champ
+        private BigDecimal totalPartCollectivite; // Ajouter ce champ
+
         public RapportRepartitionDTO() {
             this.affaires = new ArrayList<>();
             this.repartitionParBureau = new HashMap<>();
@@ -814,6 +818,28 @@ public class RapportService {
         }
 
         // Getters et Setters
+
+        public BigDecimal getTotalMontant() {
+            return totalMontant != null ? totalMontant : totalEncaisse;
+        }
+        public void setTotalMontant(BigDecimal totalMontant) {
+            this.totalMontant = totalMontant;
+        }
+
+        public BigDecimal getTotalPartEtat() {
+            return totalPartEtat != null ? totalPartEtat : totalEtat;
+        }
+        public void setTotalPartEtat(BigDecimal totalPartEtat) {
+            this.totalPartEtat = totalPartEtat;
+        }
+
+        public BigDecimal getTotalPartCollectivite() {
+            return totalPartCollectivite != null ? totalPartCollectivite : totalCollectivite;
+        }
+        public void setTotalPartCollectivite(BigDecimal totalPartCollectivite) {
+            this.totalPartCollectivite = totalPartCollectivite;
+        }
+
         public LocalDate getDateDebut() { return dateDebut; }
         public void setDateDebut(LocalDate dateDebut) { this.dateDebut = dateDebut; }
 
@@ -869,10 +895,28 @@ public class RapportService {
         private String chefDossier;
         private String bureau;
         private String statut;
+        private String contrevenant;      // Ajouter ce champ si manquant
+        private BigDecimal montantTotal;  // Ajouter ce champ si manquant
 
         public AffaireRepartitionDTO() {}
 
         // Getters et setters
+
+        // Ajouter ces getters/setters
+        public String getContrevenant() {
+            return contrevenant != null ? contrevenant : contrevenantNom;
+        }
+        public void setContrevenant(String contrevenant) {
+            this.contrevenant = contrevenant;
+        }
+
+        public BigDecimal getMontantTotal() {
+            return montantTotal != null ? montantTotal : montantAmende;
+        }
+        public void setMontantTotal(BigDecimal montantTotal) {
+            this.montantTotal = montantTotal;
+        }
+
         public String getNumeroAffaire() { return numeroAffaire; }
         public void setNumeroAffaire(String numeroAffaire) { this.numeroAffaire = numeroAffaire; }
 
@@ -1020,6 +1064,164 @@ public class RapportService {
 
         public BigDecimal getInteressement() { return interessement; }
         public void setInteressement(BigDecimal interessement) { this.interessement = interessement; }
+    }
+
+    /**
+     * Génère le HTML pour le rapport de répartition
+     */
+    public String genererHtmlRapportRepartition(RapportRepartitionDTO rapport) {
+        StringBuilder html = new StringBuilder();
+        html.append("<h1>État de Répartition et de Rétrocession</h1>");
+        html.append("<p>Période: ").append(rapport.getPeriodeLibelle()).append("</p>");
+
+        html.append("<table class='table table-bordered'>");
+        html.append("<thead><tr>");
+        html.append("<th>N° Affaire</th>");
+        html.append("<th>Contrevenant</th>");
+        html.append("<th>Montant Total</th>");
+        html.append("<th>Montant Encaissé</th>");
+        html.append("<th>Part État</th>");
+        html.append("<th>Part Collectivité</th>");
+        html.append("</tr></thead>");
+        html.append("<tbody>");
+
+        for (AffaireRepartitionDTO affaire : rapport.getAffaires()) {
+            html.append("<tr>");
+            html.append("<td>").append(affaire.getNumeroAffaire()).append("</td>");
+            html.append("<td>").append(affaire.getContrevenant()).append("</td>");
+            html.append("<td class='text-right'>").append(CurrencyFormatter.format(affaire.getMontantTotal())).append("</td>");
+            html.append("<td class='text-right'>").append(CurrencyFormatter.format(affaire.getMontantEncaisse())).append("</td>");
+            html.append("<td class='text-right'>").append(CurrencyFormatter.format(affaire.getPartEtat())).append("</td>");
+            html.append("<td class='text-right'>").append(CurrencyFormatter.format(affaire.getPartCollectivite())).append("</td>");
+            html.append("</tr>");
+        }
+
+        html.append("</tbody>");
+        html.append("<tfoot><tr class='font-weight-bold'>");
+        html.append("<td colspan='2'>TOTAUX</td>");
+        html.append("<td class='text-right'>").append(CurrencyFormatter.format(rapport.getTotalMontant())).append("</td>");
+        html.append("<td class='text-right'>").append(CurrencyFormatter.format(rapport.getTotalEncaisse())).append("</td>");
+        html.append("<td class='text-right'>").append(CurrencyFormatter.format(rapport.getTotalPartEtat())).append("</td>");
+        html.append("<td class='text-right'>").append(CurrencyFormatter.format(rapport.getTotalPartCollectivite())).append("</td>");
+        html.append("</tr></tfoot>");
+        html.append("</table>");
+
+        return html.toString();
+    }
+
+    /**
+     * Génère la situation générale
+     */
+    public SituationGeneraleDTO genererSituationGenerale(LocalDate dateDebut, LocalDate dateFin) {
+        SituationGeneraleDTO situation = new SituationGeneraleDTO();
+        situation.setDateDebut(dateDebut);
+        situation.setDateFin(dateFin);
+        situation.setPeriodeLibelle(formatPeriode(dateDebut, dateFin));
+
+        // Récupération des affaires
+        List<Affaire> affaires = affaireDAO.findByPeriod(dateDebut, dateFin);
+
+        // Statistiques globales
+        situation.setTotalAffaires(affaires.size());
+        situation.setAffairesOuvertes((int) affaires.stream()
+                .filter(a -> a.getStatut() == StatutAffaire.OUVERTE).count());
+        situation.setAffairesEnCours((int) affaires.stream()
+                .filter(a -> a.getStatut() == StatutAffaire.EN_COURS).count());
+        situation.setAffairesSoldees((int) affaires.stream()
+                .filter(a -> a.getStatut() == StatutAffaire.SOLDEE).count());
+
+        // Montants
+        BigDecimal totalAmendes = affaires.stream()
+                .map(a -> a.getMontantTotal() != null ? a.getMontantTotal() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalEncaisse = affaires.stream()
+                .map(a -> a.getMontantEncaisse() != null ? a.getMontantEncaisse() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        situation.setMontantTotalAmendes(totalAmendes);
+        situation.setMontantTotalEncaisse(totalEncaisse);
+        situation.setMontantRestantDu(totalAmendes.subtract(totalEncaisse));
+
+        if (totalAmendes.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal taux = totalEncaisse.multiply(BigDecimal.valueOf(100))
+                    .divide(totalAmendes, 2, RoundingMode.HALF_UP);
+            situation.setTauxRecouvrement(taux);
+        }
+
+        return situation;
+    }
+
+    /**
+     * Génère le HTML pour la situation générale
+     */
+    public String genererHtmlSituationGenerale(SituationGeneraleDTO situation) {
+        StringBuilder html = new StringBuilder();
+        html.append("<h1>Situation Générale des Affaires Contentieuses</h1>");
+        html.append("<p>Période: ").append(situation.getPeriodeLibelle()).append("</p>");
+
+        html.append("<div class='row'>");
+        html.append("<div class='col-md-6'>");
+        html.append("<h3>Statistiques</h3>");
+        html.append("<ul>");
+        html.append("<li>Total des affaires: ").append(situation.getTotalAffaires()).append("</li>");
+        html.append("<li>Affaires ouvertes: ").append(situation.getAffairesOuvertes()).append("</li>");
+        html.append("<li>Affaires en cours: ").append(situation.getAffairesEnCours()).append("</li>");
+        html.append("<li>Affaires soldées: ").append(situation.getAffairesSoldees()).append("</li>");
+        html.append("</ul>");
+        html.append("</div>");
+
+        html.append("<div class='col-md-6'>");
+        html.append("<h3>Montants</h3>");
+        html.append("<ul>");
+        html.append("<li>Montant total des amendes: ").append(CurrencyFormatter.format(situation.getMontantTotalAmendes())).append("</li>");
+        html.append("<li>Montant encaissé: ").append(CurrencyFormatter.format(situation.getMontantTotalEncaisse())).append("</li>");
+        html.append("<li>Montant restant dû: ").append(CurrencyFormatter.format(situation.getMontantRestantDu())).append("</li>");
+        html.append("<li>Taux de recouvrement: ").append(situation.getTauxRecouvrement()).append("%</li>");
+        html.append("</ul>");
+        html.append("</div>");
+        html.append("</div>");
+
+        return html.toString();
+    }
+
+    /**
+     * Génère le HTML pour le tableau des amendes
+     */
+    public String genererHtmlTableauAmendes(TableauAmendesParServicesDTO tableau) {
+        // TODO: Implémenter
+        return "<h1>Tableau des Amendes par Service</h1><p>En cours de développement</p>";
+    }
+
+    /**
+     * Génère le rapport des encaissements
+     */
+    public Object genererRapportEncaissements(LocalDate dateDebut, LocalDate dateFin) {
+        // TODO: Implémenter
+        return new Object();
+    }
+
+    /**
+     * Génère le HTML des encaissements
+     */
+    public String genererHtmlEncaissements(Object data) {
+        // TODO: Implémenter
+        return "<h1>État des Encaissements</h1><p>En cours de développement</p>";
+    }
+
+    /**
+     * Génère le rapport des affaires non soldées
+     */
+    public Object genererRapportAffairesNonSoldees() {
+        // TODO: Implémenter
+        return new Object();
+    }
+
+    /**
+     * Génère le HTML des affaires non soldées
+     */
+    public String genererHtmlAffairesNonSoldees(Object data) {
+        // TODO: Implémenter
+        return "<h1>Affaires Non Soldées</h1><p>En cours de développement</p>";
     }
 
     /**

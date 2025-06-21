@@ -343,6 +343,24 @@ public class BureauDAO extends AbstractSQLiteDAO<Bureau, Long> {
         }
     }
 
+    public List<Bureau> findAllActifs() {
+        String sql = "SELECT * FROM bureaux WHERE actif = 1 ORDER BY nom_bureau";
+        List<Bureau> bureaux = new ArrayList<>();
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+
+            while (rs.next()) {
+                bureaux.add(mapResultSetToEntity(rs));
+            }
+        } catch (SQLException e) {
+            logger.error("Erreur lors de la récupération des bureaux actifs", e);
+        }
+
+        return bureaux;
+    }
+
     /**
      * Vérifie si un code bureau existe déjà
      */

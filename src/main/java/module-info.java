@@ -21,10 +21,12 @@ module com.regulation.contentieux {
     requires com.fasterxml.jackson.databind;
     requires com.fasterxml.jackson.datatype.jsr310;
 
-    // PDF et Excel - COMMENTÉ TEMPORAIREMENT
-    // requires kernel;
-    // requires layout;
-    // requires html2pdf;
+    // PDF et Excel
+    requires kernel;
+    requires layout;
+    //requires html2pdf;
+    requires io;
+    requires forms;
     requires org.apache.poi.poi;
     requires org.apache.poi.ooxml;
 
@@ -38,9 +40,6 @@ module com.regulation.contentieux {
     requires org.kordamp.ikonli.material2;
     requires org.kordamp.ikonli.feather;
     requires bcrypt;
-
-    // Sécurité - COMMENTÉ TEMPORAIREMENT
-    // requires com.favre.lib.bcrypt;
 
     // Exports pour FXML
     exports com.regulation.contentieux;
@@ -56,5 +55,4 @@ module com.regulation.contentieux {
     opens com.regulation.contentieux.model to javafx.fxml, com.fasterxml.jackson.databind;
     opens com.regulation.contentieux.model.enums to javafx.fxml, com.fasterxml.jackson.databind;
     opens com.regulation.contentieux.service to javafx.fxml;
-    // SUPPRIMÉ: opens com.regulation.contentieux.view to javafx.fxml;
 }

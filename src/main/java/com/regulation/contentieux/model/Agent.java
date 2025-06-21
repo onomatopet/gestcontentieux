@@ -16,7 +16,8 @@ public class Agent {
     private String grade;
     private String email;
     private String telephone;
-    private boolean actif;
+    private Boolean actif; // Changé de boolean à Boolean pour la compatibilité
+    private Long serviceId; // Ajout pour compatibilité avec DAO
 
     // Relations
     private Service service;
@@ -61,7 +62,7 @@ public class Agent {
      * Vérifie si l'agent appartient à un service
      */
     public boolean hasService() {
-        return service != null;
+        return service != null || serviceId != null;
     }
 
     /**
@@ -137,11 +138,27 @@ public class Agent {
     }
 
     public boolean isActif() {
+        return actif != null ? actif : true;
+    }
+
+    public Boolean getActif() {
         return actif;
     }
 
-    public void setActif(boolean actif) {
+    public void setActif(Boolean actif) {
         this.actif = actif;
+    }
+
+    public Long getServiceId() {
+        return serviceId;
+    }
+
+    public void setServiceId(Long serviceId) {
+        this.serviceId = serviceId;
+        // Si on a déjà un objet Service, synchroniser
+        if (this.service != null && this.service.getId() != null && !this.service.getId().equals(serviceId)) {
+            this.service = null; // Reset service si l'ID change
+        }
     }
 
     public Service getService() {
@@ -150,6 +167,12 @@ public class Agent {
 
     public void setService(Service service) {
         this.service = service;
+        // Synchroniser serviceId
+        if (service != null && service.getId() != null) {
+            this.serviceId = service.getId();
+        } else {
+            this.serviceId = null;
+        }
     }
 
     public Bureau getBureau() {
@@ -192,15 +215,12 @@ public class Agent {
         this.updatedAt = updatedAt;
     }
 
-    // Equals, HashCode et ToString
-
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Agent agent = (Agent) o;
-        return Objects.equals(id, agent.id) &&
-                Objects.equals(codeAgent, agent.codeAgent);
+        return Objects.equals(id, agent.id) && Objects.equals(codeAgent, agent.codeAgent);
     }
 
     @Override
@@ -210,13 +230,6 @@ public class Agent {
 
     @Override
     public String toString() {
-        return "Agent{" +
-                "id=" + id +
-                ", codeAgent='" + codeAgent + '\'' +
-                ", nom='" + nom + '\'' +
-                ", prenom='" + prenom + '\'' +
-                ", grade='" + grade + '\'' +
-                ", actif=" + actif +
-                '}';
+        return getDisplayName();
     }
 }

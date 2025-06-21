@@ -545,6 +545,40 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
         return 0;
     }
 
+    public String generateNextNumeroAffaire() {
+        String prefix = "AFF";
+        String year = String.valueOf(LocalDate.now().getYear());
+
+        String sql = """
+        SELECT numero_affaire FROM affaires 
+        WHERE numero_affaire LIKE ? 
+        ORDER BY numero_affaire DESC 
+        LIMIT 1
+    """;
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, prefix + year + "%");
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                String lastNumber = rs.getString("numero_affaire");
+                // Extraire le numéro séquentiel et incrémenter
+                String sequential = lastNumber.substring(prefix.length() + 4);
+                int nextNum = Integer.parseInt(sequential) + 1;
+                return prefix + year + String.format("%04d", nextNum);
+            } else {
+                // Premier numéro de l'année
+                return prefix + year + "0001";
+            }
+
+        } catch (SQLException e) {
+            logger.error("Erreur lors de la génération du numéro d'affaire", e);
+            return prefix + year + "0001";
+        }
+    }
+
     /**
      * Trouve les affaires avec encaissements validés pour une période
      */

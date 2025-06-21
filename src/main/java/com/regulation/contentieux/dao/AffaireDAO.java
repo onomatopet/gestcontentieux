@@ -346,7 +346,7 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
      */
     public List<Affaire> searchAffaires(String searchTerm, StatutAffaire statut,
                                         LocalDate dateDebut, LocalDate dateFin,
-                                        int offset, int limit) {
+                                        Integer bureauId, int offset, int limit) {
         StringBuilder sql = new StringBuilder(getSelectAllQuery());
         List<Object> parameters = new ArrayList<>();
 
@@ -372,6 +372,12 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
         if (dateFin != null) {
             sql.append(" AND a.date_creation <= ?");
             parameters.add(Date.valueOf(dateFin));
+        }
+
+        // AJOUT du paramètre bureauId manquant
+        if (bureauId != null) {
+            sql.append(" AND a.bureau_id = ?");
+            parameters.add(bureauId.longValue());
         }
 
         // Ajout de la pagination
@@ -402,6 +408,62 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
         }
 
         return affaires;
+    }
+
+    /**
+     * Compte les affaires selon les critères de recherche - SIGNATURE CORRIGÉE
+     */
+    public long countSearchAffaires(String searchTerm, StatutAffaire statut,
+                                    LocalDate dateDebut, LocalDate dateFin,
+                                    Integer bureauId) {
+        StringBuilder sql = new StringBuilder("SELECT COUNT(*) FROM affaires WHERE deleted = false");
+        List<Object> parameters = new ArrayList<>();
+
+        // Ajout des critères de recherche
+        if (searchTerm != null && !searchTerm.trim().isEmpty()) {
+            sql.append(" AND numero_affaire LIKE ?");
+            parameters.add("%" + searchTerm.trim() + "%");
+        }
+
+        if (statut != null) {
+            sql.append(" AND statut = ?");
+            parameters.add(statut.name());
+        }
+
+        if (dateDebut != null) {
+            sql.append(" AND date_creation >= ?");
+            parameters.add(Date.valueOf(dateDebut));
+        }
+
+        if (dateFin != null) {
+            sql.append(" AND date_creation <= ?");
+            parameters.add(Date.valueOf(dateFin));
+        }
+
+        // AJOUT du paramètre bureauId manquant
+        if (bureauId != null) {
+            sql.append(" AND bureau_id = ?");
+            parameters.add(bureauId.longValue());
+        }
+
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
+
+            for (int i = 0; i < parameters.size(); i++) {
+                stmt.setObject(i + 1, parameters.get(i));
+            }
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getLong(1);
+                }
+            }
+
+        } catch (SQLException e) {
+            logger.error("Erreur lors du comptage avec critères", e);
+        }
+
+        return 0;
     }
 
     /**
@@ -473,63 +535,6 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
         return 0;
     }
 
-    /**
-     * Compte les affaires selon les critères de recherche
-     */
-    public long countSearchAffaires(String searchTerm, StatutAffaire statut,
-                                    LocalDate dateDebut, LocalDate dateFin,
-                                    Integer bureauId) {
-        StringBuilder sql = new StringBuilder(
-                "SELECT COUNT(*) FROM affaires a WHERE a.deleted = false");
-
-        List<Object> parameters = new ArrayList<>();
-
-        if (searchTerm != null && !searchTerm.trim().isEmpty()) {
-            sql.append(" AND (a.numero_affaire LIKE ? OR a.description LIKE ? OR a.lieu_constatation LIKE ?)");
-            String searchPattern = "%" + searchTerm.trim() + "%";
-            parameters.add(searchPattern);
-            parameters.add(searchPattern);
-            parameters.add(searchPattern);
-        }
-
-        if (statut != null) {
-            sql.append(" AND a.statut = ?");
-            parameters.add(statut.name());
-        }
-
-        if (dateDebut != null) {
-            sql.append(" AND a.date_constatation >= ?");
-            parameters.add(Date.valueOf(dateDebut));
-        }
-
-        if (dateFin != null) {
-            sql.append(" AND a.date_constatation <= ?");
-            parameters.add(Date.valueOf(dateFin));
-        }
-
-        if (bureauId != null) {
-            sql.append(" AND a.bureau_id = ?");
-            parameters.add(bureauId.longValue());
-        }
-
-        try (Connection conn = getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
-
-            for (int i = 0; i < parameters.size(); i++) {
-                stmt.setObject(i + 1, parameters.get(i));
-            }
-
-            ResultSet rs = stmt.executeQuery();
-            if (rs.next()) {
-                return rs.getLong(1);
-            }
-
-        } catch (SQLException e) {
-            logger.error("Erreur lors du comptage des affaires", e);
-        }
-
-        return 0;
-    }
 
     /**
      * Trouve une affaire par son numéro

@@ -583,6 +583,7 @@ public class AffaireListController implements Initializable {
             // Utiliser une méthode de recherche avec critères dans le DAO
             List<Affaire> affairesFromDb = affaireDAO.searchAffaires(
                     searchTerm, statut, dateDebut, dateFin,
+                    null, // bureauId (pas utilisé pour l'instant)
                     (currentPage - 1) * pageSize, // offset
                     pageSize // limit
             );

@@ -268,8 +268,9 @@ public class EncaissementService {
      * Calcule le montant total encaissé pour une affaire
      */
     public BigDecimal getTotalEncaisseByAffaire(Long affaireId) {
-        Double total = encaissementDAO.getTotalEncaisseByAffaire(affaireId);
-        return total != null ? BigDecimal.valueOf(total) : BigDecimal.ZERO;
+        // Le DAO retourne déjà BigDecimal, pas Double
+        BigDecimal total = encaissementDAO.getTotalEncaisseByAffaire(affaireId);
+        return total != null ? total : BigDecimal.ZERO;
     }
 
     /**
@@ -391,8 +392,8 @@ public class EncaissementService {
         long validEncaissements = encaissementDAO.findByStatut(StatutEncaissement.VALIDE).size();
         long pendingEncaissements = encaissementDAO.findByStatut(StatutEncaissement.EN_ATTENTE).size();
 
-        Double totalMontantDouble = encaissementDAO.getTotalEncaissementsByPeriod(null, null, StatutEncaissement.VALIDE);
-        BigDecimal totalMontant = totalMontantDouble != null ? BigDecimal.valueOf(totalMontantDouble) : BigDecimal.ZERO;
+        // LIGNE 414 - CORRECTION: Le DAO retourne BigDecimal, pas Double
+        BigDecimal totalMontant = encaissementDAO.getTotalEncaissementsByPeriod(null, null, StatutEncaissement.VALIDE);
 
         return new EncaissementStatistics(totalEncaissements, validEncaissements, pendingEncaissements, totalMontant);
     }
@@ -404,20 +405,24 @@ public class EncaissementService {
         private final long totalEncaissements;
         private final long validEncaissements;
         private final long pendingEncaissements;
-        private final Double totalMontant;
+        // LIGNE 271 - CORRECTION: Changer le type de Double à BigDecimal
+        private final BigDecimal totalMontant;
 
         public EncaissementStatistics(long totalEncaissements, long validEncaissements,
                                       long pendingEncaissements, BigDecimal totalMontant) {
             this.totalEncaissements = totalEncaissements;
             this.validEncaissements = validEncaissements;
             this.pendingEncaissements = pendingEncaissements;
+            // LIGNE 271 - La conversion automatique BigDecimal -> BigDecimal.ZERO fonctionne maintenant
             this.totalMontant = totalMontant != null ? totalMontant : BigDecimal.ZERO;
         }
 
         public long getTotalEncaissements() { return totalEncaissements; }
         public long getValidEncaissements() { return validEncaissements; }
         public long getPendingEncaissements() { return pendingEncaissements; }
-        public Double getTotalMontant() { return totalMontant; }
+
+        // CORRECTION: Changer le type de retour de Double à BigDecimal
+        public BigDecimal getTotalMontant() { return totalMontant; }
 
         public double getValidPercentage() {
             return totalEncaissements > 0 ? (validEncaissements * 100.0 / totalEncaissements) : 0.0;

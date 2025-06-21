@@ -494,18 +494,30 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
     }
 
     public BigDecimal getTotalEncaissementsByPeriod(LocalDate debut, LocalDate fin, StatutEncaissement statut) {
-        String sql = "SELECT SUM(montant) as total FROM encaissements WHERE date_encaissement BETWEEN ? AND ? AND statut = ?";
+        String sql;
+
+        if (debut == null && fin == null) {
+            // Cas spécial pour les statistiques générales
+            sql = "SELECT SUM(montant_encaisse) as total FROM encaissements WHERE statut = ?";
+        } else {
+            sql = "SELECT SUM(montant_encaisse) as total FROM encaissements WHERE date_encaissement BETWEEN ? AND ? AND statut = ?";
+        }
 
         try (Connection conn = DatabaseConfig.getSQLiteConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-            stmt.setDate(1, Date.valueOf(debut));
-            stmt.setDate(2, Date.valueOf(fin));
-            stmt.setString(3, statut.name());
+            if (debut == null && fin == null) {
+                stmt.setString(1, statut.name());
+            } else {
+                stmt.setDate(1, Date.valueOf(debut));
+                stmt.setDate(2, Date.valueOf(fin));
+                stmt.setString(3, statut.name());
+            }
 
             ResultSet rs = stmt.executeQuery();
             if (rs.next()) {
-                return rs.getBigDecimal("total");
+                BigDecimal total = rs.getBigDecimal("total");
+                return total != null ? total : BigDecimal.ZERO;
             }
         } catch (SQLException e) {
             logger.error("Erreur lors du calcul du total", e);

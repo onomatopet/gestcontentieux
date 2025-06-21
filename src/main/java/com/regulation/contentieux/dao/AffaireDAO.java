@@ -579,6 +579,32 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
         }
     }
 
+    public List<Affaire> findByPeriod(LocalDate dateDebut, LocalDate dateFin) {
+        String sql = """
+        SELECT * FROM affaires 
+        WHERE date_creation BETWEEN ? AND ? 
+        ORDER BY date_creation DESC
+    """;
+
+        List<Affaire> affaires = new ArrayList<>();
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setDate(1, Date.valueOf(dateDebut));
+            stmt.setDate(2, Date.valueOf(dateFin));
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                affaires.add(mapResultSetToEntity(rs));
+            }
+        } catch (SQLException e) {
+            logger.error("Erreur lors de la recherche par période", e);
+        }
+
+        return affaires;
+    }
+
     /**
      * Trouve les affaires avec encaissements validés pour une période
      */

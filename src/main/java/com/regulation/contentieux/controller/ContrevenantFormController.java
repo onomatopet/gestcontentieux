@@ -113,6 +113,18 @@ public class ContrevenantFormController implements Initializable {
         updateUIMode();
     }
 
+    public void initializeForNew() {
+        isEditMode = false;
+        clearForm();
+        updateUIMode();
+        Platform.runLater(() -> {
+            if (codeField != null && codeField.getText().isEmpty()) {
+                String newCode = contrevenantService.generateNextCode();
+                codeField.setText(newCode);
+            }
+        });
+    }
+
     /**
      * Configuration des gestionnaires d'événements - SUIT LE PATTERN ÉTABLI
      */

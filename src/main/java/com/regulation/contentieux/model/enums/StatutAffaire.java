@@ -8,13 +8,16 @@ public enum StatutAffaire {
     OUVERTE("Ouverte", "L'affaire est nouvellement créée"),
     EN_COURS("En cours", "L'affaire est en cours de traitement"),
     CLOSE("Clôturée", "L'affaire est clôturée"),
+    SOLDEE("Soldée",  "L'affaire est soldée"),
     ANNULEE("Annulée", "L'affaire a été annulée");
 
     private final String libelle;
     private final String description;
+    private String couleur = "";
 
     StatutAffaire(String libelle, String description) {
         this.libelle = libelle;
+        this.couleur = couleur;
         this.description = description;
     }
 
@@ -23,6 +26,10 @@ public enum StatutAffaire {
      */
     public String getLibelle() {
         return libelle;
+    }
+
+    public String getCouleur() {
+        return couleur;
     }
 
     /**

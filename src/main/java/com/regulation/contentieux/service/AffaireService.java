@@ -201,7 +201,7 @@ public class AffaireService {
             // Suppression logique
             affaire.setDeleted(true);
             affaire.setDeletedBy(authService.getCurrentUsername());
-            affaire.setDeletedAt(LocalDate.now());
+            affaire.setDeletedAt(LocalDate.from(LocalDate.now().atStartOfDay()));
 
             affaireDAO.update(affaire);
             logger.info("Affaire {} supprimée (logiquement)", affaire.getNumeroAffaire());

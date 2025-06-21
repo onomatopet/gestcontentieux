@@ -99,7 +99,10 @@ public class LoginController implements Initializable {
 
         // Authentification (dans un thread séparé si nécessaire)
         try {
-            AuthenticationService.AuthenticationResult result = authService.authenticate(username, password);
+            boolean success = authService.authenticate(username, password);
+            AuthenticationService.AuthenticationResult result = success ?
+                    AuthenticationService.AuthenticationResult.SUCCESS :
+                    AuthenticationService.AuthenticationResult.INVALID_CREDENTIALS;
 
             if (result.isSuccess()) {
                 statusLabel.setText("Connexion réussie !");

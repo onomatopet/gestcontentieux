@@ -22,6 +22,7 @@ public class Encaissement {
     private String banque;
     private String observations;
     private StatutEncaissement statut;
+    private Long banqueId;
 
     // Relations
     private Affaire affaire;
@@ -109,8 +110,23 @@ public class Encaissement {
     /**
      * Alias pour getMontantEncaisse() - compatibilité RapportService
      */
+
     public long getMontant() {
         return getMontantEncaisse();
+    }
+
+    public boolean peutEtreAnnule() {
+        return statut == StatutEncaissement.VALIDE &&
+                montant != null &&
+                dateEncaissement != null;
+    }
+
+    public Long getBanqueId() {
+        return banqueId;
+    }
+
+    public void setBanqueId(Long banqueId) {
+        this.banqueId = banqueId;
     }
 
     /**

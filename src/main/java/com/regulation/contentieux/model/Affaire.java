@@ -261,7 +261,7 @@ public class Affaire {
         this.montantTotal = montantAmendeTotal; // Synchroniser
     }
 
-    public BigDecimal getMontantAmende() {
+    public long getMontantAmende() {
         return getMontantAmendeTotal(); // Alias pour RapportService
     }
 

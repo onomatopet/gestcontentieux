@@ -15,6 +15,7 @@ import java.math.BigDecimal;
 import java.sql.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -340,6 +341,278 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
     }
 
     // ========== MÉTHODES SPÉCIFIQUES AUX AFFAIRES ==========
+
+    /**
+     * Génère le prochain numéro d'affaire selon le format YYMMNNNNN
+     * ENRICHISSEMENT : Ajout de validations et diagnostics sans changer la signature
+     */
+    public String generateNextCode() {
+        String prefix = "AFF";  // Garde le prefix existant pour compatibilité
+
+        // ENRICHISSEMENT : Diagnostic du format actuel
+        logger.debug("🔍 === GÉNÉRATION NUMÉRO AFFAIRE ===");
+        logger.debug("🔍 Format attendu selon cahier des charges: YYMMNNNNN");
+        logger.debug("🔍 Format actuel utilisé: {} + numéro séquentiel", prefix);
+
+        // ENRICHISSEMENT : Détection du mois actuel pour vérifier la cohérence
+        LocalDate now = LocalDate.now();
+        String yearMonth = now.format(DateTimeFormatter.ofPattern("yyMM"));
+        logger.debug("🔍 Période actuelle (YYMM): {}", yearMonth);
+
+        // Rechercher le dernier code avec ce préfixe - CODE EXISTANT CONSERVÉ
+        String sql = """
+            SELECT numero_affaire FROM affaires 
+            WHERE numero_affaire LIKE ? 
+            ORDER BY numero_affaire DESC 
+            LIMIT 1
+        """;
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, prefix + "%");
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                String lastCode = rs.getString("numero_affaire");
+
+                // ENRICHISSEMENT : Analyse du dernier code trouvé
+                logger.debug("🔍 Dernier code trouvé: {}", lastCode);
+
+                // ENRICHISSEMENT : Vérification de conformité au cahier des charges
+                if (isValidCahierChargesFormat(lastCode)) {
+                    logger.info("✅ Le code {} respecte le format YYMMNNNNN du cahier des charges", lastCode);
+                    return generateNextCodeFromCahierChargesFormat(lastCode);
+                } else {
+                    logger.warn("⚠️ Le code {} ne respecte PAS le format du cahier des charges", lastCode);
+                    logger.warn("⚠️ Migration progressive vers le nouveau format...");
+
+                    // ENRICHISSEMENT : Double génération pour transition
+                    String oldFormatCode = generateNextCodeFromLast(lastCode, prefix);
+                    String newFormatCode = generateCahierChargesCompliantCode(yearMonth);
+
+                    logger.info("📋 Code ancien format: {}", oldFormatCode);
+                    logger.info("📋 Code nouveau format (cahier charges): {}", newFormatCode);
+
+                    // ENRICHISSEMENT : Vérifier si on peut basculer sur le nouveau format
+                    if (canMigrateToNewFormat()) {
+                        logger.info("✅ Migration vers le nouveau format activée");
+                        return newFormatCode;
+                    } else {
+                        logger.info("⏳ Conservation temporaire de l'ancien format");
+                        return oldFormatCode;
+                    }
+                }
+
+            } else {
+                // Premier code
+                logger.info("🆕 Aucun code existant - Création du premier numéro");
+
+                // ENRICHISSEMENT : Choix du format selon configuration
+                if (shouldUseNewFormat()) {
+                    String newCode = yearMonth + "00001";
+                    logger.info("✅ Premier code au format cahier des charges: {}", newCode);
+                    return newCode;
+                } else {
+                    String oldCode = prefix + "00001";
+                    logger.info("⏳ Premier code au format historique: {}", oldCode);
+                    return oldCode;
+                }
+            }
+
+        } catch (SQLException e) {
+            logger.error("❌ Erreur lors de la génération du code affaire", e);
+
+            // ENRICHISSEMENT : Fallback intelligent
+            String fallbackCode = generateFallbackCode(prefix, yearMonth);
+            logger.error("🔄 Utilisation du code de secours: {}", fallbackCode);
+            return fallbackCode;
+        }
+    }
+
+    /**
+     * ENRICHISSEMENT : Vérifie si un code respecte le format YYMMNNNNN du cahier des charges
+     */
+    private boolean isValidCahierChargesFormat(String code) {
+        if (code == null || code.length() != 9) {
+            return false;
+        }
+
+        try {
+            // Vérifier que les 4 premiers caractères forment un YYMM valide
+            String yymmPart = code.substring(0, 4);
+            int year = Integer.parseInt(yymmPart.substring(0, 2));
+            int month = Integer.parseInt(yymmPart.substring(2, 4));
+
+            if (month < 1 || month > 12) {
+                return false;
+            }
+
+            // Vérifier que les 5 derniers caractères sont numériques
+            String numberPart = code.substring(4);
+            Integer.parseInt(numberPart);
+
+            logger.debug("✅ Code {} validé comme format YYMMNNNNN", code);
+            return true;
+
+        } catch (Exception e) {
+            logger.debug("❌ Code {} invalide pour format YYMMNNNNN: {}", code, e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * ENRICHISSEMENT : Génère le prochain code à partir d'un code au format cahier des charges
+     */
+    private String generateNextCodeFromCahierChargesFormat(String lastCode) {
+        try {
+            String yymmPart = lastCode.substring(0, 4);
+            String numberPart = lastCode.substring(4);
+            int lastNumber = Integer.parseInt(numberPart);
+
+            // Vérifier si on est toujours dans le même mois
+            LocalDate now = LocalDate.now();
+            String currentYYMM = now.format(DateTimeFormatter.ofPattern("yyMM"));
+
+            if (yymmPart.equals(currentYYMM)) {
+                // Même mois : incrémenter
+                String nextCode = currentYYMM + String.format("%05d", lastNumber + 1);
+                logger.info("✅ Prochain numéro dans la séquence: {}", nextCode);
+                return nextCode;
+            } else {
+                // Nouveau mois : recommencer à 00001
+                String nextCode = currentYYMM + "00001";
+                logger.info("🔄 Nouveau mois détecté - Réinitialisation: {}", nextCode);
+                return nextCode;
+            }
+
+        } catch (Exception e) {
+            logger.error("Erreur dans generateNextCodeFromCahierChargesFormat", e);
+            return generateCahierChargesCompliantCode(LocalDate.now().format(DateTimeFormatter.ofPattern("yyMM")));
+        }
+    }
+
+    /**
+     * ENRICHISSEMENT : Génère un code conforme au cahier des charges pour un mois donné
+     */
+    private String generateCahierChargesCompliantCode(String yearMonth) {
+        // Rechercher le dernier numéro pour ce mois spécifique
+        String sql = """
+            SELECT numero_affaire FROM affaires 
+            WHERE numero_affaire LIKE ? 
+            AND LENGTH(numero_affaire) = 9
+            ORDER BY numero_affaire DESC 
+            LIMIT 1
+        """;
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, yearMonth + "%");
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                String lastCode = rs.getString("numero_affaire");
+                String numberPart = lastCode.substring(4);
+                int lastNumber = Integer.parseInt(numberPart);
+                return yearMonth + String.format("%05d", lastNumber + 1);
+            } else {
+                return yearMonth + "00001";
+            }
+
+        } catch (Exception e) {
+            logger.error("Erreur dans generateCahierChargesCompliantCode", e);
+            return yearMonth + "00001";
+        }
+    }
+
+    /**
+     * Génère le code suivant basé sur le dernier code - MÉTHODE EXISTANTE CONSERVÉE ET ENRICHIE
+     */
+    private String generateNextCodeFromLast(String lastCode, String prefix) {
+        try {
+            // ENRICHISSEMENT : Logging détaillé pour traçabilité
+            logger.debug("📊 Analyse du code pour génération: {}", lastCode);
+
+            if (lastCode != null && lastCode.startsWith(prefix) && lastCode.length() == 7) {
+                String numericPart = lastCode.substring(2);
+                int lastNumber = Integer.parseInt(numericPart);
+                String nextCode = prefix + String.format("%05d", lastNumber + 1);
+
+                // ENRICHISSEMENT : Avertissement sur le format non conforme
+                logger.warn("⚠️ Génération au format ancien ({}), considérer migration vers YYMMNNNNN", nextCode);
+
+                return nextCode;
+            }
+
+            // Code invalide, recommencer
+            logger.warn("⚠️ Format de code non reconnu: {}, réinitialisation", lastCode);
+            return prefix + "00001";
+
+        } catch (Exception e) {
+            logger.warn("Erreur lors du parsing du dernier code: {}", lastCode, e);
+            return prefix + "00001";
+        }
+    }
+
+    /**
+     * ENRICHISSEMENT : Vérifie si on peut migrer vers le nouveau format
+     */
+    private boolean canMigrateToNewFormat() {
+        try {
+            // Vérifier dans les propriétés système ou la configuration
+            String migrationEnabled = System.getProperty("affaire.format.migration", "false");
+
+            if ("true".equalsIgnoreCase(migrationEnabled)) {
+                logger.info("✅ Migration vers nouveau format autorisée par configuration");
+                return true;
+            }
+
+            // Vérifier s'il y a déjà des codes au nouveau format
+            String sql = "SELECT COUNT(*) FROM affaires WHERE LENGTH(numero_affaire) = 9";
+            try (Connection conn = DatabaseConfig.getSQLiteConnection();
+                 Statement stmt = conn.createStatement();
+                 ResultSet rs = stmt.executeQuery(sql)) {
+
+                if (rs.next() && rs.getInt(1) > 0) {
+                    logger.info("✅ Codes au nouveau format détectés, migration autorisée");
+                    return true;
+                }
+            }
+
+            logger.info("❌ Migration non autorisée pour le moment");
+            return false;
+
+        } catch (Exception e) {
+            logger.error("Erreur lors de la vérification de migration", e);
+            return false;
+        }
+    }
+
+    /**
+     * ENRICHISSEMENT : Détermine si on doit utiliser le nouveau format
+     */
+    private boolean shouldUseNewFormat() {
+        // Vérifier la configuration ou les propriétés système
+        String useNewFormat = System.getProperty("affaire.format.new", "false");
+        boolean result = "true".equalsIgnoreCase(useNewFormat);
+
+        logger.info("Configuration nouveau format: {}", result);
+        return result;
+    }
+
+    /**
+     * ENRICHISSEMENT : Génère un code de secours en cas d'erreur
+     */
+    private String generateFallbackCode(String prefix, String yearMonth) {
+        // Essayer d'abord le format du cahier des charges
+        if (shouldUseNewFormat()) {
+            return yearMonth + String.format("%05d", System.currentTimeMillis() % 100000);
+        } else {
+            // Sinon utiliser l'ancien format avec timestamp pour unicité
+            return prefix + System.currentTimeMillis() % 100000;
+        }
+    }
 
     /**
      * Recherche d'affaires avec critères multiples

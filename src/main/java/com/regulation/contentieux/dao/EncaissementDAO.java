@@ -13,6 +13,7 @@ import java.math.BigDecimal;
 import java.sql.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter; // AJOUT DE L'IMPORT MANQUANT
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -234,31 +235,294 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
     }
 
     /**
-     * Génère le prochain numéro d'encaissement
+     * Génère le prochain numéro d'encaissement selon le format YYMMRNNNNN
+     * MÉTHODE UNIFIÉE ET ENRICHIE - REMPLACE L'ANCIENNE VERSION
      */
     public String generateNextNumeroEncaissement() {
+        // ENRICHISSEMENT : Diagnostic du format
+        logger.debug("🔍 === GÉNÉRATION NUMÉRO ENCAISSEMENT ===");
+        logger.debug("🔍 Format cahier des charges: YYMMRNNNNN (R = littéral 'R')");
+
+        LocalDate now = LocalDate.now();
+        String yearMonth = now.format(DateTimeFormatter.ofPattern("yyMM"));
+
+        // ENRICHISSEMENT : Le cahier des charges spécifie YYMMRNNNNN avec R littéral
+        String expectedPrefix = yearMonth + "R";
+        logger.debug("🔍 Préfixe attendu pour ce mois: {}", expectedPrefix);
+
+        // D'abord essayer avec le nouveau format
         String sql = """
-            SELECT COUNT(*) + 1 as next_num 
-            FROM encaissements 
-            WHERE strftime('%Y', date_encaissement) = strftime('%Y', 'now')
+            SELECT reference FROM encaissements
+            WHERE reference LIKE ?
+            ORDER BY reference DESC
+            LIMIT 1
         """;
 
-        try (Connection conn = getConnection();
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
+            // ENRICHISSEMENT : Recherche avec le format du cahier des charges
+            stmt.setString(1, expectedPrefix + "%");
             ResultSet rs = stmt.executeQuery();
+
             if (rs.next()) {
-                int nextNum = rs.getInt("next_num");
-                int year = LocalDate.now().getYear();
-                return String.format("ENC-%d-%05d", year, nextNum);
+                String lastNumero = rs.getString("reference");
+                logger.debug("🔍 Dernier numéro trouvé: {}", lastNumero);
+
+                // ENRICHISSEMENT : Validation du format
+                if (isValidEncaissementFormat(lastNumero)) {
+                    return generateNextFromValidFormat(lastNumero, expectedPrefix);
+                } else {
+                    logger.warn("⚠️ Format non conforme détecté: {}", lastNumero);
+                    return handleFormatMigration(lastNumero, expectedPrefix);
+                }
+            } else {
+                // Pas de numéro au nouveau format, vérifier l'ancien format
+                logger.debug("🔍 Aucun numéro au format YYMMRNNNNN trouvé, recherche de l'ancien format");
+
+                // Recherche avec l'ancien format ENC-YYYY-NNNNN
+                String oldFormatSql = """
+                    SELECT COUNT(*) + 1 as next_num 
+                    FROM encaissements 
+                    WHERE strftime('%Y', date_encaissement) = strftime('%Y', 'now')
+                      AND reference LIKE 'ENC-%'
+                """;
+
+                try (Statement stmt2 = conn.createStatement();
+                     ResultSet rs2 = stmt2.executeQuery(oldFormatSql)) {
+
+                    if (rs2.next() && rs2.getInt("next_num") > 1) {
+                        // Il existe des anciens numéros
+                        logger.warn("⚠️ Ancien format détecté, migration progressive recommandée");
+
+                        // Pour la compatibilité, on peut continuer avec l'ancien format
+                        // ou forcer le nouveau format selon la configuration
+                        if (shouldUseNewFormat()) {
+                            String firstNumero = expectedPrefix + "00001";
+                            logger.info("🆕 Migration vers nouveau format: {}", firstNumero);
+                            return firstNumero;
+                        } else {
+                            int nextNum = rs2.getInt("next_num");
+                            int year = LocalDate.now().getYear();
+                            String oldFormat = String.format("ENC-%d-%05d", year, nextNum);
+                            logger.info("⏳ Conservation temporaire ancien format: {}", oldFormat);
+                            return oldFormat;
+                        }
+                    }
+                }
+
+                // Premier encaissement du mois
+                String firstNumero = expectedPrefix + "00001";
+                logger.info("🆕 Premier encaissement du mois: {}", firstNumero);
+                return firstNumero;
             }
 
         } catch (SQLException e) {
-            logger.error("Erreur lors de la génération du numéro d'encaissement", e);
+            logger.error("❌ Erreur lors de la génération du numéro d'encaissement", e);
+            // ENRICHISSEMENT : Fallback intelligent
+            String fallback = expectedPrefix + String.format("%05d", System.currentTimeMillis() % 100000);
+            logger.error("🔄 Numéro de secours généré: {}", fallback);
+            return fallback;
+        }
+    }
+
+    /**
+     * ENRICHISSEMENT : Détermine si on doit utiliser le nouveau format
+     */
+    private boolean shouldUseNewFormat() {
+        // Vérifier la configuration ou les propriétés système
+        String useNewFormat = System.getProperty("encaissement.format.new", "true");
+        boolean result = "true".equalsIgnoreCase(useNewFormat);
+
+        logger.debug("Configuration nouveau format encaissement: {}", result);
+        return result;
+    }
+
+    /**
+     * ENRICHISSEMENT : Valide le format YYMMRNNNNN
+     */
+    private boolean isValidEncaissementFormat(String numero) {
+        if (numero == null || numero.length() != 11) {
+            return false;
         }
 
-        // Valeur par défaut
-        return String.format("ENC-%d-%05d", LocalDate.now().getYear(), 1);
+        try {
+            // Vérifier YYMM
+            String yyPart = numero.substring(0, 2);
+            String mmPart = numero.substring(2, 4);
+            int month = Integer.parseInt(mmPart);
+
+            if (month < 1 || month > 12) {
+                return false;
+            }
+
+            // Vérifier le R
+            if (numero.charAt(4) != 'R') {
+                return false;
+            }
+
+            // Vérifier les 5 chiffres
+            String numberPart = numero.substring(5);
+            Integer.parseInt(numberPart);
+
+            logger.debug("✅ Format validé: {}", numero);
+            return true;
+
+        } catch (Exception e) {
+            logger.debug("❌ Format invalide: {} - {}", numero, e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * ENRICHISSEMENT : Génère le prochain numéro à partir d'un format valide
+     */
+    private String generateNextFromValidFormat(String lastNumero, String expectedPrefix) {
+        try {
+            String currentPrefix = lastNumero.substring(0, 5); // YYMMR
+
+            if (currentPrefix.equals(expectedPrefix)) {
+                // Même mois, on incrémente
+                String numberPart = lastNumero.substring(5);
+                int lastNumber = Integer.parseInt(numberPart);
+                String nextNumero = expectedPrefix + String.format("%05d", lastNumber + 1);
+                logger.info("✅ Prochain numéro: {}", nextNumero);
+                return nextNumero;
+            } else {
+                // Nouveau mois, on recommence
+                String nextNumero = expectedPrefix + "00001";
+                logger.info("🔄 Nouveau mois - Réinitialisation: {}", nextNumero);
+                return nextNumero;
+            }
+
+        } catch (Exception e) {
+            logger.error("Erreur dans generateNextFromValidFormat", e);
+            return expectedPrefix + "00001";
+        }
+    }
+
+    /**
+     * ENRICHISSEMENT : Gère la migration depuis l'ancien format
+     */
+    private String handleFormatMigration(String oldFormat, String expectedPrefix) {
+        logger.warn("🔄 === MIGRATION DE FORMAT DÉTECTÉE ===");
+        logger.warn("🔄 Ancien format: {}", oldFormat);
+
+        // Essayer de comprendre l'ancien format et migrer
+        if (oldFormat != null && oldFormat.startsWith("ENC-")) {
+            logger.warn("🔄 Format détecté: ENC-YYYY-NNNNN");
+
+            // Vérifier s'il existe déjà des numéros au nouveau format pour ce mois
+            String checkSql = """
+                SELECT COUNT(*) as count FROM encaissements
+                WHERE reference LIKE ?
+            """;
+
+            try (Connection conn = DatabaseConfig.getSQLiteConnection();
+                 PreparedStatement stmt = conn.prepareStatement(checkSql)) {
+
+                stmt.setString(1, expectedPrefix + "%");
+                ResultSet rs = stmt.executeQuery();
+
+                if (rs.next() && rs.getInt("count") > 0) {
+                    // Il y a déjà des numéros au nouveau format
+                    return generateNextNumeroFromDatabase(expectedPrefix);
+                } else {
+                    // Premier numéro au nouveau format
+                    String newNumero = expectedPrefix + "00001";
+                    logger.info("✅ Premier numéro au nouveau format: {}", newNumero);
+                    return newNumero;
+                }
+
+            } catch (Exception e) {
+                logger.error("Erreur lors de la vérification de migration", e);
+            }
+        }
+
+        // Par défaut, commencer une nouvelle séquence
+        return expectedPrefix + "00001";
+    }
+
+    /**
+     * ENRICHISSEMENT : Recherche le dernier numéro en base pour un préfixe donné
+     */
+    private String generateNextNumeroFromDatabase(String prefix) {
+        String sql = """
+            SELECT reference FROM encaissements
+            WHERE reference LIKE ?
+            AND LENGTH(reference) = 11
+            ORDER BY reference DESC
+            LIMIT 1
+        """;
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, prefix + "%");
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                String lastNumero = rs.getString("reference");
+                String numberPart = lastNumero.substring(5);
+                int lastNumber = Integer.parseInt(numberPart);
+                return prefix + String.format("%05d", lastNumber + 1);
+            } else {
+                return prefix + "00001";
+            }
+
+        } catch (Exception e) {
+            logger.error("Erreur dans generateNextNumeroFromDatabase", e);
+            return prefix + "00001";
+        }
+    }
+
+    /**
+     * ENRICHISSEMENT : Méthode pour vérifier la cohérence des numéros d'encaissement
+     * Peut être appelée périodiquement pour diagnostiquer les problèmes
+     */
+    public void verifierCoherenceNumerotation() {
+        logger.info("🔍 === VÉRIFICATION COHÉRENCE NUMÉROTATION ENCAISSEMENTS ===");
+
+        String sql = """
+            SELECT 
+                reference,
+                date_encaissement,
+                LENGTH(reference) as longueur
+            FROM encaissements
+            ORDER BY date_encaissement DESC
+            LIMIT 100
+        """;
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+
+            int conformes = 0;
+            int nonConformes = 0;
+
+            while (rs.next()) {
+                String numero = rs.getString("reference");
+                LocalDate date = rs.getDate("date_encaissement").toLocalDate();
+                int longueur = rs.getInt("longueur");
+
+                if (isValidEncaissementFormat(numero)) {
+                    conformes++;
+                    logger.debug("✅ {} - Conforme au cahier des charges", numero);
+                } else {
+                    nonConformes++;
+                    logger.warn("❌ {} - NON conforme (longueur: {}, date: {})", numero, longueur, date);
+                }
+            }
+
+            logger.info("📊 RÉSULTAT: {} conformes, {} non conformes", conformes, nonConformes);
+
+            if (nonConformes > 0) {
+                logger.warn("⚠️ Action recommandée: Migration progressive vers le format YYMMRNNNNN");
+            }
+
+        } catch (Exception e) {
+            logger.error("Erreur lors de la vérification de cohérence", e);
+        }
     }
 
     /**

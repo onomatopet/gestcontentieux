@@ -535,7 +535,6 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
         return 0;
     }
 
-
     /**
      * Trouve une affaire par son numéro
      */

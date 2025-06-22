@@ -536,6 +536,433 @@ public class AffaireFormController implements Initializable {
     }
 
     /**
+     * Configure la validation temps réel sur tous les champs
+     */
+    private void setupRealTimeValidation() {
+        logger.debug("Configuration de la validation temps réel");
+
+        // Validation du contrevenant
+        if (contrevenantComboBox != null) {
+            contrevenantComboBox.valueProperty().addListener((obs, oldVal, newVal) -> {
+                validateContrevenant();
+            });
+        }
+
+        // Validation du montant amende
+        if (montantAmendeField != null) {
+            montantAmendeField.textProperty().addListener((obs, oldVal, newVal) -> {
+                validateMontantAmende();
+                updateMontantEnLettres();
+            });
+
+            // Formater automatiquement le montant
+            montantAmendeField.focusedProperty().addListener((obs, wasFocused, isFocused) -> {
+                if (!isFocused) {
+                    formatMontantField(montantAmendeField);
+                }
+            });
+        }
+
+        // Validation du montant encaissé
+        if (montantEncaisseField != null) {
+            montantEncaisseField.textProperty().addListener((obs, oldVal, newVal) -> {
+                validateMontantEncaisse();
+            });
+
+            montantEncaisseField.focusedProperty().addListener((obs, wasFocused, isFocused) -> {
+                if (!isFocused) {
+                    formatMontantField(montantEncaisseField);
+                }
+            });
+        }
+
+        // Validation de la date d'encaissement
+        if (dateEncaissementPicker != null) {
+            dateEncaissementPicker.valueProperty().addListener((obs, oldVal, newVal) -> {
+                validateDateEncaissement();
+            });
+
+            // Désactiver les dates futures
+            dateEncaissementPicker.setDayCellFactory(picker -> new DateCell() {
+                @Override
+                public void updateItem(LocalDate date, boolean empty) {
+                    super.updateItem(date, empty);
+                    setDisable(date.isAfter(LocalDate.now()));
+                }
+            });
+        }
+
+        // Validation du mode de règlement
+        if (modeReglementCombo != null) {
+            modeReglementCombo.valueProperty().addListener((obs, oldVal, newVal) -> {
+                validateModeReglement();
+                updateBanqueVisibility();
+            });
+        }
+
+        // Validation des informations bancaires
+        if (banqueCombo != null) {
+            banqueCombo.valueProperty().addListener((obs, oldVal, newVal) -> {
+                if (modeReglementCombo.getValue() == ModeReglement.CHEQUE) {
+                    validateBanque();
+                }
+            });
+        }
+
+        if (numeroChequeField != null) {
+            numeroChequeField.textProperty().addListener((obs, oldVal, newVal) -> {
+                if (modeReglementCombo.getValue() == ModeReglement.CHEQUE) {
+                    validateNumeroCheque();
+                }
+            });
+        }
+
+        // Validation des acteurs
+        setupActeursValidation();
+    }
+
+    /**
+     * Validation du contrevenant
+     */
+    private boolean validateContrevenant() {
+        if (contrevenantComboBox.getValue() == null) {
+            showFieldError(contrevenantComboBox, "Le contrevenant est obligatoire");
+            return false;
+        } else {
+            clearFieldError(contrevenantComboBox);
+            return true;
+        }
+    }
+
+    /**
+     * Validation du montant de l'amende
+     */
+    private boolean validateMontantAmende() {
+        String montantText = montantAmendeField.getText();
+
+        if (montantText == null || montantText.trim().isEmpty()) {
+            showFieldError(montantAmendeField, "Le montant de l'amende est obligatoire");
+            return false;
+        }
+
+        try {
+            BigDecimal montant = CurrencyFormatter.parse(montantText);
+            if (montant.compareTo(BigDecimal.ZERO) <= 0) {
+                showFieldError(montantAmendeField, "Le montant doit être supérieur à zéro");
+                return false;
+            }
+
+            clearFieldError(montantAmendeField);
+            return true;
+
+        } catch (Exception e) {
+            showFieldError(montantAmendeField, "Montant invalide");
+            return false;
+        }
+    }
+
+    /**
+     * Validation du montant encaissé
+     * Règle métier : montant encaissé ≤ montant amende
+     */
+    private boolean validateMontantEncaisse() {
+        String montantText = montantEncaisseField.getText();
+
+        if (montantText == null || montantText.trim().isEmpty()) {
+            showFieldError(montantEncaisseField, "Le montant encaissé est obligatoire");
+            return false;
+        }
+
+        try {
+            BigDecimal montantEncaisse = CurrencyFormatter.parse(montantText);
+
+            if (montantEncaisse.compareTo(BigDecimal.ZERO) <= 0) {
+                showFieldError(montantEncaisseField, "Le montant doit être supérieur à zéro");
+                return false;
+            }
+
+            // Vérifier que le montant encaissé ne dépasse pas le montant de l'amende
+            BigDecimal montantAmende = CurrencyFormatter.parse(montantAmendeField.getText());
+            if (montantEncaisse.compareTo(montantAmende) > 0) {
+                showFieldError(montantEncaisseField,
+                        "Le montant encaissé ne peut pas dépasser le montant de l'amende");
+                return false;
+            }
+
+            clearFieldError(montantEncaisseField);
+
+            // Mettre à jour le solde restant
+            updateSoldeRestant();
+
+            return true;
+
+        } catch (Exception e) {
+            showFieldError(montantEncaisseField, "Montant invalide");
+            return false;
+        }
+    }
+
+    /**
+     * Validation de la date d'encaissement
+     */
+    private boolean validateDateEncaissement() {
+        LocalDate date = dateEncaissementPicker.getValue();
+
+        if (date == null) {
+            showFieldError(dateEncaissementPicker, "La date d'encaissement est obligatoire");
+            return false;
+        }
+
+        if (date.isAfter(LocalDate.now())) {
+            showFieldError(dateEncaissementPicker, "La date ne peut pas être dans le futur");
+            return false;
+        }
+
+        // Vérifier la cohérence avec le mandat actif
+        MandatService mandatService = MandatService.getInstance();
+        if (!mandatService.estDansMandatActif(date)) {
+            showFieldWarning(dateEncaissementPicker,
+                    "Attention : Date hors du mandat actif (affaire à cheval)");
+        } else {
+            clearFieldError(dateEncaissementPicker);
+        }
+
+        return true;
+    }
+
+    /**
+     * Validation du mode de règlement
+     */
+    private boolean validateModeReglement() {
+        if (modeReglementCombo.getValue() == null) {
+            showFieldError(modeReglementCombo, "Le mode de règlement est obligatoire");
+            return false;
+        } else {
+            clearFieldError(modeReglementCombo);
+            return true;
+        }
+    }
+
+    /**
+     * Validation de la banque (si chèque)
+     */
+    private boolean validateBanque() {
+        if (banqueCombo.getValue() == null) {
+            showFieldError(banqueCombo, "La banque est obligatoire pour un paiement par chèque");
+            return false;
+        } else {
+            clearFieldError(banqueCombo);
+            return true;
+        }
+    }
+
+    /**
+     * Validation du numéro de chèque
+     */
+    private boolean validateNumeroCheque() {
+        String numero = numeroChequeField.getText();
+
+        if (numero == null || numero.trim().isEmpty()) {
+            showFieldError(numeroChequeField, "Le numéro de chèque est obligatoire");
+            return false;
+        } else {
+            clearFieldError(numeroChequeField);
+            return true;
+        }
+    }
+
+    /**
+     * Configuration de la validation des acteurs
+     */
+    private void setupActeursValidation() {
+        // Vérifier qu'il y a au moins un saisissant lors de l'ajout/suppression
+        if (saisissantsList != null) {
+            saisissantsList.addListener((ListChangeListener<Agent>) change -> {
+                validateSaisissants();
+            });
+        }
+    }
+
+    /**
+     * Validation des saisissants (au moins un obligatoire)
+     */
+    private boolean validateSaisissants() {
+        if (saisissantsList == null || saisissantsList.isEmpty()) {
+            if (saisissantsErrorLabel != null) {
+                saisissantsErrorLabel.setText("Au moins un saisissant est obligatoire");
+                saisissantsErrorLabel.setVisible(true);
+            }
+            return false;
+        } else {
+            if (saisissantsErrorLabel != null) {
+                saisissantsErrorLabel.setVisible(false);
+            }
+            return true;
+        }
+    }
+
+    /**
+     * Affiche une erreur sur un champ
+     */
+    private void showFieldError(Control field, String message) {
+        field.getStyleClass().add("field-error");
+
+        // Chercher ou créer le label d'erreur
+        Label errorLabel = findOrCreateErrorLabel(field);
+        errorLabel.setText(message);
+        errorLabel.setVisible(true);
+        errorLabel.getStyleClass().clear();
+        errorLabel.getStyleClass().addAll("error-label");
+    }
+
+    /**
+     * Affiche un warning sur un champ
+     */
+    private void showFieldWarning(Control field, String message) {
+        field.getStyleClass().add("field-warning");
+
+        Label warningLabel = findOrCreateErrorLabel(field);
+        warningLabel.setText(message);
+        warningLabel.setVisible(true);
+        warningLabel.getStyleClass().clear();
+        warningLabel.getStyleClass().addAll("warning-label");
+    }
+
+    /**
+     * Efface l'erreur d'un champ
+     */
+    private void clearFieldError(Control field) {
+        field.getStyleClass().removeAll("field-error", "field-warning");
+
+        Label errorLabel = findErrorLabel(field);
+        if (errorLabel != null) {
+            errorLabel.setVisible(false);
+        }
+    }
+
+    /**
+     * Trouve ou crée un label d'erreur pour un champ
+     */
+    private Label findOrCreateErrorLabel(Control field) {
+        // Chercher un label d'erreur existant
+        Label errorLabel = findErrorLabel(field);
+
+        if (errorLabel == null) {
+            // Créer un nouveau label d'erreur
+            errorLabel = new Label();
+            errorLabel.getStyleClass().add("error-label");
+            errorLabel.setVisible(false);
+            errorLabel.setWrapText(true);
+
+            // L'ajouter après le champ dans son parent
+            if (field.getParent() instanceof VBox) {
+                VBox parent = (VBox) field.getParent();
+                int index = parent.getChildren().indexOf(field);
+                parent.getChildren().add(index + 1, errorLabel);
+            } else if (field.getParent() instanceof GridPane) {
+                GridPane parent = (GridPane) field.getParent();
+                Integer row = GridPane.getRowIndex(field);
+                Integer col = GridPane.getColumnIndex(field);
+                if (row != null && col != null) {
+                    GridPane.setRowIndex(errorLabel, row + 1);
+                    GridPane.setColumnIndex(errorLabel, col);
+                    GridPane.setColumnSpan(errorLabel, 2);
+                    parent.getChildren().add(errorLabel);
+                }
+            }
+
+            // Associer le label au champ
+            field.getProperties().put("errorLabel", errorLabel);
+        }
+
+        return errorLabel;
+    }
+
+    /**
+     * Trouve le label d'erreur associé à un champ
+     */
+    private Label findErrorLabel(Control field) {
+        return (Label) field.getProperties().get("errorLabel");
+    }
+
+    /**
+     * Formate un champ de montant
+     */
+    private void formatMontantField(TextField field) {
+        try {
+            BigDecimal montant = CurrencyFormatter.parse(field.getText());
+            field.setText(CurrencyFormatter.format(montant));
+        } catch (Exception e) {
+            // Ignorer si le format est invalide
+        }
+    }
+
+    /**
+     * Met à jour l'affichage du montant en lettres
+     */
+    private void updateMontantEnLettres() {
+        try {
+            BigDecimal montant = CurrencyFormatter.parse(montantAmendeField.getText());
+            String enLettres = NumberToWords.convert(montant);
+            montantEnLettresLabel.setText(enLettres);
+        } catch (Exception e) {
+            montantEnLettresLabel.setText("");
+        }
+    }
+
+    /**
+     * Met à jour l'affichage du solde restant
+     */
+    private void updateSoldeRestant() {
+        try {
+            BigDecimal montantAmende = CurrencyFormatter.parse(montantAmendeField.getText());
+            BigDecimal montantEncaisse = CurrencyFormatter.parse(montantEncaisseField.getText());
+            BigDecimal solde = montantAmende.subtract(montantEncaisse);
+
+            if (soldeRestantLabel != null) {
+                soldeRestantLabel.setText("Solde restant : " + CurrencyFormatter.format(solde));
+
+                if (solde.compareTo(BigDecimal.ZERO) == 0) {
+                    soldeRestantLabel.getStyleClass().add("label-success");
+                } else {
+                    soldeRestantLabel.getStyleClass().remove("label-success");
+                }
+            }
+        } catch (Exception e) {
+            // Ignorer si les montants sont invalides
+        }
+    }
+
+    /**
+     * Valide le formulaire complet avant sauvegarde
+     */
+    private boolean validateForm() {
+        boolean valid = true;
+
+        // Valider tous les champs
+        valid &= validateContrevenant();
+        valid &= validateMontantAmende();
+        valid &= validateMontantEncaisse();
+        valid &= validateDateEncaissement();
+        valid &= validateModeReglement();
+
+        if (modeReglementCombo.getValue() == ModeReglement.CHEQUE) {
+            valid &= validateBanque();
+            valid &= validateNumeroCheque();
+        }
+
+        valid &= validateSaisissants();
+
+        // Vérifier qu'il y a au moins une contravention
+        if (contraventionsList == null || contraventionsList.isEmpty()) {
+            AlertUtil.showWarning("Validation", "Au moins une contravention est obligatoire");
+            valid = false;
+        }
+
+        return valid;
+    }
+
+    /**
      * Valide le montant encaissé
      */
     private void validateMontantEncaisse() {
@@ -676,6 +1103,8 @@ public class AffaireFormController implements Initializable {
             statutLabel.setText("EN COURS");
             statutLabel.getStyleClass().add("status-open");
         }
+
+        setupRealTimeValidation();
 
         // ENRICHISSEMENT : Message sur l'encaissement obligatoire
         Alert info = new Alert(Alert.AlertType.INFORMATION);

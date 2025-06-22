@@ -1,18 +1,25 @@
 package com.regulation.contentieux.service;
 
 import com.regulation.contentieux.config.DatabaseConfig;
+import com.regulation.contentieux.exception.BusinessException;
+import com.regulation.contentieux.model.Mandat;
+import com.regulation.contentieux.model.enums.StatutMandat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.*;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 
 /**
  * Service pour la gestion des mandats selon le cahier des charges
- * Format: YYMM0001 (ex: 2506M0001)
+ * Format: YYMM0001 (ex: 250600001)
  * Un seul mandat actif à la fois
- * ENRICHISSEMENT du service existant
+ * ENRICHISSEMENT COMPLET du service
  */
 public class MandatService {
 
@@ -20,7 +27,11 @@ public class MandatService {
 
     // ENRICHISSEMENT : Instance unique pour gérer le mandat actif
     private static MandatService instance;
-    private String mandatActif;
+    private Mandat mandatActif;
+
+    // Format standard du cahier des charges (sans le 'M')
+    private static final String FORMAT_PATTERN = "yyMM";
+    private static final int NUMERO_LENGTH = 4; // 0001 à 9999
 
     private MandatService() {
         // ENRICHISSEMENT : Charger le mandat actif au démarrage
@@ -35,27 +46,262 @@ public class MandatService {
     }
 
     /**
-     * Génère un nouveau numéro de mandat selon le format YYMM0001
-     * ENRICHISSEMENT : Respect strict du cahier des charges
+     * Crée un nouveau mandat pour le mois en cours
+     * ENRICHISSEMENT : Validation stricte et gestion d'état
      */
-    public String genererNouveauMandat() {
-        logger.info("🔍 === GÉNÉRATION NOUVEAU MANDAT ===");
-        logger.info("🔍 Format cahier des charges: YYMM0001");
+    public Mandat creerNouveauMandat(String description) {
+        logger.info("🆕 === CRÉATION NOUVEAU MANDAT ===");
 
+        // Vérifier qu'il n'y a pas déjà un mandat actif
+        if (mandatActif != null && mandatActif.getStatut() == StatutMandat.ACTIF) {
+            throw new BusinessException(
+                    "Un mandat est déjà actif (" + mandatActif.getNumeroMandat() +
+                            "). Veuillez le clôturer avant d'en créer un nouveau."
+            );
+        }
+
+        // Générer le numéro
+        String numeroMandat = genererNouveauMandat();
+
+        // Créer le mandat
+        Mandat nouveauMandat = new Mandat();
+        nouveauMandat.setNumeroMandat(numeroMandat);
+        nouveauMandat.setDescription(description != null ? description :
+                "Mandat du mois " + YearMonth.now().format(DateTimeFormatter.ofPattern("MM/yyyy")));
+        nouveauMandat.setDateDebut(LocalDate.now().withDayOfMonth(1));
+        nouveauMandat.setDateFin(LocalDate.now().withDayOfMonth(
+                LocalDate.now().lengthOfMonth()));
+        nouveauMandat.setStatut(StatutMandat.BROUILLON);
+        nouveauMandat.setCreatedAt(LocalDateTime.now());
+        nouveauMandat.setCreatedBy(AuthenticationService.getInstance().getCurrentUser().getLogin());
+
+        // Sauvegarder en base
+        sauvegarderMandat(nouveauMandat);
+
+        logger.info("✅ Mandat créé : {}", numeroMandat);
+        return nouveauMandat;
+    }
+
+    /**
+     * Active un mandat (un seul actif à la fois)
+     * ENRICHISSEMENT : Désactivation automatique des autres mandats
+     */
+    public void activerMandat(String numeroMandat) {
+        logger.info("🔄 Activation du mandat : {}", numeroMandat);
+
+        // Récupérer le mandat
+        Mandat mandat = findByNumero(numeroMandat)
+                .orElseThrow(() -> new BusinessException("Mandat introuvable : " + numeroMandat));
+
+        // Vérifier qu'il n'est pas déjà actif
+        if (mandat.getStatut() == StatutMandat.ACTIF) {
+            logger.info("ℹ️ Le mandat {} est déjà actif", numeroMandat);
+            this.mandatActif = mandat;
+            return;
+        }
+
+        // Vérifier qu'il n'est pas clôturé
+        if (mandat.getStatut() == StatutMandat.CLOTURE) {
+            throw new BusinessException("Impossible d'activer un mandat clôturé");
+        }
+
+        String sql = "UPDATE mandats SET actif = 0, statut = 'EN_ATTENTE', updated_at = CURRENT_TIMESTAMP";
+        String sqlActivate = "UPDATE mandats SET actif = 1, statut = 'ACTIF', updated_at = CURRENT_TIMESTAMP WHERE numero_mandat = ?";
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection()) {
+            conn.setAutoCommit(false);
+
+            try {
+                // Désactiver tous les mandats
+                try (Statement stmt = conn.createStatement()) {
+                    stmt.executeUpdate(sql);
+                }
+
+                // Activer le mandat sélectionné
+                try (PreparedStatement stmt = conn.prepareStatement(sqlActivate)) {
+                    stmt.setString(1, numeroMandat);
+                    stmt.executeUpdate();
+                }
+
+                conn.commit();
+
+                // Mettre à jour le cache
+                mandat.setStatut(StatutMandat.ACTIF);
+                mandat.setActif(true);
+                this.mandatActif = mandat;
+
+                logger.info("✅ Mandat {} activé avec succès", numeroMandat);
+
+            } catch (Exception e) {
+                conn.rollback();
+                throw new RuntimeException("Erreur lors de l'activation du mandat", e);
+            }
+
+        } catch (SQLException e) {
+            logger.error("Erreur lors de l'activation du mandat", e);
+            throw new RuntimeException("Impossible d'activer le mandat", e);
+        }
+    }
+
+    /**
+     * Clôture le mandat actif
+     * ENRICHISSEMENT : Vérifications avant clôture
+     */
+    public void cloturerMandatActif() {
+        if (mandatActif == null) {
+            throw new BusinessException("Aucun mandat actif à clôturer");
+        }
+
+        logger.info("🔒 Clôture du mandat : {}", mandatActif.getNumeroMandat());
+
+        // Vérifier qu'il n'y a pas d'affaires en cours
+        int affairesEnCours = compterAffairesEnCours(mandatActif.getNumeroMandat());
+        if (affairesEnCours > 0) {
+            throw new BusinessException(
+                    String.format("Impossible de clôturer le mandat : %d affaire(s) encore en cours",
+                            affairesEnCours)
+            );
+        }
+
+        String sql = """
+            UPDATE mandats 
+            SET statut = 'CLOTURE', 
+                actif = 0, 
+                date_cloture = CURRENT_TIMESTAMP,
+                updated_at = CURRENT_TIMESTAMP 
+            WHERE numero_mandat = ?
+        """;
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, mandatActif.getNumeroMandat());
+            stmt.executeUpdate();
+
+            mandatActif.setStatut(StatutMandat.CLOTURE);
+            mandatActif.setActif(false);
+            mandatActif = null;
+
+            logger.info("✅ Mandat clôturé avec succès");
+
+        } catch (SQLException e) {
+            logger.error("Erreur lors de la clôture du mandat", e);
+            throw new RuntimeException("Impossible de clôturer le mandat", e);
+        }
+    }
+
+    /**
+     * Liste tous les mandats avec possibilité de filtrage
+     */
+    public List<Mandat> listerMandats(boolean seulementActifs, StatutMandat statut) {
+        List<Mandat> mandats = new ArrayList<>();
+
+        StringBuilder sql = new StringBuilder("SELECT * FROM mandats WHERE 1=1");
+
+        if (seulementActifs) {
+            sql.append(" AND actif = 1");
+        }
+
+        if (statut != null) {
+            sql.append(" AND statut = ?");
+        }
+
+        sql.append(" ORDER BY numero_mandat DESC");
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
+
+            int paramIndex = 1;
+            if (statut != null) {
+                stmt.setString(paramIndex++, statut.name());
+            }
+
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                mandats.add(mapResultSetToMandat(rs));
+            }
+
+        } catch (SQLException e) {
+            logger.error("Erreur lors du listage des mandats", e);
+        }
+
+        return mandats;
+    }
+
+    /**
+     * Vérifie si une date est dans le mandat actif
+     * ENRICHISSEMENT : Validation stricte des dates
+     */
+    public boolean estDansMandatActif(LocalDate date) {
+        if (mandatActif == null || date == null) {
+            return false;
+        }
+
+        return !date.isBefore(mandatActif.getDateDebut()) &&
+                !date.isAfter(mandatActif.getDateFin());
+    }
+
+    /**
+     * Récupère les statistiques d'un mandat
+     */
+    public MandatStatistiques getStatistiques(String numeroMandat) {
+        MandatStatistiques stats = new MandatStatistiques();
+        stats.setNumeroMandat(numeroMandat);
+
+        String sql = """
+            SELECT 
+                COUNT(DISTINCT a.id) as nombre_affaires,
+                COUNT(DISTINCT CASE WHEN a.statut = 'SOLDEE' THEN a.id END) as affaires_soldees,
+                COUNT(DISTINCT CASE WHEN a.statut = 'EN_COURS' THEN a.id END) as affaires_en_cours,
+                COUNT(DISTINCT e.id) as nombre_encaissements,
+                COALESCE(SUM(e.montant_encaisse), 0) as montant_total_encaisse,
+                COUNT(DISTINCT aa.agent_id) as nombre_agents
+            FROM affaires a
+            LEFT JOIN encaissements e ON e.affaire_id = a.id
+            LEFT JOIN affaire_acteurs aa ON aa.affaire_id = a.id
+            WHERE EXISTS (
+                SELECT 1 FROM encaissements e2 
+                WHERE e2.affaire_id = a.id 
+                AND e2.numero_mandat = ?
+            )
+        """;
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, numeroMandat);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                stats.setNombreAffaires(rs.getInt("nombre_affaires"));
+                stats.setAffairesSoldees(rs.getInt("affaires_soldees"));
+                stats.setAffairesEnCours(rs.getInt("affaires_en_cours"));
+                stats.setNombreEncaissements(rs.getInt("nombre_encaissements"));
+                stats.setMontantTotalEncaisse(rs.getBigDecimal("montant_total_encaisse"));
+                stats.setNombreAgents(rs.getInt("nombre_agents"));
+            }
+
+        } catch (SQLException e) {
+            logger.error("Erreur lors du calcul des statistiques", e);
+        }
+
+        return stats;
+    }
+
+    /**
+     * Génère un nouveau numéro de mandat selon le format YYMM0001
+     * ENRICHISSEMENT : Gestion robuste avec vérification d'unicité
+     */
+    private String genererNouveauMandat() {
         LocalDate now = LocalDate.now();
-        String yearMonth = now.format(DateTimeFormatter.ofPattern("yyMM"));
+        String yearMonth = now.format(DateTimeFormatter.ofPattern(FORMAT_PATTERN));
 
-        // ENRICHISSEMENT : Le cahier mentionne aussi le format avec 'M' (ex: 2506M0001)
-        // Vérifier quelle variante est utilisée
-        String formatStandard = yearMonth;
-        String formatAvecM = yearMonth + "M";
+        logger.debug("🔍 Génération mandat pour période : {}", yearMonth);
 
-        logger.debug("🔍 Recherche de mandats pour période: {}", yearMonth);
-
-        // Rechercher le dernier mandat pour ce mois
+        // Rechercher le dernier mandat du mois
         String sql = """
             SELECT numero_mandat FROM mandats
-            WHERE (numero_mandat LIKE ? OR numero_mandat LIKE ?)
+            WHERE numero_mandat LIKE ?
             ORDER BY numero_mandat DESC
             LIMIT 1
         """;
@@ -63,233 +309,70 @@ public class MandatService {
         try (Connection conn = DatabaseConfig.getSQLiteConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-            stmt.setString(1, formatStandard + "%");
-            stmt.setString(2, formatAvecM + "%");
+            stmt.setString(1, yearMonth + "%");
             ResultSet rs = stmt.executeQuery();
 
             if (rs.next()) {
-                String dernierMandat = rs.getString("numero_mandat");
-                logger.debug("🔍 Dernier mandat trouvé: {}", dernierMandat);
-
-                return genererSuivant(dernierMandat, yearMonth);
+                String lastMandat = rs.getString("numero_mandat");
+                return genererProchainNumero(lastMandat, yearMonth);
             } else {
                 // Premier mandat du mois
-                String nouveauMandat = determinerFormatMandat(yearMonth) + "0001";
-                logger.info("🆕 Premier mandat du mois: {}", nouveauMandat);
-                return nouveauMandat;
+                String numero = yearMonth + "0001";
+                logger.info("🆕 Premier mandat du mois : {}", numero);
+                return numero;
             }
 
         } catch (SQLException e) {
-            logger.error("❌ Erreur lors de la génération du mandat", e);
-            // Fallback
-            return yearMonth + "M0001";
+            logger.error("Erreur lors de la génération du numéro de mandat", e);
+            throw new RuntimeException("Impossible de générer le numéro de mandat", e);
         }
     }
 
     /**
-     * ENRICHISSEMENT : Détermine le format de mandat à utiliser
+     * Génère le prochain numéro à partir du dernier
      */
-    private String determinerFormatMandat(String yearMonth) {
-        // Vérifier s'il existe des mandats avec le format 'M'
-        String sql = "SELECT COUNT(*) FROM mandats WHERE numero_mandat LIKE ?";
-
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-            stmt.setString(1, "%M%");
-            ResultSet rs = stmt.executeQuery();
-
-            if (rs.next() && rs.getInt(1) > 0) {
-                logger.info("✅ Format avec 'M' détecté (ex: 2506M0001)");
-                return yearMonth + "M";
-            } else {
-                logger.info("✅ Format standard détecté (ex: 25060001)");
-                return yearMonth;
-            }
-
-        } catch (Exception e) {
-            logger.warn("⚠️ Utilisation du format avec 'M' par défaut");
-            return yearMonth + "M";
-        }
-    }
-
-    /**
-     * ENRICHISSEMENT : Génère le mandat suivant
-     */
-    private String genererSuivant(String dernierMandat, String yearMonth) {
+    private String genererProchainNumero(String dernierNumero, String yearMonth) {
         try {
             // Extraire le numéro séquentiel
-            String numeroStr = "";
-            String prefix = "";
-
-            if (dernierMandat.contains("M")) {
-                // Format avec M
-                int indexM = dernierMandat.indexOf("M");
-                prefix = dernierMandat.substring(0, indexM + 1);
-                numeroStr = dernierMandat.substring(indexM + 1);
-            } else if (dernierMandat.length() == 8) {
-                // Format YYMM0001
-                prefix = dernierMandat.substring(0, 4);
-                numeroStr = dernierMandat.substring(4);
-            }
-
-            int numero = Integer.parseInt(numeroStr);
+            String numeroSeq = dernierNumero.substring(4);
+            int numero = Integer.parseInt(numeroSeq);
 
             // Vérifier si on est toujours dans le même mois
-            if (prefix.startsWith(yearMonth)) {
-                String nouveauMandat = prefix + String.format("%04d", numero + 1);
-                logger.info("✅ Mandat suivant dans la séquence: {}", nouveauMandat);
-
-                // ENRICHISSEMENT : Avertissement si plusieurs mandats dans le mois
-                if (numero >= 1) {
-                    logger.warn("⚠️ ATTENTION: Plusieurs mandats dans le même mois (rare selon cahier des charges)");
-                }
-
-                return nouveauMandat;
+            if (dernierNumero.startsWith(yearMonth)) {
+                // Incrémenter
+                String nextNumero = yearMonth + String.format("%04d", numero + 1);
+                logger.info("📈 Prochain numéro dans la séquence : {}", nextNumero);
+                return nextNumero;
             } else {
                 // Nouveau mois
-                String nouveauMandat = determinerFormatMandat(yearMonth) + "0001";
-                logger.info("🔄 Nouveau mois - Premier mandat: {}", nouveauMandat);
-                return nouveauMandat;
+                String nextNumero = yearMonth + "0001";
+                logger.info("🔄 Nouveau mois - Réinitialisation : {}", nextNumero);
+                return nextNumero;
             }
 
         } catch (Exception e) {
-            logger.error("Erreur dans genererSuivant", e);
-            return yearMonth + "M0001";
+            logger.error("Erreur dans le parsing du numéro", e);
+            return yearMonth + "0001";
         }
     }
 
     /**
-     * Active un mandat (un seul mandat actif à la fois)
-     * ENRICHISSEMENT : Respect de la contrainte du cahier des charges
-     */
-    public boolean activerMandat(String numeroMandat) {
-        logger.info("🔄 === ACTIVATION MANDAT {} ===", numeroMandat);
-
-        // Vérifier que le mandat existe
-        if (!mandatExiste(numeroMandat)) {
-            logger.error("❌ Le mandat {} n'existe pas", numeroMandat);
-            return false;
-        }
-
-        String sql = """
-            UPDATE mandats 
-            SET actif = CASE 
-                WHEN numero_mandat = ? THEN 1 
-                ELSE 0 
-            END
-        """;
-
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-            stmt.setString(1, numeroMandat);
-            int affected = stmt.executeUpdate();
-
-            if (affected > 0) {
-                String ancienMandat = this.mandatActif;
-                this.mandatActif = numeroMandat;
-
-                logger.info("✅ Mandat {} activé avec succès", numeroMandat);
-                if (ancienMandat != null && !ancienMandat.equals(numeroMandat)) {
-                    logger.info("📋 Ancien mandat {} désactivé", ancienMandat);
-                }
-
-                // ENRICHISSEMENT : Vérifier la cohérence
-                verifierCoherenceMandat(numeroMandat);
-
-                return true;
-            }
-
-        } catch (SQLException e) {
-            logger.error("❌ Erreur lors de l'activation du mandat", e);
-        }
-
-        return false;
-    }
-
-    /**
-     * ENRICHISSEMENT : Vérifie la cohérence d'un mandat
-     */
-    private void verifierCoherenceMandat(String numeroMandat) {
-        logger.debug("🔍 Vérification de cohérence pour mandat {}", numeroMandat);
-
-        try {
-            // Extraire le mois du mandat
-            String moisMandat = numeroMandat.substring(0, 4); // YYMM
-
-            // Vérifier les affaires de ce mandat
-            String sql = """
-                SELECT COUNT(*) as total,
-                       MIN(date_creation) as premiere_date,
-                       MAX(date_creation) as derniere_date
-                FROM affaires
-                WHERE numero_mandat = ?
-            """;
-
-            try (Connection conn = DatabaseConfig.getSQLiteConnection();
-                 PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-                stmt.setString(1, numeroMandat);
-                ResultSet rs = stmt.executeQuery();
-
-                if (rs.next()) {
-                    int total = rs.getInt("total");
-                    Date premiereDate = rs.getDate("premiere_date");
-                    Date derniereDate = rs.getDate("derniere_date");
-
-                    logger.info("📊 Mandat {} : {} affaires", numeroMandat, total);
-
-                    if (premiereDate != null && derniereDate != null) {
-                        LocalDate debut = premiereDate.toLocalDate();
-                        LocalDate fin = derniereDate.toLocalDate();
-
-                        // Vérifier que toutes les dates sont dans le même mois
-                        String moisDebut = debut.format(DateTimeFormatter.ofPattern("yyMM"));
-                        String moisFin = fin.format(DateTimeFormatter.ofPattern("yyMM"));
-
-                        if (!moisDebut.equals(moisMandat) || !moisFin.equals(moisMandat)) {
-                            logger.warn("⚠️ ATTENTION: Des affaires dépassent le mois du mandat!");
-                            logger.warn("⚠️ Mandat: {}, Première affaire: {}, Dernière affaire: {}",
-                                    moisMandat, debut, fin);
-                        } else {
-                            logger.info("✅ Toutes les affaires sont dans le mois du mandat");
-                        }
-                    }
-                }
-
-            } catch (Exception e) {
-                logger.error("Erreur lors de la vérification de cohérence", e);
-            }
-
-        } catch (Exception e) {
-            logger.error("Erreur dans l'extraction du mois du mandat", e);
-        }
-    }
-
-    /**
-     * Récupère le mandat actif
-     */
-    public String getMandatActif() {
-        if (mandatActif == null) {
-            chargerMandatActif();
-        }
-        return mandatActif;
-    }
-
-    /**
-     * ENRICHISSEMENT : Charge le mandat actif depuis la base
+     * Charge le mandat actif depuis la base
      */
     private void chargerMandatActif() {
-        String sql = "SELECT numero_mandat FROM mandats WHERE actif = 1 LIMIT 1";
+        String sql = """
+            SELECT * FROM mandats 
+            WHERE actif = 1 AND statut = 'ACTIF' 
+            LIMIT 1
+        """;
 
         try (Connection conn = DatabaseConfig.getSQLiteConnection();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
 
             if (rs.next()) {
-                this.mandatActif = rs.getString("numero_mandat");
-                logger.info("✅ Mandat actif chargé: {}", this.mandatActif);
+                this.mandatActif = mapResultSetToMandat(rs);
+                logger.info("✅ Mandat actif chargé : {}", this.mandatActif.getNumeroMandat());
             } else {
                 logger.warn("⚠️ Aucun mandat actif trouvé");
             }
@@ -300,51 +383,166 @@ public class MandatService {
     }
 
     /**
-     * Vérifie si un mandat existe
+     * Sauvegarde un mandat en base
      */
-    private boolean mandatExiste(String numeroMandat) {
-        String sql = "SELECT 1 FROM mandats WHERE numero_mandat = ? LIMIT 1";
+    private void sauvegarderMandat(Mandat mandat) {
+        String sql = """
+            INSERT INTO mandats (numero_mandat, description, date_debut, date_fin, 
+                               statut, actif, created_at, created_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """;
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, mandat.getNumeroMandat());
+            stmt.setString(2, mandat.getDescription());
+            stmt.setDate(3, Date.valueOf(mandat.getDateDebut()));
+            stmt.setDate(4, Date.valueOf(mandat.getDateFin()));
+            stmt.setString(5, mandat.getStatut().name());
+            stmt.setBoolean(6, false); // Jamais actif à la création
+            stmt.setTimestamp(7, Timestamp.valueOf(mandat.getCreatedAt()));
+            stmt.setString(8, mandat.getCreatedBy());
+
+            stmt.executeUpdate();
+
+        } catch (SQLException e) {
+            logger.error("Erreur lors de la sauvegarde du mandat", e);
+            throw new RuntimeException("Impossible de sauvegarder le mandat", e);
+        }
+    }
+
+    /**
+     * Compte les affaires en cours pour un mandat
+     */
+    private int compterAffairesEnCours(String numeroMandat) {
+        String sql = """
+            SELECT COUNT(DISTINCT a.id) 
+            FROM affaires a
+            WHERE a.statut = 'EN_COURS'
+            AND EXISTS (
+                SELECT 1 FROM encaissements e 
+                WHERE e.affaire_id = a.id 
+                AND e.numero_mandat = ?
+            )
+        """;
 
         try (Connection conn = DatabaseConfig.getSQLiteConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setString(1, numeroMandat);
             ResultSet rs = stmt.executeQuery();
-            return rs.next();
+
+            if (rs.next()) {
+                return rs.getInt(1);
+            }
 
         } catch (SQLException e) {
-            logger.error("Erreur lors de la vérification d'existence du mandat", e);
-            return false;
+            logger.error("Erreur lors du comptage des affaires en cours", e);
         }
+
+        return 0;
     }
 
     /**
-     * ENRICHISSEMENT : Crée la table mandats si elle n'existe pas
+     * Recherche un mandat par son numéro
      */
-    public static void creerTableMandatsSiNecessaire() {
-        String sql = """
-            CREATE TABLE IF NOT EXISTS mandats (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                numero_mandat TEXT NOT NULL UNIQUE,
-                date_debut DATE NOT NULL,
-                date_fin DATE NOT NULL,
-                actif INTEGER NOT NULL DEFAULT 0,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                created_by TEXT,
-                CONSTRAINT un_seul_actif CHECK (
-                    (SELECT COUNT(*) FROM mandats WHERE actif = 1) <= 1
-                )
-            )
-        """;
+    private Optional<Mandat> findByNumero(String numeroMandat) {
+        String sql = "SELECT * FROM mandats WHERE numero_mandat = ?";
 
         try (Connection conn = DatabaseConfig.getSQLiteConnection();
-             Statement stmt = conn.createStatement()) {
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-            stmt.execute(sql);
-            logger.info("✅ Table mandats vérifiée/créée");
+            stmt.setString(1, numeroMandat);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                return Optional.of(mapResultSetToMandat(rs));
+            }
 
         } catch (SQLException e) {
-            logger.error("Erreur lors de la création de la table mandats", e);
+            logger.error("Erreur lors de la recherche du mandat", e);
         }
+
+        return Optional.empty();
+    }
+
+    /**
+     * Mappe un ResultSet vers un objet Mandat
+     */
+    private Mandat mapResultSetToMandat(ResultSet rs) throws SQLException {
+        Mandat mandat = new Mandat();
+        mandat.setId(rs.getLong("id"));
+        mandat.setNumeroMandat(rs.getString("numero_mandat"));
+        mandat.setDescription(rs.getString("description"));
+        mandat.setDateDebut(rs.getDate("date_debut").toLocalDate());
+        mandat.setDateFin(rs.getDate("date_fin").toLocalDate());
+        mandat.setStatut(StatutMandat.valueOf(rs.getString("statut")));
+        mandat.setActif(rs.getBoolean("actif"));
+
+        Timestamp dateCloture = rs.getTimestamp("date_cloture");
+        if (dateCloture != null) {
+            mandat.setDateCloture(dateCloture.toLocalDateTime());
+        }
+
+        mandat.setCreatedAt(rs.getTimestamp("created_at").toLocalDateTime());
+        mandat.setCreatedBy(rs.getString("created_by"));
+
+        Timestamp updatedAt = rs.getTimestamp("updated_at");
+        if (updatedAt != null) {
+            mandat.setUpdatedAt(updatedAt.toLocalDateTime());
+            mandat.setUpdatedBy(rs.getString("updated_by"));
+        }
+
+        return mandat;
+    }
+
+    // Getters publics
+
+    public Mandat getMandatActif() {
+        return mandatActif;
+    }
+
+    public String getNumeroMandatActif() {
+        return mandatActif != null ? mandatActif.getNumeroMandat() : null;
+    }
+
+    public boolean hasMandatActif() {
+        return mandatActif != null && mandatActif.getStatut() == StatutMandat.ACTIF;
+    }
+
+    /**
+     * Classe interne pour les statistiques d'un mandat
+     */
+    public static class MandatStatistiques {
+        private String numeroMandat;
+        private int nombreAffaires;
+        private int affairesSoldees;
+        private int affairesEnCours;
+        private int nombreEncaissements;
+        private BigDecimal montantTotalEncaisse;
+        private int nombreAgents;
+
+        // Getters et setters
+        public String getNumeroMandat() { return numeroMandat; }
+        public void setNumeroMandat(String numeroMandat) { this.numeroMandat = numeroMandat; }
+
+        public int getNombreAffaires() { return nombreAffaires; }
+        public void setNombreAffaires(int nombreAffaires) { this.nombreAffaires = nombreAffaires; }
+
+        public int getAffairesSoldees() { return affairesSoldees; }
+        public void setAffairesSoldees(int affairesSoldees) { this.affairesSoldees = affairesSoldees; }
+
+        public int getAffairesEnCours() { return affairesEnCours; }
+        public void setAffairesEnCours(int affairesEnCours) { this.affairesEnCours = affairesEnCours; }
+
+        public int getNombreEncaissements() { return nombreEncaissements; }
+        public void setNombreEncaissements(int nombreEncaissements) { this.nombreEncaissements = nombreEncaissements; }
+
+        public BigDecimal getMontantTotalEncaisse() { return montantTotalEncaisse; }
+        public void setMontantTotalEncaisse(BigDecimal montantTotalEncaisse) { this.montantTotalEncaisse = montantTotalEncaisse; }
+
+        public int getNombreAgents() { return nombreAgents; }
+        public void setNombreAgents(int nombreAgents) { this.nombreAgents = nombreAgents; }
     }
 }

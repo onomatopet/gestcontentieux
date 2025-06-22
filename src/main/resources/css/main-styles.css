@@ -1,5 +1,50 @@
 /* ===== STYLES PRINCIPAUX - Gestion des Affaires Contentieuses ===== */
 
+/* Styles pour la barre de statut */
+.status-bar {
+    -fx-background-color: #f8f9fa;
+    -fx-border-color: #dee2e6;
+    -fx-border-width: 1 0 0 0;
+    -fx-min-height: 30px;
+}
+
+.status-label {
+    -fx-text-fill: #6c757d;
+    -fx-font-size: 12px;
+}
+
+.status-value {
+    -fx-text-fill: #212529;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+}
+
+.status-mandat {
+    -fx-cursor: hand;
+}
+
+.status-mandat:hover {
+    -fx-underline: true;
+}
+
+.status-datetime {
+    -fx-text-fill: #6c757d;
+    -fx-font-size: 11px;
+}
+
+/* Indicateur de connexion DB */
+.db-connected {
+    -fx-fill: #28a745;
+}
+
+.db-disconnected {
+    -fx-fill: #dc3545;
+}
+
+.db-warning {
+    -fx-fill: #ffc107;
+}
+
 /* ----- Styles de base ----- */
 .root {
     -fx-font-family: "Segoe UI", Arial, sans-serif;

@@ -1,390 +1,450 @@
 package com.regulation.contentieux.service;
 
+import com.regulation.contentieux.exception.ValidationException;
 import com.regulation.contentieux.model.*;
-import java.math.BigDecimal;
-import java.util.regex.Pattern;
+import com.regulation.contentieux.model.enums.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+import java.util.regex.Pattern;
+
 /**
- * Service de validation des données métier
- * Centralise toutes les règles de validation de l'application
+ * Service de validation centralisé
+ * Implémente toutes les règles de validation du cahier des charges
  */
 public class ValidationService {
 
     private static final Logger logger = LoggerFactory.getLogger(ValidationService.class);
 
     // Patterns de validation
-    private static final Pattern EMAIL_PATTERN =
-            Pattern.compile("^[A-Za-z0-9+_.-]+@(.+)$");
+    private static final Pattern PATTERN_NUMERO_AFFAIRE = Pattern.compile("^\\d{9}$"); // YYMMNNNNN
+    private static final Pattern PATTERN_NUMERO_ENCAISSEMENT = Pattern.compile("^\\d{4}R\\d{5}$"); // YYMMRNNNNN
+    private static final Pattern PATTERN_NUMERO_MANDAT = Pattern.compile("^\\d{8}$"); // YYMM0001
+    private static final Pattern PATTERN_EMAIL = Pattern.compile("^[A-Za-z0-9+_.-]+@(.+)$");
+    private static final Pattern PATTERN_TELEPHONE = Pattern.compile("^[0-9\\s\\-\\+\\.\\(\\)]+$");
+    private static final Pattern PATTERN_CIN = Pattern.compile("^[A-Z0-9]{5,15}$");
 
-    private static final Pattern PHONE_PATTERN =
-            Pattern.compile("^\\+?[0-9\\s\\-\\.\\(\\)]+$");
+    // Instance unique
+    private static ValidationService instance;
 
-    private static final Pattern CODE_PATTERN =
-            Pattern.compile("^[A-Z0-9\\-]+$");
+    private ValidationService() {}
 
-    private static final Pattern REFERENCE_ENCAISSEMENT_PATTERN =
-            Pattern.compile("^ENC-\\d{4}-\\d{5}$");
-
-    private static final Pattern NUMERO_AFFAIRE_PATTERN =
-            Pattern.compile("^AFF-\\d{4}-\\d{5}$");
-
-    // Longueurs minimales et maximales
-    private static final int MIN_LOGIN_LENGTH = 3;
-    private static final int MIN_PASSWORD_LENGTH = 6;
-    private static final int MIN_NAME_LENGTH = 2;
-    private static final int MAX_CODE_LENGTH = 20;
-    private static final int MAX_DESCRIPTION_LENGTH = 500;
-
-    /**
-     * Valide un email
-     */
-    public boolean isValidEmail(String email) {
-        if (email == null || email.trim().isEmpty()) {
-            return true; // Email optionnel
+    public static synchronized ValidationService getInstance() {
+        if (instance == null) {
+            instance = new ValidationService();
         }
-        return EMAIL_PATTERN.matcher(email.trim()).matches();
+        return instance;
     }
 
     /**
-     * Valide un numéro de téléphone
+     * Valide une affaire complète
+     * @throws ValidationException si la validation échoue
      */
-    public boolean isValidPhone(String phone) {
-        if (phone == null || phone.trim().isEmpty()) {
-            return true; // Téléphone optionnel
+    public void validateAffaire(Affaire affaire) throws ValidationException {
+        List<String> errors = new ArrayList<>();
+
+        if (affaire == null) {
+            throw new ValidationException("L'affaire ne peut pas être nulle");
         }
-        String cleaned = phone.replaceAll("\\s", "");
-        return cleaned.length() >= 8 && PHONE_PATTERN.matcher(phone).matches();
+
+        // Validation du numéro d'affaire
+        if (affaire.getNumeroAffaire() != null && !isValidNumeroAffaire(affaire.getNumeroAffaire())) {
+            errors.add("Format du numéro d'affaire invalide (attendu: YYMMNNNNN)");
+        }
+
+        // Validation du contrevenant
+        if (affaire.getContrevenant() == null) {
+            errors.add("Le contrevenant est obligatoire");
+        } else {
+            validateContrevenant(affaire.getContrevenant(), errors);
+        }
+
+        // Validation des contraventions
+        if (affaire.getContraventions() == null || affaire.getContraventions().isEmpty()) {
+            errors.add("Au moins une contravention est obligatoire");
+        }
+
+        // Validation du montant
+        if (affaire.getMontantAmendeTotal() == null || affaire.getMontantAmendeTotal().compareTo(BigDecimal.ZERO) <= 0) {
+            errors.add("Le montant de l'amende doit être supérieur à zéro");
+        }
+
+        // Validation de la date
+        if (affaire.getDateCreation() != null && affaire.getDateCreation().isAfter(LocalDate.now())) {
+            errors.add("La date de création ne peut pas être dans le futur");
+        }
+
+        if (!errors.isEmpty()) {
+            throw new ValidationException("Erreurs de validation de l'affaire", errors);
+        }
     }
 
     /**
-     * Valide un code (format majuscule avec tirets)
+     * Valide un encaissement
+     * Règle métier : montant encaissé ≤ montant amende
      */
-    public boolean isValidCode(String code) {
-        if (code == null || code.trim().isEmpty()) {
-            return false;
+    public void validateEncaissement(Encaissement encaissement, Affaire affaire) throws ValidationException {
+        List<String> errors = new ArrayList<>();
+
+        if (encaissement == null) {
+            throw new ValidationException("L'encaissement ne peut pas être nul");
         }
-        return code.length() <= MAX_CODE_LENGTH && CODE_PATTERN.matcher(code).matches();
+
+        // Validation de la référence
+        if (encaissement.getReference() != null && !isValidNumeroEncaissement(encaissement.getReference())) {
+            errors.add("Format de la référence d'encaissement invalide (attendu: YYMMRNNNNN)");
+        }
+
+        // Validation du montant
+        if (encaissement.getMontantEncaisse() == null || encaissement.getMontantEncaisse().compareTo(BigDecimal.ZERO) <= 0) {
+            errors.add("Le montant encaissé doit être supérieur à zéro");
+        }
+
+        // RÈGLE MÉTIER : montant encaissé ≤ montant amende
+        if (affaire != null && encaissement.getMontantEncaisse() != null) {
+            BigDecimal soldeRestant = affaire.getSoldeRestant();
+            if (encaissement.getMontantEncaisse().compareTo(soldeRestant) > 0) {
+                errors.add(String.format("Le montant encaissé (%s) ne peut pas dépasser le solde restant (%s)",
+                        encaissement.getMontantEncaisse(), soldeRestant));
+            }
+        }
+
+        // Validation de la date
+        if (encaissement.getDateEncaissement() == null) {
+            errors.add("La date d'encaissement est obligatoire");
+        } else if (encaissement.getDateEncaissement().isAfter(LocalDate.now())) {
+            errors.add("La date d'encaissement ne peut pas être dans le futur");
+        }
+
+        // Validation du mode de règlement
+        if (encaissement.getModeReglement() == null) {
+            errors.add("Le mode de règlement est obligatoire");
+        } else if (encaissement.getModeReglement() == ModeReglement.CHEQUE) {
+            // Si chèque, vérifier les infos bancaires
+            if (encaissement.getBanque() == null) {
+                errors.add("La banque est obligatoire pour un paiement par chèque");
+            }
+            if (encaissement.getNumeroPiece() == null || encaissement.getNumeroPiece().trim().isEmpty()) {
+                errors.add("Le numéro de chèque est obligatoire");
+            }
+        }
+
+        if (!errors.isEmpty()) {
+            throw new ValidationException("Erreurs de validation de l'encaissement", errors);
+        }
     }
 
     /**
-     * Valide une référence d'encaissement
+     * Valide les acteurs d'une affaire
+     * Règle métier : au moins un saisissant obligatoire
      */
-    public boolean isValidEncaissementReference(String reference) {
-        if (reference == null || reference.trim().isEmpty()) {
-            return false;
+    public void validateActeurs(List<AffaireActeur> acteurs) throws ValidationException {
+        if (acteurs == null || acteurs.isEmpty()) {
+            throw new ValidationException("Au moins un acteur est obligatoire");
         }
-        return REFERENCE_ENCAISSEMENT_PATTERN.matcher(reference).matches();
+
+        // Vérifier qu'il y a au moins un saisissant
+        boolean hasSaisissant = acteurs.stream()
+                .anyMatch(a -> RoleAffaire.SAISISSANT.name().equals(a.getRoleSurAffaire()));
+
+        if (!hasSaisissant) {
+            throw new ValidationException("Au moins un agent saisissant est obligatoire");
+        }
     }
 
     /**
-     * Valide un numéro d'affaire
+     * Valide la cohérence des dates avec le mandat
      */
-    public boolean isValidNumeroAffaire(String numero) {
-        if (numero == null || numero.trim().isEmpty()) {
-            return false;
-        }
-        return NUMERO_AFFAIRE_PATTERN.matcher(numero).matches();
-    }
-
-    /**
-     * Valide un montant
-     */
-    public boolean isValidMontant(BigDecimal montant) {
-        if (montant == null) {
-            return false;
-        }
-        return montant.compareTo(BigDecimal.ZERO) > 0;
-    }
-
-    /**
-     * Valide un utilisateur
-     */
-    public boolean isValidUtilisateur(Utilisateur utilisateur) {
-        if (utilisateur == null) {
-            return false;
+    public void validateDateAvecMandat(LocalDate date, String numeroMandat) throws ValidationException {
+        if (date == null || numeroMandat == null) {
+            return;
         }
 
-        // Login obligatoire
-        if (utilisateur.getLogin() == null ||
-                utilisateur.getLogin().trim().length() < MIN_LOGIN_LENGTH) {
-            logger.warn("Login invalide: {}", utilisateur.getLogin());
-            return false;
+        // Extraire YYMM du mandat et de la date
+        String yymmMandat = numeroMandat.substring(0, 4);
+        String yymmDate = date.format(DateTimeFormatter.ofPattern("yyMM"));
+
+        if (!yymmMandat.equals(yymmDate)) {
+            throw new ValidationException(
+                    String.format("La date %s n'est pas dans le mandat %s",
+                            date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                            numeroMandat)
+            );
         }
-
-        // Nom obligatoire
-        if (utilisateur.getNom() == null ||
-                utilisateur.getNom().trim().length() < MIN_NAME_LENGTH) {
-            logger.warn("Nom invalide: {}", utilisateur.getNom());
-            return false;
-        }
-
-        // Email valide si fourni
-        if (!isValidEmail(utilisateur.getEmail())) {
-            logger.warn("Email invalide: {}", utilisateur.getEmail());
-            return false;
-        }
-
-        // Rôle obligatoire
-        if (utilisateur.getRole() == null) {
-            logger.warn("Rôle manquant");
-            return false;
-        }
-
-        return true;
-    }
-
-    /**
-     * Valide un agent
-     */
-    public boolean isValidAgent(Agent agent) {
-        if (agent == null) {
-            return false;
-        }
-
-        // Code obligatoire et valide
-        if (!isValidCode(agent.getCodeAgent())) {
-            logger.warn("Code agent invalide: {}", agent.getCodeAgent());
-            return false;
-        }
-
-        // Nom obligatoire
-        if (agent.getNom() == null ||
-                agent.getNom().trim().length() < MIN_NAME_LENGTH) {
-            logger.warn("Nom agent invalide: {}", agent.getNom());
-            return false;
-        }
-
-        // Prénom obligatoire
-        if (agent.getPrenom() == null ||
-                agent.getPrenom().trim().length() < MIN_NAME_LENGTH) {
-            logger.warn("Prénom agent invalide: {}", agent.getPrenom());
-            return false;
-        }
-
-        // Email valide si fourni
-        if (!isValidEmail(agent.getEmail())) {
-            logger.warn("Email agent invalide: {}", agent.getEmail());
-            return false;
-        }
-
-        // Téléphone valide si fourni
-        if (!isValidPhone(agent.getTelephone())) {
-            logger.warn("Téléphone agent invalide: {}", agent.getTelephone());
-            return false;
-        }
-
-        return true;
     }
 
     /**
      * Valide un contrevenant
      */
-    public boolean isValidContrevenant(Contrevenant contrevenant) {
-        if (contrevenant == null) {
-            return false;
+    private void validateContrevenant(Contrevenant contrevenant, List<String> errors) {
+        if (contrevenant.getType() == null && contrevenant.getTypePersonne() == null) {
+            errors.add("Le type de contrevenant est obligatoire");
+            return;
         }
 
-        // Au moins nom ou raison sociale
-        boolean hasNom = contrevenant.getNom() != null &&
-                !contrevenant.getNom().trim().isEmpty();
-        boolean hasRaisonSociale = contrevenant.getRaisonSociale() != null &&
-                !contrevenant.getRaisonSociale().trim().isEmpty();
+        if (contrevenant.getType() == TypeContrevenant.PERSONNE_PHYSIQUE ||
+                "PHYSIQUE".equals(contrevenant.getTypePersonne())) {
 
-        if (!hasNom && !hasRaisonSociale) {
-            logger.warn("Ni nom ni raison sociale fournis");
-            return false;
+            if (isBlank(contrevenant.getNom())) {
+                errors.add("Le nom du contrevenant est obligatoire");
+            }
+
+            if (isBlank(contrevenant.getCin())) {
+                errors.add("Le CIN est obligatoire pour une personne physique");
+            } else if (!isValidCIN(contrevenant.getCin())) {
+                errors.add("Format du CIN invalide");
+            }
+
+        } else if (contrevenant.getType() == TypeContrevenant.PERSONNE_MORALE ||
+                "MORALE".equals(contrevenant.getTypePersonne())) {
+
+            if (isBlank(contrevenant.getRaisonSociale())) {
+                errors.add("La raison sociale est obligatoire pour une personne morale");
+            }
+
+            if (isBlank(contrevenant.getNumeroRegistreCommerce())) {
+                errors.add("Le numéro de registre de commerce est obligatoire");
+            }
         }
 
-        // Type obligatoire
-        if (contrevenant.getType() == null) {
-            logger.warn("Type contrevenant manquant");
-            return false;
+        // Validation des coordonnées
+        if (!isBlank(contrevenant.getEmail()) && !isValidEmail(contrevenant.getEmail())) {
+            errors.add("Format d'email invalide");
         }
 
-        // Email valide si fourni
-        if (!isValidEmail(contrevenant.getEmail())) {
-            logger.warn("Email contrevenant invalide: {}", contrevenant.getEmail());
-            return false;
+        if (!isBlank(contrevenant.getTelephone()) && !isValidTelephone(contrevenant.getTelephone())) {
+            errors.add("Format de téléphone invalide");
         }
-
-        // Téléphone valide si fourni
-        if (!isValidPhone(contrevenant.getTelephone())) {
-            logger.warn("Téléphone contrevenant invalide: {}", contrevenant.getTelephone());
-            return false;
-        }
-
-        return true;
     }
 
     /**
-     * Valide une affaire
+     * Valide un agent
      */
-    public boolean isValidAffaire(Affaire affaire) {
-        if (affaire == null) {
-            return false;
+    public void validateAgent(Agent agent) throws ValidationException {
+        List<String> errors = new ArrayList<>();
+
+        if (agent == null) {
+            throw new ValidationException("L'agent ne peut pas être nul");
         }
 
-        // Contrevenant obligatoire
-        if (affaire.getContrevenant() == null) {
-            logger.warn("Contrevenant manquant");
-            return false;
+        if (isBlank(agent.getCodeAgent())) {
+            errors.add("Le code agent est obligatoire");
         }
 
-        // Date de constatation obligatoire
-        if (affaire.getDateConstatation() == null) {
-            logger.warn("Date de constatation manquante");
-            return false;
+        if (isBlank(agent.getNom())) {
+            errors.add("Le nom de l'agent est obligatoire");
         }
 
-        // Lieu de constatation obligatoire
-        if (affaire.getLieuConstatation() == null ||
-                affaire.getLieuConstatation().trim().isEmpty()) {
-            logger.warn("Lieu de constatation manquant");
-            return false;
+        if (isBlank(agent.getPrenom())) {
+            errors.add("Le prénom de l'agent est obligatoire");
         }
 
-        // Au moins une contravention
-        if (affaire.getContraventions() == null ||
-                affaire.getContraventions().isEmpty()) {
-            logger.warn("Aucune contravention dans l'affaire");
-            return false;
+        if (!errors.isEmpty()) {
+            throw new ValidationException("Erreurs de validation de l'agent", errors);
         }
-
-        // Montant total cohérent
-        if (!isValidMontant(affaire.getMontantTotal())) {
-            logger.warn("Montant total invalide: {}", affaire.getMontantTotal());
-            return false;
-        }
-
-        return true;
     }
 
     /**
-     * Valide un encaissement
+     * Valide un utilisateur
      */
-    public boolean isValidEncaissement(Encaissement encaissement) {
-        if (encaissement == null) {
-            return false;
+    public void validateUtilisateur(Utilisateur utilisateur) throws ValidationException {
+        List<String> errors = new ArrayList<>();
+
+        if (utilisateur == null) {
+            throw new ValidationException("L'utilisateur ne peut pas être nul");
         }
 
-        // Référence obligatoire et valide
-        if (!isValidEncaissementReference(encaissement.getReference())) {
-            logger.warn("Référence encaissement invalide: {}", encaissement.getReference());
-            return false;
+        if (isBlank(utilisateur.getLogin())) {
+            errors.add("Le login est obligatoire");
+        } else if (utilisateur.getLogin().length() < 3) {
+            errors.add("Le login doit contenir au moins 3 caractères");
         }
 
-        // Affaire obligatoire
-        if (encaissement.getAffaire() == null) {
-            logger.warn("Affaire manquante pour l'encaissement");
-            return false;
+        if (utilisateur.getRole() == null) {
+            errors.add("Le rôle est obligatoire");
         }
 
-        // Montant valide
-        if (!isValidMontant(encaissement.getMontantEncaisse())) {
-            logger.warn("Montant encaissement invalide: {}", encaissement.getMontantEncaisse());
-            return false;
+        if (!errors.isEmpty()) {
+            throw new ValidationException("Erreurs de validation de l'utilisateur", errors);
         }
-
-        // Mode de règlement obligatoire
-        if (encaissement.getModeReglement() == null) {
-            logger.warn("Mode de règlement manquant");
-            return false;
-        }
-
-        // Date obligatoire
-        if (encaissement.getDateEncaissement() == null) {
-            logger.warn("Date encaissement manquante");
-            return false;
-        }
-
-        return true;
     }
 
     /**
      * Valide un mot de passe
      */
-    public boolean isValidPassword(String password) {
-        if (password == null || password.length() < MIN_PASSWORD_LENGTH) {
+    public void validatePassword(String password) throws ValidationException {
+        if (password == null || password.length() < 6) {
+            throw new ValidationException("Le mot de passe doit contenir au moins 6 caractères");
+        }
+
+        // On pourrait ajouter d'autres règles (majuscule, chiffre, etc.)
+    }
+
+    // ========== Méthodes de validation unitaires ==========
+
+    public boolean isValidNumeroAffaire(String numero) {
+        if (numero == null) return false;
+
+        // Format YYMMNNNNN
+        if (!PATTERN_NUMERO_AFFAIRE.matcher(numero).matches()) {
             return false;
         }
 
-        // Au moins une majuscule, une minuscule et un chiffre
-        boolean hasUpper = password.chars().anyMatch(Character::isUpperCase);
-        boolean hasLower = password.chars().anyMatch(Character::isLowerCase);
-        boolean hasDigit = password.chars().anyMatch(Character::isDigit);
-
-        return hasUpper && hasLower && hasDigit;
-    }
-
-    /**
-     * Valide une description
-     */
-    public boolean isValidDescription(String description) {
-        if (description == null) {
-            return true; // Description optionnelle
+        // Vérifier que le mois est valide
+        try {
+            int month = Integer.parseInt(numero.substring(2, 4));
+            return month >= 1 && month <= 12;
+        } catch (NumberFormatException e) {
+            return false;
         }
-        return description.length() <= MAX_DESCRIPTION_LENGTH;
     }
 
-    /**
-     * Valide une chaîne de caractères avec longueur min/max
-     */
-    public boolean isValidString(String str, int minLength, int maxLength) {
-        if (str == null) {
-            return minLength == 0; // Valide si optionnel (minLength = 0)
-        }
-        String trimmed = str.trim();
-        return trimmed.length() >= minLength && trimmed.length() <= maxLength;
-    }
+    public boolean isValidNumeroEncaissement(String numero) {
+        if (numero == null) return false;
 
-    /**
-     * Normalise un nom de personne (majuscule première lettre)
-     */
-    public String normalizePersonName(String name) {
-        if (name == null || name.trim().isEmpty()) {
-            return name;
-        }
-
-        String trimmed = name.trim().toLowerCase();
-        return Character.toUpperCase(trimmed.charAt(0)) + trimmed.substring(1);
-    }
-
-    /**
-     * Valide un nom de personne
-     */
-    public boolean isValidPersonName(String name) {
-        if (name == null || name.trim().isEmpty()) {
+        // Format YYMMRNNNNN
+        if (!PATTERN_NUMERO_ENCAISSEMENT.matcher(numero).matches()) {
             return false;
         }
 
-        // Au moins 2 caractères, que des lettres, espaces, tirets et apostrophes
-        String trimmed = name.trim();
-        return trimmed.length() >= MIN_NAME_LENGTH &&
-                trimmed.matches("^[a-zA-ZÀ-ÿ\\s\\-']+$");
+        // Vérifier que le mois est valide
+        try {
+            int month = Integer.parseInt(numero.substring(2, 4));
+            return month >= 1 && month <= 12;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    public boolean isValidNumeroMandat(String numero) {
+        if (numero == null) return false;
+
+        // Format YYMM0001
+        if (!PATTERN_NUMERO_MANDAT.matcher(numero).matches()) {
+            return false;
+        }
+
+        // Vérifier que le mois est valide
+        try {
+            int month = Integer.parseInt(numero.substring(2, 4));
+            return month >= 1 && month <= 12;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    public boolean isValidEmail(String email) {
+        return email != null && PATTERN_EMAIL.matcher(email).matches();
+    }
+
+    public boolean isValidTelephone(String telephone) {
+        return telephone != null && PATTERN_TELEPHONE.matcher(telephone).matches();
+    }
+
+    public boolean isValidCIN(String cin) {
+        return cin != null && PATTERN_CIN.matcher(cin.toUpperCase()).matches();
+    }
+
+    public boolean isValidMontant(BigDecimal montant) {
+        return montant != null && montant.compareTo(BigDecimal.ZERO) > 0;
+    }
+
+    public boolean isValidDate(LocalDate date) {
+        return date != null && !date.isAfter(LocalDate.now());
     }
 
     /**
-     * Valide un grade d'agent
+     * Vérifie l'unicité d'un numéro
+     * À implémenter avec les DAOs correspondants
      */
-    public boolean isValidGrade(String grade) {
-        if (grade == null || grade.trim().isEmpty()) {
-            return true; // Grade optionnel
+    public boolean isUniqueNumeroAffaire(String numero) {
+        // TODO: Vérifier en base
+        return true;
+    }
+
+    public boolean isUniqueNumeroEncaissement(String numero) {
+        // TODO: Vérifier en base
+        return true;
+    }
+
+    public boolean isUniqueNumeroMandat(String numero) {
+        // TODO: Vérifier en base
+        return true;
+    }
+
+    // ========== Méthodes utilitaires ==========
+
+    private boolean isBlank(String str) {
+        return str == null || str.trim().isEmpty();
+    }
+
+    /**
+     * Résultat de validation avec détails
+     */
+    public static class ValidationResult {
+        private final boolean valid;
+        private final List<String> errors;
+        private final Map<String, String> fieldErrors;
+
+        public ValidationResult() {
+            this.valid = true;
+            this.errors = new ArrayList<>();
+            this.fieldErrors = new HashMap<>();
         }
 
-        // Liste des grades valides (à adapter selon les besoins)
-        String[] gradesValides = {
-                "Inspecteur", "Contrôleur", "Agent", "Chef de service",
-                "Directeur", "Directeur adjoint", "Stagiaire"
-        };
+        public ValidationResult(List<String> errors) {
+            this.valid = errors.isEmpty();
+            this.errors = errors;
+            this.fieldErrors = new HashMap<>();
+        }
 
-        for (String gradeValide : gradesValides) {
-            if (gradeValide.equalsIgnoreCase(grade.trim())) {
-                return true;
+        public boolean isValid() {
+            return valid;
+        }
+
+        public boolean hasErrors() {
+            return !errors.isEmpty() || !fieldErrors.isEmpty();
+        }
+
+        public List<String> getErrors() {
+            return errors;
+        }
+
+        public Map<String, String> getFieldErrors() {
+            return fieldErrors;
+        }
+
+        public void addError(String error) {
+            errors.add(error);
+        }
+
+        public void addFieldError(String field, String error) {
+            fieldErrors.put(field, error);
+        }
+
+        public String getErrorMessage() {
+            if (errors.isEmpty() && fieldErrors.isEmpty()) {
+                return "";
             }
-        }
 
-        return false;
+            StringBuilder sb = new StringBuilder();
+
+            if (!errors.isEmpty()) {
+                sb.append(String.join("\n", errors));
+            }
+
+            if (!fieldErrors.isEmpty()) {
+                if (sb.length() > 0) sb.append("\n");
+                fieldErrors.forEach((field, error) ->
+                        sb.append(field).append(" : ").append(error).append("\n")
+                );
+            }
+
+            return sb.toString();
+        }
     }
 }

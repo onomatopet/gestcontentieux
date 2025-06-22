@@ -5,6 +5,7 @@
 <?import javafx.scene.layout.*?>
 <?import javafx.scene.text.*?>
 
+<?import javafx.scene.shape.Circle?>
 <BorderPane xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="com.regulation.contentieux.controller.MainController">
 
@@ -78,24 +79,45 @@
     </center>
 
     <bottom>
-        <!-- Barre de statut -->
-        <HBox alignment="CENTER_LEFT" spacing="10.0" styleClass="status-bar">
-            <children>
-                <Label fx:id="statusLabel" text="Prêt" />
-
-                <Region HBox.hgrow="ALWAYS" />
-
-                <ProgressBar fx:id="progressBar" prefWidth="100.0" visible="false" />
-                <Label fx:id="progressLabel" styleClass="text-muted" text="Chargement..." visible="false" />
-
-                <Separator orientation="VERTICAL" />
-
-                <Label fx:id="connectionStatusLabel" styleClass="text-muted" text="Connecté" />
-            </children>
+        <HBox styleClass="status-bar" spacing="20" alignment="CENTER_LEFT">
             <padding>
-                <Insets bottom="5.0" left="10.0" right="10.0" top="5.0" />
+                <Insets top="5" right="10" bottom="5" left="10" />
             </padding>
+
+            <!-- Utilisateur connecté -->
+            <HBox spacing="5" alignment="CENTER_LEFT">
+                <Label text="Utilisateur :" styleClass="status-label" />
+                <Label fx:id="userLabel" text="Non connecté" styleClass="status-value" />
+            </HBox>
+
+            <Separator orientation="VERTICAL" />
+
+            <!-- Rôle -->
+            <HBox spacing="5" alignment="CENTER_LEFT">
+                <Label text="Rôle :" styleClass="status-label" />
+                <Label fx:id="roleLabel" text="-" styleClass="status-value" />
+            </HBox>
+
+            <Separator orientation="VERTICAL" />
+
+            <!-- Mandat actif -->
+            <HBox spacing="5" alignment="CENTER_LEFT">
+                <Label text="Mandat :" styleClass="status-label" />
+                <Label fx:id="mandatLabel" text="Aucun mandat actif" styleClass="status-value status-mandat" />
+            </HBox>
+
+            <Region HBox.hgrow="ALWAYS" />
+
+            <!-- État de la base de données -->
+            <HBox spacing="5" alignment="CENTER_RIGHT">
+                <Circle fx:id="dbStatusIndicator" radius="5" fill="#28a745" />
+                <Label fx:id="dbStatusLabel" text="Base de données connectée" styleClass="status-label" />
+            </HBox>
+
+            <Separator orientation="VERTICAL" />
+
+            <!-- Date et heure -->
+            <Label fx:id="dateTimeLabel" text="01/01/2025 00:00:00" styleClass="status-datetime" />
         </HBox>
     </bottom>
-
 </BorderPane>

@@ -1,9 +1,16 @@
 package com.regulation.contentieux.controller;
 
+import javafx.scene.Cursor;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.regulation.contentieux.model.Mandat;
+import com.regulation.contentieux.service.MandatService;
+import javafx.stage.Modality;
 
 import com.regulation.contentieux.model.enums.RoleUtilisateur;
 import com.regulation.contentieux.service.AuthenticationService;
@@ -44,6 +51,11 @@ public class MainController implements Initializable {
     @FXML private Label connectionStatusLabel; // dans la barre de statut
     @FXML private Label progressLabel;         // dans la barre de statut
     @FXML private ProgressBar progressBar;     // dans la barre de statut
+
+    @FXML private Menu fileMenu;  // Menu Fichier
+    @FXML private Label mandatLabel;  // Label dans la barre de statut pour afficher le mandat actif
+    @FXML private MenuItem newAffaireMenuItem;  // Item de menu Nouvelle Affaire
+    @FXML private MenuItem newEncaissementMenuItem;  // Item de menu Nouvel Encaissement
 
     @FXML private Button logoutButton;
     @FXML private Button newButton;
@@ -92,6 +104,84 @@ public class MainController implements Initializable {
         loadDefaultView();
 
         logger.info("MainController initialisé avec succès");
+
+        // Ajouter l'item de menu pour la gestion des mandats
+        setupMandatMenuItem();
+
+        // Raccourci clavier global pour ouvrir la gestion des mandats
+        Scene scene = mainMenuBar.getScene();
+        if (scene != null) {
+            scene.getAccelerators().put(
+                    KeyCombination.keyCombination("Ctrl+M"),
+                    () -> openMandatManagement()
+            );
+        }
+
+        // Mettre à jour l'affichage du mandat actif
+        updateMandatActif();
+
+        // Configurer la mise à jour périodique du mandat actif (optionnel)
+        Timeline timeline = new Timeline(new KeyFrame(Duration.seconds(30), e -> updateMandatActif()));
+        timeline.setCycleCount(Timeline.INDEFINITE);
+        timeline.play();
+    }
+
+    private void setupWindowFocusListener() {
+        // Quand la fenêtre principale redevient active, rafraîchir le mandat
+        Stage primaryStage = (Stage) mainMenuBar.getScene().getWindow();
+        primaryStage.focusedProperty().addListener((obs, wasFocused, isFocused) -> {
+            if (isFocused && !wasFocused) {
+                // La fenêtre vient de reprendre le focus
+                updateMandatActif();
+            }
+        });
+    }
+
+    private void addMandatButtonToToolbar() {
+        if (mainToolBar != null) {
+            // Créer le bouton
+            Button mandatButton = new Button("Mandats");
+            mandatButton.getStyleClass().addAll("toolbar-button", "button-secondary");
+
+            // Icône
+            try {
+                ImageView icon = new ImageView(new Image(getClass().getResourceAsStream("/images/icons/calendar.png")));
+                icon.setFitWidth(16);
+                icon.setFitHeight(16);
+                mandatButton.setGraphic(icon);
+            } catch (Exception e) {
+                mandatButton.setText("📅 Mandats");
+            }
+
+            // Tooltip
+            mandatButton.setTooltip(new Tooltip("Gérer les mandats (Ctrl+M)"));
+
+            // Action
+            mandatButton.setOnAction(e -> openMandatManagement());
+
+            // Ajouter à la toolbar (après le séparateur ou à la fin)
+            ObservableList<Node> items = mainToolBar.getItems();
+
+            // Chercher un bon endroit pour l'insérer
+            int insertIndex = 0;
+            for (int i = 0; i < items.size(); i++) {
+                Node node = items.get(i);
+                if (node instanceof Separator) {
+                    insertIndex = i;
+                    break;
+                }
+            }
+
+            if (insertIndex > 0) {
+                items.add(insertIndex, mandatButton);
+                items.add(insertIndex + 1, new Separator());
+            } else {
+                if (!items.isEmpty()) {
+                    items.add(new Separator());
+                }
+                items.add(mandatButton);
+            }
+        }
     }
 
     /**
@@ -106,6 +196,215 @@ public class MainController implements Initializable {
         } else if (userInfoLabel != null) {
             userInfoLabel.setText("Non connecté");
         }
+    }
+
+    /**
+     * Configure l'item de menu pour la gestion des mandats
+     */
+    private void setupMandatMenuItem() {
+        logger.debug("Configuration du menu Mandat");
+
+        // Trouver le menu Fichier s'il n'est pas déjà référencé
+        if (fileMenu == null && mainMenuBar != null) {
+            for (Menu menu : mainMenuBar.getMenus()) {
+                if ("Fichier".equals(menu.getText())) {
+                    fileMenu = menu;
+                    break;
+                }
+            }
+        }
+
+        if (fileMenu != null) {
+            // Créer l'item de menu
+            MenuItem mandatMenuItem = new MenuItem("Gestion des Mandats");
+            mandatMenuItem.setAccelerator(KeyCombination.keyCombination("Ctrl+M"));
+
+            // Ajouter l'icône si disponible
+            try {
+                ImageView icon = new ImageView(new Image(getClass().getResourceAsStream("/images/icons/mandat.png")));
+                icon.setFitWidth(16);
+                icon.setFitHeight(16);
+                mandatMenuItem.setGraphic(icon);
+            } catch (Exception e) {
+                // Ignorer si l'icône n'est pas disponible
+            }
+
+            // Définir l'action
+            mandatMenuItem.setOnAction(event -> openMandatManagement());
+
+            // Chercher où insérer l'item (après "Nouveau" et avant "Quitter")
+            ObservableList<MenuItem> items = fileMenu.getItems();
+            int insertIndex = -1;
+
+            for (int i = 0; i < items.size(); i++) {
+                MenuItem item = items.get(i);
+                if (item instanceof SeparatorMenuItem) {
+                    // Insérer avant le premier séparateur
+                    insertIndex = i;
+                    break;
+                } else if (item.getText() != null && item.getText().contains("Quitter")) {
+                    // Ou avant "Quitter"
+                    insertIndex = i;
+                    break;
+                }
+            }
+
+            if (insertIndex > 0) {
+                // Ajouter un séparateur avant si nécessaire
+                boolean needsSeparator = !(items.get(insertIndex - 1) instanceof SeparatorMenuItem);
+                if (needsSeparator) {
+                    items.add(insertIndex, new SeparatorMenuItem());
+                    insertIndex++;
+                }
+
+                // Ajouter l'item de menu
+                items.add(insertIndex, mandatMenuItem);
+
+                // Ajouter un séparateur après si nécessaire
+                if (insertIndex + 1 < items.size() && !(items.get(insertIndex + 1) instanceof SeparatorMenuItem)) {
+                    items.add(insertIndex + 1, new SeparatorMenuItem());
+                }
+            } else {
+                // Si on ne trouve pas où l'insérer, l'ajouter à la fin
+                if (!items.isEmpty() && !(items.get(items.size() - 1) instanceof SeparatorMenuItem)) {
+                    items.add(new SeparatorMenuItem());
+                }
+                items.add(mandatMenuItem);
+            }
+
+            logger.info("Menu Gestion des Mandats ajouté");
+        } else {
+            logger.warn("Menu Fichier non trouvé - Impossible d'ajouter le menu Mandat");
+        }
+    }
+
+    /**
+     * Retourne le mandat actif ou null
+     */
+    public Mandat getMandatActif() {
+        return MandatService.getInstance().getMandatActif();
+    }
+
+    /**
+     * Vérifie si un mandat est actif
+     */
+    public boolean hasMandatActif() {
+        return MandatService.getInstance().hasMandatActif();
+    }
+
+    /**
+     * Ouvre la fenêtre de gestion des mandats
+     */
+    private void openMandatManagement() {
+        logger.info("Ouverture de la gestion des mandats");
+
+        try {
+            // Charger la vue
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/mandat-management.fxml"));
+            Parent root = loader.load();
+
+            // Créer une nouvelle fenêtre modale
+            Stage mandatStage = new Stage();
+            mandatStage.setTitle("Gestion des Mandats");
+            mandatStage.initModality(Modality.APPLICATION_MODAL);
+            mandatStage.initOwner(mainMenuBar.getScene().getWindow());
+
+            // Créer la scène
+            Scene scene = new Scene(root);
+
+            // Appliquer les styles
+            scene.getStylesheets().add(getClass().getResource("/css/main-styles.css").toExternalForm());
+            if (getClass().getResource("/css/mandat-styles.css") != null) {
+                scene.getStylesheets().add(getClass().getResource("/css/mandat-styles.css").toExternalForm());
+            }
+
+            // Configurer la fenêtre
+            mandatStage.setScene(scene);
+            mandatStage.setMinWidth(1000);
+            mandatStage.setMinHeight(700);
+            mandatStage.centerOnScreen();
+
+            // Afficher et attendre la fermeture
+            mandatStage.showAndWait();
+
+            // Rafraîchir l'affichage après fermeture
+            updateMandatActif();
+
+            // Notifier les autres composants si nécessaire
+            if (welcomeController != null) {
+                welcomeController.refreshStatistics();
+            }
+
+        } catch (IOException e) {
+            logger.error("Erreur lors de l'ouverture de la gestion des mandats", e);
+            AlertUtil.showError("Erreur", "Impossible d'ouvrir la gestion des mandats", e.getMessage());
+        }
+    }
+
+// 6. AJOUTER LA MÉTHODE POUR METTRE À JOUR L'AFFICHAGE DU MANDAT ACTIF :
+    /**
+     * Met à jour l'affichage du mandat actif dans la barre de statut
+     */
+    private void updateMandatActif() {
+        Platform.runLater(() -> {
+            try {
+                MandatService mandatService = MandatService.getInstance();
+                Mandat mandatActif = mandatService.getMandatActif();
+
+                // Mettre à jour le label dans la barre de statut
+                if (mandatLabel != null) {
+                    if (mandatActif != null) {
+                        mandatLabel.setText("Mandat actif : " + mandatActif.getNumeroMandat());
+                        mandatLabel.setStyle("-fx-text-fill: #28a745; -fx-font-weight: bold;");
+                        mandatLabel.setTooltip(new Tooltip("Période : " + mandatActif.getPeriodeFormatee()));
+                    } else {
+                        mandatLabel.setText("Aucun mandat actif");
+                        mandatLabel.setStyle("-fx-text-fill: #dc3545; -fx-font-weight: bold;");
+                        mandatLabel.setTooltip(new Tooltip("Cliquez sur Fichier > Gestion des Mandats pour activer un mandat"));
+                    }
+                }
+
+                mandatLabel.setCursor(Cursor.HAND);
+                mandatLabel.setOnMouseClicked(event -> {
+                    if (event.getClickCount() == 1) { // Simple clic
+                        openMandatManagement();
+                    }
+                });
+
+                // Effet visuel au survol
+                mandatLabel.setOnMouseEntered(e -> {
+                    mandatLabel.setUnderline(true);
+                });
+
+                mandatLabel.setOnMouseExited(e -> {
+                    mandatLabel.setUnderline(false);
+                });
+
+                // Activer/désactiver les actions qui nécessitent un mandat actif
+                boolean hasMandatActif = mandatActif != null;
+
+                if (newAffaireMenuItem != null) {
+                    newAffaireMenuItem.setDisable(!hasMandatActif);
+                }
+
+                if (newEncaissementMenuItem != null) {
+                    newEncaissementMenuItem.setDisable(!hasMandatActif);
+                }
+
+                // Mettre à jour les boutons de la toolbar si présents
+                if (newAffaireButton != null) {
+                    newAffaireButton.setDisable(!hasMandatActif);
+                    if (!hasMandatActif) {
+                        newAffaireButton.setTooltip(new Tooltip("Aucun mandat actif - Activez un mandat d'abord"));
+                    } else {
+                        newAffaireButton.setTooltip(new Tooltip("Créer une nouvelle affaire"));
+                    }
+                }
+
+            } catch (Exception e) {
+                logger.error("Erreur lors de la mise à jour du mandat actif", e);
+            }
+        });
     }
 
     /**
@@ -409,6 +708,78 @@ public class MainController implements Initializable {
                 }
             }
         });
+    }
+
+    /**
+     * Ouvre la fenêtre de gestion des mandats
+     */
+    @FXML
+    private void openMandatManagement() {
+        logger.info("Ouverture de la gestion des mandats");
+
+        try {
+            // Charger la vue dans une nouvelle fenêtre
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/mandat-management.fxml"));
+            Parent root = loader.load();
+
+            // Créer une nouvelle fenêtre
+            Stage stage = new Stage();
+            stage.setTitle("Gestion des Mandats");
+            stage.initModality(Modality.APPLICATION_MODAL);
+            stage.initOwner(mainMenuBar.getScene().getWindow());
+
+            Scene scene = new Scene(root);
+            scene.getStylesheets().add(getClass().getResource("/css/main-styles.css").toExternalForm());
+
+            stage.setScene(scene);
+            stage.setMinWidth(1000);
+            stage.setMinHeight(700);
+
+            // Centrer la fenêtre
+            stage.centerOnScreen();
+
+            // Afficher la fenêtre
+            stage.showAndWait();
+
+            // Rafraîchir l'affichage du mandat actif après fermeture
+            updateMandatActif();
+
+        } catch (IOException e) {
+            logger.error("Erreur lors de l'ouverture de la gestion des mandats", e);
+            AlertUtil.showError("Erreur", "Impossible d'ouvrir la gestion des mandats", e.getMessage());
+        }
+    }
+
+    /**
+     * Actualise l'affichage du mandat actif dans la barre de statut
+     */
+    private void updateMandatActif() {
+        MandatService mandatService = MandatService.getInstance();
+        Mandat mandatActif = mandatService.getMandatActif();
+
+        if (mandatActif != null) {
+            mandatLabel.setText("Mandat : " + mandatActif.getNumeroMandat());
+            mandatLabel.setStyle("-fx-text-fill: green;");
+
+            // Activer les actions qui nécessitent un mandat actif
+            if (newAffaireMenuItem != null) {
+                newAffaireMenuItem.setDisable(false);
+            }
+            if (newEncaissementMenuItem != null) {
+                newEncaissementMenuItem.setDisable(false);
+            }
+        } else {
+            mandatLabel.setText("Mandat : Aucun");
+            mandatLabel.setStyle("-fx-text-fill: red;");
+
+            // Désactiver les actions qui nécessitent un mandat actif
+            if (newAffaireMenuItem != null) {
+                newAffaireMenuItem.setDisable(true);
+            }
+            if (newEncaissementMenuItem != null) {
+                newEncaissementMenuItem.setDisable(true);
+            }
+        }
     }
 
     @FXML

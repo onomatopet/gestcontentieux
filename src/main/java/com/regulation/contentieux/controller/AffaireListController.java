@@ -474,37 +474,7 @@ public class AffaireListController implements Initializable {
 
         } catch (Exception e) {
             logger.error("Erreur lors du chargement des données", e);
-
-            // En cas d'erreur, créer quelques données de test pour ne pas planter
-            createTestData();
         }
-    }
-
-    /**
-     * Méthode de fallback pour créer des données de test en cas d'erreur
-     */
-    private void createTestData() {
-        logger.warn("Chargement des données de test suite à une erreur");
-
-        affaires.clear();
-
-        for (int i = 1; i <= 5; i++) {
-            AffaireViewModel affaire = new AffaireViewModel();
-            affaire.setNumeroAffaire("TEST-" + String.format("%04d", i));
-            affaire.setDateCreation(LocalDate.now().minusDays(i));
-            affaire.setContrevenantNom("Contrevenant Test " + i);
-            affaire.setContraventionLibelle("Contravention Test " + i);
-            affaire.setMontantAmendeTotal(50000.0 + (i * 10000));
-            affaire.setStatut(i % 2 == 0 ? StatutAffaire.EN_COURS : StatutAffaire.CLOSE);
-            affaire.setBureauNom("Bureau Test " + i);
-            affaire.setServiceNom("Service Test " + i);
-
-            affaires.add(affaire);
-        }
-
-        totalElements = 5;
-        updateTotalCountLabel();
-        updatePaginationInfo();
     }
 
     // ===== MÉTHODES D'ACTION =====

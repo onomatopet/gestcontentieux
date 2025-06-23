@@ -1,5 +1,375 @@
 /* ===== STYLES PRINCIPAUX - Gestion des Affaires Contentieuses ===== */
 
+:root {
+    /* Couleurs principales */
+    --primary-color: #1976d2;
+    --primary-dark: #1565c0;
+    --primary-light: #42a5f5;
+
+    /* Couleurs de statut */
+    --success-color: #4caf50;
+    --warning-color: #ff9800;
+    --error-color: #f44336;
+    --info-color: #2196f3;
+
+    /* Couleurs neutres */
+    --background-color: #fafafa;
+    --surface-color: #ffffff;
+    --text-primary: #212121;
+    --text-secondary: #757575;
+    --border-color: #e0e0e0;
+    --hover-color: #f5f5f5;
+
+    /* Espacements */
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 16px;
+    --spacing-lg: 24px;
+    --spacing-xl: 32px;
+
+    /* Bordures et rayons */
+    --border-radius: 4px;
+    --border-radius-lg: 8px;
+    --border-width: 1px;
+
+    /* Ombres */
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+    --shadow-md: 0 3px 6px rgba(0,0,0,0.16), 0 3px 6px rgba(0,0,0,0.23);
+    --shadow-lg: 0 10px 20px rgba(0,0,0,0.19), 0 6px 6px rgba(0,0,0,0.23);
+
+    /* Transitions */
+    --transition-fast: 150ms ease-in-out;
+    --transition-normal: 250ms ease-in-out;
+    --transition-slow: 350ms ease-in-out;
+}
+
+/* ==================== BASE ET RESET ==================== */
+
+* {
+    box-sizing: border-box;
+}
+
+.root {
+    -fx-font-family: "Segoe UI", "Arial", sans-serif;
+    -fx-font-size: 13px;
+    -fx-background-color: var(--background-color);
+    -fx-text-fill: var(--text-primary);
+}
+
+/* ==================== COMPOSANTS D'AUTO-COMPLÉTION ==================== */
+
+/* ComboBox avec auto-complétion */
+.auto-complete-combobox {
+    -fx-background-color: var(--surface-color);
+    -fx-border-color: var(--border-color);
+    -fx-border-radius: var(--border-radius);
+    -fx-background-radius: var(--border-radius);
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 2, 0, 0, 1);
+    -fx-transition: all var(--transition-fast);
+}
+
+.auto-complete-combobox:focused {
+    -fx-border-color: var(--primary-color);
+    -fx-effect: dropshadow(gaussian, var(--primary-color), 4, 0.3, 0, 0);
+}
+
+.auto-complete-combobox:hover {
+    -fx-border-color: var(--primary-light);
+}
+
+.auto-complete-editor {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-padding: var(--spacing-sm) var(--spacing-md);
+    -fx-prompt-text-fill: var(--text-secondary);
+}
+
+.auto-complete-combobox .list-view {
+    -fx-background-color: var(--surface-color);
+    -fx-border-color: var(--border-color);
+    -fx-border-radius: var(--border-radius);
+    -fx-background-radius: var(--border-radius);
+    -fx-effect: var(--shadow-md);
+    -fx-max-height: 200px;
+}
+
+.auto-complete-combobox .list-cell {
+    -fx-padding: var(--spacing-sm) var(--spacing-md);
+    -fx-background-color: transparent;
+    -fx-text-fill: var(--text-primary);
+    -fx-border-color: transparent;
+}
+
+.auto-complete-combobox .list-cell:hover {
+    -fx-background-color: var(--hover-color);
+}
+
+.auto-complete-combobox .list-cell:selected {
+    -fx-background-color: var(--primary-color);
+    -fx-text-fill: white;
+}
+
+/* ==================== CHAMP DE RECHERCHE ==================== */
+
+.search-container {
+    -fx-background-color: var(--surface-color);
+    -fx-border-color: var(--border-color);
+    -fx-border-radius: var(--border-radius-lg);
+    -fx-background-radius: var(--border-radius-lg);
+    -fx-padding: var(--spacing-xs);
+    -fx-spacing: var(--spacing-sm);
+    -fx-alignment: center-left;
+    -fx-effect: var(--shadow-sm);
+    -fx-transition: all var(--transition-fast);
+}
+
+.search-container:focused-within {
+    -fx-border-color: var(--primary-color);
+    -fx-effect: dropshadow(gaussian, var(--primary-color), 4, 0.3, 0, 0);
+}
+
+.search-field {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-padding: var(--spacing-sm);
+    -fx-prompt-text-fill: var(--text-secondary);
+    -fx-font-size: 13px;
+}
+
+.search-icon {
+    -fx-text-fill: var(--text-secondary);
+    -fx-font-size: 14px;
+    -fx-padding: var(--spacing-sm);
+}
+
+.clear-icon {
+    -fx-text-fill: var(--text-secondary);
+    -fx-font-size: 12px;
+    -fx-padding: var(--spacing-xs);
+    -fx-background-color: transparent;
+    -fx-cursor: hand;
+    -fx-background-radius: var(--border-radius);
+}
+
+.clear-icon:hover {
+    -fx-background-color: var(--hover-color);
+    -fx-text-fill: var(--error-color);
+}
+
+/* ==================== VALIDATION ET MESSAGES D'ERREUR ==================== */
+
+/* Champs avec erreur */
+.field-error {
+    -fx-border-color: var(--error-color) !important;
+    -fx-border-width: 2px !important;
+    -fx-effect: dropshadow(gaussian, var(--error-color), 4, 0.3, 0, 0);
+    -fx-background-color: rgba(244, 67, 54, 0.05);
+}
+
+.field-error:focused {
+    -fx-border-color: var(--error-color) !important;
+    -fx-effect: dropshadow(gaussian, var(--error-color), 6, 0.4, 0, 0);
+}
+
+/* Champs avec avertissement */
+.field-warning {
+    -fx-border-color: var(--warning-color) !important;
+    -fx-border-width: 2px !important;
+    -fx-effect: dropshadow(gaussian, var(--warning-color), 4, 0.3, 0, 0);
+    -fx-background-color: rgba(255, 152, 0, 0.05);
+}
+
+/* Champs valides */
+.field-success {
+    -fx-border-color: var(--success-color) !important;
+    -fx-border-width: 2px !important;
+    -fx-effect: dropshadow(gaussian, var(--success-color), 4, 0.3, 0, 0);
+    -fx-background-color: rgba(76, 175, 80, 0.05);
+}
+
+/* Labels d'erreur */
+.error-label {
+    -fx-text-fill: var(--error-color);
+    -fx-font-size: 11px;
+    -fx-padding: var(--spacing-xs) 0 0 0;
+    -fx-wrap-text: true;
+    -fx-font-weight: normal;
+}
+
+/* Labels d'avertissement */
+.warning-label {
+    -fx-text-fill: var(--warning-color);
+    -fx-font-size: 11px;
+    -fx-padding: var(--spacing-xs) 0 0 0;
+    -fx-wrap-text: true;
+    -fx-font-weight: normal;
+}
+
+/* Labels de succès */
+.success-label {
+    -fx-text-fill: var(--success-color);
+    -fx-font-size: 11px;
+    -fx-padding: var(--spacing-xs) 0 0 0;
+    -fx-wrap-text: true;
+    -fx-font-weight: normal;
+}
+
+/* ==================== FORMULAIRES RESPONSIVES ==================== */
+
+/* Conteneurs de formulaire */
+.form-container {
+    -fx-padding: var(--spacing-lg);
+    -fx-spacing: var(--spacing-md);
+    -fx-background-color: var(--surface-color);
+    -fx-background-radius: var(--border-radius-lg);
+    -fx-effect: var(--shadow-sm);
+}
+
+.form-section {
+    -fx-spacing: var(--spacing-md);
+    -fx-padding: var(--spacing-md) 0;
+}
+
+.form-section-title {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: var(--primary-color);
+    -fx-padding: 0 0 var(--spacing-sm) 0;
+}
+
+/* Groupes de champs */
+.field-group {
+    -fx-spacing: var(--spacing-sm);
+}
+
+.field-row {
+    -fx-spacing: var(--spacing-md);
+    -fx-alignment: center-left;
+}
+
+/* Labels de champs */
+.field-label {
+    -fx-font-weight: normal;
+    -fx-text-fill: var(--text-primary);
+    -fx-min-width: 120px;
+    -fx-pref-width: 120px;
+}
+
+.field-label.required::after {
+    content: " *";
+    -fx-text-fill: var(--error-color);
+}
+
+/* Champs de saisie génériques */
+.text-field, .text-area, .combo-box, .date-picker {
+    -fx-background-color: var(--surface-color);
+    -fx-border-color: var(--border-color);
+    -fx-border-radius: var(--border-radius);
+    -fx-background-radius: var(--border-radius);
+    -fx-padding: var(--spacing-sm) var(--spacing-md);
+    -fx-font-size: 13px;
+    -fx-transition: all var(--transition-fast);
+}
+
+.text-field:focused, .text-area:focused, .combo-box:focused, .date-picker:focused {
+    -fx-border-color: var(--primary-color);
+    -fx-effect: dropshadow(gaussian, var(--primary-color), 4, 0.3, 0, 0);
+}
+
+.text-field:hover, .text-area:hover, .combo-box:hover, .date-picker:hover {
+    -fx-border-color: var(--primary-light);
+}
+
+/* Champs en lecture seule */
+.text-field:disabled, .text-area:disabled, .combo-box:disabled, .date-picker:disabled {
+    -fx-background-color: var(--hover-color);
+    -fx-text-fill: var(--text-secondary);
+    -fx-opacity: 0.7;
+}
+
+/* ==================== BOUTONS RESPONSIVES ==================== */
+
+.button {
+    -fx-background-color: var(--surface-color);
+    -fx-border-color: var(--border-color);
+    -fx-border-radius: var(--border-radius);
+    -fx-background-radius: var(--border-radius);
+    -fx-padding: var(--spacing-sm) var(--spacing-lg);
+    -fx-font-size: 13px;
+    -fx-cursor: hand;
+    -fx-transition: all var(--transition-fast);
+    -fx-effect: var(--shadow-sm);
+}
+
+.button:hover {
+    -fx-background-color: var(--hover-color);
+    -fx-effect: var(--shadow-md);
+}
+
+.button:pressed {
+    -fx-effect: var(--shadow-sm);
+    -fx-translate-y: 1px;
+}
+
+/* Boutons primaires */
+.button.primary {
+    -fx-background-color: var(--primary-color);
+    -fx-text-fill: white;
+    -fx-border-color: var(--primary-color);
+}
+
+.button.primary:hover {
+    -fx-background-color: var(--primary-dark);
+    -fx-border-color: var(--primary-dark);
+}
+
+/* Boutons de succès */
+.button.success {
+    -fx-background-color: var(--success-color);
+    -fx-text-fill: white;
+    -fx-border-color: var(--success-color);
+}
+
+/* Boutons de danger */
+.button.danger {
+    -fx-background-color: var(--error-color);
+    -fx-text-fill: white;
+    -fx-border-color: var(--error-color);
+}
+
+/* Boutons désactivés */
+.button:disabled {
+    -fx-background-color: var(--hover-color);
+    -fx-text-fill: var(--text-secondary);
+    -fx-border-color: var(--border-color);
+    -fx-cursor: default;
+    -fx-effect: none;
+    -fx-opacity: 0.6;
+}
+
+/* ==================== TABLEAUX RESPONSIVES ==================== */
+
+.table-view {
+    -fx-background-color: var(--surface-color);
+    -fx-border-color: var(--border-color);
+    -fx-border-radius: var(--border-radius-lg);
+    -fx-background-radius: var(--border-radius-lg);
+    -fx-effect: var(--shadow-sm);
+}
+
+.table-view .column-header {
+    -fx-background-color: var(--hover-color);
+    -fx-border-color: var(--border-color);
+    -fx-padding: var(--spacing-md);
+    -fx-font-weight: bold;
+    -fx-text-fill: var(--text-primary);
+}
+
+.table-view .column-header:hover {
+    -fx-background-color: var(--primary-light);
+    -fx-text-fill: white;
+}
+
 /* Styles pour la barre de statut */
 .status-bar {
     -fx-background-color: #f8f9fa;

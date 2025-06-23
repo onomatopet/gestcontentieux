@@ -357,6 +357,20 @@ public class MainController implements Initializable {
         }
 
         setupMenuItems();
+
+        // Configuration des boutons de la barre d'outils
+        setupToolbarHandlers();
+
+        // Configuration de la navigation clavier
+        setupKeyboardNavigation();
+
+        // Configuration des menus
+        setupMenuHandlers();
+
+        // Configuration des raccourcis globaux
+        setupGlobalShortcuts();
+
+        logger.debug("Gestionnaires d'événements configurés");
     }
 
     /**
@@ -628,7 +642,596 @@ public class MainController implements Initializable {
         alert.showAndWait();
     }
 
+    private void setupToolbarHandlers() {
+        logger.debug("Configuration des handlers ToolBar...");
+
+        // Bouton Nouveau - Action contextuelle selon la vue active
+        if (newButton != null) {
+            newButton.setOnAction(e -> handleNewAction());
+            newButton.setTooltip(new Tooltip("Nouveau (Ctrl+N)"));
+            setupButtonIcon(newButton, "new-icon.png");
+        }
+
+        // Bouton Modifier - Action contextuelle
+        if (editButton != null) {
+            editButton.setOnAction(e -> handleEditAction());
+            editButton.setTooltip(new Tooltip("Modifier (Ctrl+E)"));
+            editButton.setDisable(true); // Activé quand sélection
+            setupButtonIcon(editButton, "edit-icon.png");
+        }
+
+        // Bouton Supprimer - Action contextuelle
+        if (deleteButton != null) {
+            deleteButton.setOnAction(e -> handleDeleteAction());
+            deleteButton.setTooltip(new Tooltip("Supprimer (Delete)"));
+            deleteButton.setDisable(true); // Activé quand sélection
+            setupButtonIcon(deleteButton, "delete-icon.png");
+        }
+
+        // Bouton Actualiser - Rafraîchir la vue courante
+        if (refreshButton != null) {
+            refreshButton.setOnAction(e -> handleRefreshAction());
+            refreshButton.setTooltip(new Tooltip("Actualiser (F5)"));
+            setupButtonIcon(refreshButton, "refresh-icon.png");
+        }
+
+        // Bouton Imprimer - Imprimer selon le contexte
+        if (printButton != null) {
+            printButton.setOnAction(e -> handlePrintAction());
+            printButton.setTooltip(new Tooltip("Imprimer (Ctrl+P)"));
+            setupButtonIcon(printButton, "print-icon.png");
+        }
+
+        // Bouton Filtrer - Ouvrir les options de filtrage
+        if (filterButton != null) {
+            filterButton.setOnAction(e -> handleFilterAction());
+            filterButton.setTooltip(new Tooltip("Filtrer (Ctrl+F)"));
+            setupButtonIcon(filterButton, "filter-icon.png");
+        }
+
+        // Champ de recherche - Recherche en temps réel
+        if (searchField != null) {
+            searchField.setPromptText("Rechercher...");
+            searchField.textProperty().addListener((obs, oldVal, newVal) -> handleSearchAction(newVal));
+            searchField.setOnAction(e -> handleSearchEnterAction());
+        }
+
+        logger.info("✅ Handlers ToolBar configurés");
+    }
+
+    /**
+     * ENRICHISSEMENT : Navigation clavier F1-F12 selon le cahier des charges
+     */
+    private void setupKeyboardNavigation() {
+        logger.debug("Configuration de la navigation clavier...");
+
+        // Attendre que la scène soit disponible
+        Platform.runLater(() -> {
+            Scene scene = mainContentArea.getScene();
+            if (scene != null) {
+                // F1 - Aide contextuelle
+                scene.getAccelerators().put(
+                        KeyCombination.keyCombination("F1"),
+                        () -> handleAideContextuelle()
+                );
+
+                // F2 - Renommer/Éditer en place
+                scene.getAccelerators().put(
+                        KeyCombination.keyCombination("F2"),
+                        () -> handleEditInPlace()
+                );
+
+                // F3 - Recherche suivante
+                scene.getAccelerators().put(
+                        KeyCombination.keyCombination("F3"),
+                        () -> handleSearchNext()
+                );
+
+                // F4 - Propriétés
+                scene.getAccelerators().put(
+                        KeyCombination.keyCombination("F4"),
+                        () -> handleShowProperties()
+                );
+
+                // F5 - Actualiser
+                scene.getAccelerators().put(
+                        KeyCombination.keyCombination("F5"),
+                        () -> handleRefreshAction()
+                );
+
+                // F6 - Basculer entre panneaux
+                scene.getAccelerators().put(
+                        KeyCombination.keyCombination("F6"),
+                        () -> handleSwitchPanel()
+                );
+
+                // F7 - Vérifications
+                scene.getAccelerators().put(
+                        KeyCombination.keyCombination("F7"),
+                        () -> handleVerifications()
+                );
+
+                // F8 - Historique
+                scene.getAccelerators().put(
+                        KeyCombination.keyCombination("F8"),
+                        () -> handleShowHistory()
+                );
+
+                // F9 - Calculatrice
+                scene.getAccelerators().put(
+                        KeyCombination.keyCombination("F9"),
+                        () -> handleCalculator()
+                );
+
+                // F10 - Menu principal
+                scene.getAccelerators().put(
+                        KeyCombination.keyCombination("F10"),
+                        () -> handleShowMainMenu()
+                );
+
+                // F11 - Plein écran
+                scene.getAccelerators().put(
+                        KeyCombination.keyCombination("F11"),
+                        () -> handleToggleFullscreen()
+                );
+
+                // F12 - Outils de développement
+                scene.getAccelerators().put(
+                        KeyCombination.keyCombination("F12"),
+                        () -> handleDeveloperTools()
+                );
+
+                // Raccourcis Ctrl+
+                setupControlShortcuts(scene);
+
+                logger.info("✅ Navigation clavier F1-F12 configurée");
+            }
+        });
+    }
+
+    /**
+     * ENRICHISSEMENT : Action Nouveau contextuelle selon la vue active
+     */
+    private void handleNewAction() {
+        String currentView = getCurrentViewType();
+        logger.debug("Action Nouveau pour la vue: {}", currentView);
+
+        try {
+            switch (currentView) {
+                case "affaire-list":
+                case "affaire":
+                    showNewAffaireDialog();
+                    break;
+                case "contrevenant-list":
+                case "contrevenant":
+                    showNewContrevenantDialog();
+                    break;
+                case "agent-list":
+                case "agent":
+                    showNewAgentDialog();
+                    break;
+                case "encaissement-list":
+                case "encaissement":
+                    showNewEncaissementDialog();
+                    break;
+                case "mandat-list":
+                case "mandat":
+                    openMandatManagement();
+                    break;
+                default:
+                    // Action par défaut : nouvelle affaire
+                    showNewAffaireDialog();
+                    break;
+            }
+        } catch (Exception e) {
+            logger.error("Erreur lors de l'action Nouveau", e);
+            AlertUtil.showErrorAlert("Erreur", "Impossible de créer un nouvel élément", e.getMessage());
+        }
+    }
+
+    /**
+     * ENRICHISSEMENT : Action Modifier contextuelle
+     */
+    private void handleEditAction() {
+        String currentView = getCurrentViewType();
+        logger.debug("Action Modifier pour la vue: {}", currentView);
+
+        try {
+            // Récupérer l'élément sélectionné dans la vue courante
+            Object selectedItem = getSelectedItemFromCurrentView();
+
+            if (selectedItem == null) {
+                AlertUtil.showWarningAlert("Sélection requise",
+                        "Aucun élément sélectionné",
+                        "Veuillez sélectionner un élément à modifier.");
+                return;
+            }
+
+            switch (currentView) {
+                case "affaire-list":
+                    if (selectedItem instanceof Affaire) {
+                        editAffaire((Affaire) selectedItem);
+                    }
+                    break;
+                case "contrevenant-list":
+                    if (selectedItem instanceof Contrevenant) {
+                        editContrevenant((Contrevenant) selectedItem);
+                    }
+                    break;
+                case "agent-list":
+                    if (selectedItem instanceof Agent) {
+                        editAgent((Agent) selectedItem);
+                    }
+                    break;
+                case "encaissement-list":
+                    if (selectedItem instanceof Encaissement) {
+                        editEncaissement((Encaissement) selectedItem);
+                    }
+                    break;
+                default:
+                    AlertUtil.showInfoAlert("Action non disponible",
+                            "Modification",
+                            "La modification n'est pas disponible pour cette vue.");
+                    break;
+            }
+        } catch (Exception e) {
+            logger.error("Erreur lors de l'action Modifier", e);
+            AlertUtil.showErrorAlert("Erreur", "Impossible de modifier l'élément", e.getMessage());
+        }
+    }
+
+    /**
+     * ENRICHISSEMENT : Action Supprimer contextuelle avec confirmation
+     */
+    private void handleDeleteAction() {
+        String currentView = getCurrentViewType();
+        Object selectedItem = getSelectedItemFromCurrentView();
+
+        if (selectedItem == null) {
+            AlertUtil.showWarningAlert("Sélection requise",
+                    "Aucun élément sélectionné",
+                    "Veuillez sélectionner un élément à supprimer.");
+            return;
+        }
+
+        // Vérification des droits
+        if (!hasDeletePermission()) {
+            AlertUtil.showWarningAlert("Accès refusé",
+                    "Droits insuffisants",
+                    "Vous n'avez pas les droits pour supprimer des éléments.");
+            return;
+        }
+
+        // Confirmation de suppression
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Confirmation de suppression");
+        confirm.setHeaderText("Supprimer définitivement ?");
+        confirm.setContentText("Cette action est irréversible.");
+
+        if (confirm.showAndWait().orElse(ButtonType.CANCEL) == ButtonType.OK) {
+            try {
+                boolean success = deleteSelectedItem(currentView, selectedItem);
+                if (success) {
+                    AlertUtil.showSuccess("Suppression", "Élément supprimé avec succès");
+                    handleRefreshAction(); // Rafraîchir la vue
+                }
+            } catch (Exception e) {
+                logger.error("Erreur lors de la suppression", e);
+                AlertUtil.showErrorAlert("Erreur de suppression",
+                        "Impossible de supprimer l'élément",
+                        e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * ENRICHISSEMENT : Action Actualiser - Rafraîchit la vue courante
+     */
+    private void handleRefreshAction() {
+        logger.debug("Action Actualiser");
+
+        try {
+            // Afficher un indicateur de chargement
+            showLoadingIndicator(true);
+
+            // Rafraîchir selon la vue courante
+            refreshCurrentView();
+
+            // Mettre à jour la barre de statut
+            updateStatusLabel("Vue actualisée à " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss")));
+
+        } catch (Exception e) {
+            logger.error("Erreur lors de l'actualisation", e);
+            AlertUtil.showErrorAlert("Erreur", "Impossible d'actualiser la vue", e.getMessage());
+        } finally {
+            showLoadingIndicator(false);
+        }
+    }
+
+    /**
+     * ENRICHISSEMENT : Action Imprimer contextuelle
+     */
+    private void handlePrintAction() {
+        String currentView = getCurrentViewType();
+        logger.debug("Action Imprimer pour la vue: {}", currentView);
+
+        try {
+            switch (currentView) {
+                case "affaire-list":
+                    printAffairesList();
+                    break;
+                case "rapport":
+                    printCurrentReport();
+                    break;
+                default:
+                    AlertUtil.showInfoAlert("Impression",
+                            "Impression non disponible",
+                            "L'impression n'est pas disponible pour cette vue.");
+                    break;
+            }
+        } catch (Exception e) {
+            logger.error("Erreur lors de l'impression", e);
+            AlertUtil.showErrorAlert("Erreur d'impression",
+                    "Impossible d'imprimer",
+                    e.getMessage());
+        }
+    }
+
+    /**
+     * ENRICHISSEMENT : Action Filtrer - Ouvre le panneau de filtrage
+     */
+    private void handleFilterAction() {
+        logger.debug("Action Filtrer");
+
+        try {
+            // Afficher le panneau de filtrage selon la vue
+            showFilterPanel();
+        } catch (Exception e) {
+            logger.error("Erreur lors de l'ouverture du filtre", e);
+            AlertUtil.showErrorAlert("Erreur", "Impossible d'ouvrir le filtre", e.getMessage());
+        }
+    }
+
+    /**
+     * ENRICHISSEMENT : Recherche en temps réel
+     */
+    private void handleSearchAction(String searchText) {
+        if (searchText == null || searchText.trim().isEmpty()) {
+            clearSearch();
+            return;
+        }
+
+        // Recherche avec délai pour éviter trop d'appels
+        if (searchTask != null) {
+            searchTask.cancel();
+        }
+
+        searchTask = new Timeline(new KeyFrame(Duration.millis(300), e -> {
+            performSearch(searchText.trim());
+        }));
+        searchTask.play();
+    }
+
+    // ==================== NAVIGATION CLAVIER F1-F12 ====================
+
+    /**
+     * ENRICHISSEMENT : F1 - Aide contextuelle
+     */
+    private void handleAideContextuelle() {
+        String currentView = getCurrentViewType();
+        logger.debug("F1 - Aide contextuelle pour: {}", currentView);
+
+        try {
+            String helpContent = getContextualHelp(currentView);
+            showHelpDialog(helpContent);
+        } catch (Exception e) {
+            logger.error("Erreur lors de l'affichage de l'aide", e);
+            AlertUtil.showInfoAlert("Aide", "Aide contextuelle",
+                    "L'aide pour cette vue n'est pas encore disponible.");
+        }
+    }
+
+    /**
+     * ENRICHISSEMENT : F5 - Actualiser (alias pour refresh)
+     */
+    private void handleRefreshAction() {
+        handleRefreshAction();
+    }
+
+    /**
+     * ENRICHISSEMENT : F11 - Basculer plein écran
+     */
+    private void handleToggleFullscreen() {
+        logger.debug("F11 - Basculer plein écran");
+
+        try {
+            Stage stage = getCurrentStage();
+            if (stage != null) {
+                stage.setFullScreen(!stage.isFullScreen());
+                updateStatusLabel(stage.isFullScreen() ? "Mode plein écran activé" : "Mode fenêtré activé");
+            }
+        } catch (Exception e) {
+            logger.error("Erreur lors du basculement plein écran", e);
+        }
+    }
+
+
+    /**
+     * ENRICHISSEMENT : Raccourcis Ctrl+ standards
+     */
+    private void setupControlShortcuts(Scene scene) {
+        // Ctrl+N - Nouveau
+        scene.getAccelerators().put(
+                KeyCombination.keyCombination("Ctrl+N"),
+                () -> handleNewAction()
+        );
+
+        // Ctrl+E - Éditer
+        scene.getAccelerators().put(
+                KeyCombination.keyCombination("Ctrl+E"),
+                () -> handleEditAction()
+        );
+
+        // Ctrl+S - Sauvegarder
+        scene.getAccelerators().put(
+                KeyCombination.keyCombination("Ctrl+S"),
+                () -> handleSaveAction()
+        );
+
+        // Ctrl+P - Imprimer
+        scene.getAccelerators().put(
+                KeyCombination.keyCombination("Ctrl+P"),
+                () -> handlePrintAction()
+        );
+
+        // Ctrl+F - Rechercher
+        scene.getAccelerators().put(
+                KeyCombination.keyCombination("Ctrl+F"),
+                () -> handleFocusSearch()
+        );
+
+        // Ctrl+Q - Quitter
+        scene.getAccelerators().put(
+                KeyCombination.keyCombination("Ctrl+Q"),
+                () -> handleQuit()
+        );
+
+        // Delete - Supprimer
+        scene.getAccelerators().put(
+                KeyCombination.keyCombination("Delete"),
+                () -> handleDeleteAction()
+        );
+
+        // Escape - Annuler/Fermer
+        scene.getAccelerators().put(
+                KeyCombination.keyCombination("Escape"),
+                () -> handleEscape()
+        );
+    }
+
+    /**
+     * ENRICHISSEMENT : Déterminer le type de vue actuellement affichée
+     */
+    private String getCurrentViewType() {
+        // Analyser le contenu de mainContentArea pour déterminer la vue
+        if (mainContentArea.getChildren().isEmpty()) {
+            return "welcome";
+        }
+
+        Node currentNode = mainContentArea.getChildren().get(0);
+
+        // Analyser l'ID ou la classe pour déterminer le type
+        if (currentNode.getId() != null) {
+            String id = currentNode.getId();
+            if (id.contains("affaire")) return "affaire-list";
+            if (id.contains("contrevenant")) return "contrevenant-list";
+            if (id.contains("agent")) return "agent-list";
+            if (id.contains("encaissement")) return "encaissement-list";
+            if (id.contains("rapport")) return "rapport";
+            if (id.contains("mandat")) return "mandat-list";
+        }
+
+        return "unknown";
+    }
+
+    /**
+     * ENRICHISSEMENT : Obtenir l'élément sélectionné dans la vue courante
+     */
+    private Object getSelectedItemFromCurrentView() {
+        // Cette méthode doit être implémentée pour récupérer la sélection
+        // depuis le contrôleur de la vue active
+
+        String viewType = getCurrentViewType();
+
+        // Utiliser une interface commune ou un pattern Observer
+        // pour récupérer la sélection depuis les contrôleurs de vue
+
+        return null; // À implémenter selon l'architecture des vues
+    }
+
+    /**
+     * ENRICHISSEMENT : Vérifier les droits de suppression
+     */
+    private boolean hasDeletePermission() {
+        if (!authService.isAuthenticated()) {
+            return false;
+        }
+
+        RoleUtilisateur role = authService.getCurrentUser().getRole();
+        return role == RoleUtilisateur.SUPER_ADMIN; // Seul SUPER_ADMIN peut supprimer
+    }
+
+    /**
+     * ENRICHISSEMENT : Configuration des icônes des boutons
+     */
+    private void setupButtonIcon(Button button, String iconFileName) {
+        try {
+            InputStream iconStream = getClass().getResourceAsStream("/images/icons/" + iconFileName);
+            if (iconStream != null) {
+                ImageView icon = new ImageView(new Image(iconStream));
+                icon.setFitWidth(16);
+                icon.setFitHeight(16);
+                button.setGraphic(icon);
+            }
+        } catch (Exception e) {
+            logger.debug("Icône non trouvée: {}", iconFileName);
+        }
+    }
+
+    /**
+     * ENRICHISSEMENT : Affichage de l'indicateur de chargement
+     */
+    private void showLoadingIndicator(boolean show) {
+        if (progressBar != null) {
+            progressBar.setVisible(show);
+            progressBar.setProgress(show ? -1 : 0); // Indeterminate progress
+        }
+
+        if (progressLabel != null) {
+            progressLabel.setText(show ? "Chargement..." : "");
+            progressLabel.setVisible(show);
+        }
+
+        // Changer le curseur
+        mainContentArea.setCursor(show ? Cursor.WAIT : Cursor.DEFAULT);
+    }
+
+    /**
+     * ENRICHISSEMENT : Mise à jour de la barre de statut
+     */
+    private void updateStatusLabel(String message) {
+        if (statusLabel != null) {
+            statusLabel.setText(message);
+        }
+        logger.debug("Statut: {}", message);
+    }
+
+    // Variables pour la recherche et les tâches asynchrones
+    private Timeline searchTask;
+    private String lastSearchText = "";
+
+    /**
+     * ENRICHISSEMENT : Méthode pour quitter l'application
+     */
+    private void handleQuit() {
+        // Vérifier s'il y a des modifications non sauvegardées
+        if (hasUnsavedChanges()) {
+            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+            confirm.setTitle("Quitter l'application");
+            confirm.setHeaderText("Des modifications non sauvegardées seront perdues");
+            confirm.setContentText("Voulez-vous vraiment quitter ?");
+
+            if (confirm.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK) {
+                return;
+            }
+        }
+
+        // Fermer l'application proprement
+        Platform.exit();
+    }
+
     // ==================== MÉTHODES PUBLIQUES ====================
+
 
     /**
      * Met à jour le label de statut

@@ -139,6 +139,102 @@ public class RapportController implements Initializable {
         typeRapportComboBox.getSelectionModel().selectFirst();
     }
 
+    // Variables pour conserver le dernier contenu HTML généré
+    private String dernierHtmlContent;
+
+    /**
+     * ENRICHISSEMENT : Affichage dans WebView avec sauvegarde du contenu
+     */
+    private void afficherRapportDansWebView(String htmlContent) {
+        if (webView != null && htmlContent != null) {
+            dernierHtmlContent = htmlContent;
+
+            // Ajouter le CSS intégré pour un meilleur rendu
+            String htmlAvecStyle = ajouterStylesCSS(htmlContent);
+
+            webView.getEngine().loadContent(htmlAvecStyle);
+
+            // Activer le zoom
+            webView.setZoom(1.0);
+
+            logger.debug("Rapport affiché dans WebView ({} caractères)", htmlContent.length());
+        }
+    }
+
+    /**
+     * ENRICHISSEMENT : Ajout de styles CSS intégrés
+     */
+    private String ajouterStylesCSS(String htmlContent) {
+        String css = """
+        <style>
+            body { 
+                font-family: Arial, sans-serif; 
+                font-size: 12px; 
+                margin: 20px; 
+                line-height: 1.4;
+            }
+            .rapport-table { 
+                width: 100%; 
+                border-collapse: collapse; 
+                margin: 20px 0; 
+            }
+            .rapport-table th, .rapport-table td { 
+                border: 1px solid #333; 
+                padding: 6px; 
+                text-align: left; 
+            }
+            .rapport-table th { 
+                background-color: #f0f0f0; 
+                font-weight: bold; 
+                text-align: center;
+            }
+            .montant { 
+                text-align: right; 
+                font-family: monospace;
+            }
+            .total-row { 
+                background-color: #f8f8f8; 
+                font-weight: bold; 
+            }
+            .section-header { 
+                background-color: #e8f4fd; 
+                font-weight: bold; 
+            }
+            .subtotal-row { 
+                background-color: #f5f5f5; 
+                font-style: italic; 
+            }
+            .info-box { 
+                background-color: #d1ecf1; 
+                border: 1px solid #bee5eb; 
+                padding: 20px; 
+                margin: 20px 0; 
+                border-radius: 5px;
+            }
+            .error-box { 
+                background-color: #f8d7da; 
+                border: 1px solid #f5c6cb; 
+                padding: 20px; 
+                margin: 20px 0; 
+                border-radius: 5px;
+            }
+            @media print {
+                body { margin: 0; font-size: 10px; }
+                .rapport-table { font-size: 9px; }
+            }
+        </style>
+    """;
+
+        // Insérer le CSS dans le HTML
+        if (htmlContent.contains("<head>")) {
+            return htmlContent.replace("</head>", css + "</head>");
+        } else if (htmlContent.contains("<html>")) {
+            return htmlContent.replace("<html>", "<html><head>" + css + "</head>");
+        } else {
+            return "<html><head>" + css + "</head><body>" + htmlContent + "</body></html>";
+        }
+    }
+
     private void initializePeriode() {
         // Types de période
         periodeTypeComboBox.getItems().addAll(
@@ -243,123 +339,87 @@ public class RapportController implements Initializable {
         return new LocalDate[]{debut, fin};
     }
 
+    /**
+     * ENRICHISSEMENT : Génération avec support de tous les templates
+     */
     @FXML
     private void handleGenererRapport() {
         TypeRapport type = typeRapportComboBox.getValue();
-        LocalDate dateDebut = dateDebutPicker.getValue();
-        LocalDate dateFin = dateFinPicker.getValue();
-
-        // Validation
         if (type == null) {
-            AlertUtil.showWarningAlert("Type de rapport requis",
-                    "Sélection manquante",
+            AlertUtil.showWarningAlert("Type requis", "Sélection manquante",
                     "Veuillez sélectionner un type de rapport.");
             return;
         }
 
-        if (dateDebut == null || dateFin == null) {
-            AlertUtil.showWarningAlert("Dates requises",
-                    "Période incomplète",
-                    "Veuillez sélectionner les dates de début et de fin.");
+        // Validation de la période
+        LocalDate debut = getDateDebut();
+        LocalDate fin = getDateFin();
+
+        if (debut == null || fin == null || debut.isAfter(fin)) {
+            AlertUtil.showWarningAlert("Période invalide", "Dates incorrectes",
+                    "Veuillez sélectionner une période valide.");
             return;
         }
 
-        if (dateDebut.isAfter(dateFin)) {
-            AlertUtil.showWarningAlert("Période invalide",
-                    "Dates incorrectes",
-                    "La date de début doit être antérieure à la date de fin.");
-            return;
-        }
+        // Afficher l'indicateur de progression
+        showProgressIndicator(true, "Génération du rapport en cours...");
+        genererButton.setDisable(true);
 
-        // Lancer la génération
-        progressIndicator.setVisible(true);
-        statusLabel.setText("Génération du rapport en cours...");
-        updateButtonStates(false);
-
-        Task<String> generateTask = new Task<String>() {
+        // Génération asynchrone
+        Task<Object> generationTask = new Task<>() {
             @Override
-            protected String call() throws Exception {
-                // Générer selon le type en utilisant les bonnes méthodes
-                switch (type) {
-                    case REPARTITION_RETROCESSION:
-                        return rapportService.genererHtmlEtatRepartition(dateDebut, dateFin);
-
-                    case ETAT_MANDATEMENT:
-                        return rapportService.genererEtatMandatement(dateDebut, dateFin);
-
-                    case CENTRE_REPARTITION:
-                        return rapportService.genererEtatCentreRepartition(dateDebut, dateFin);
-
-                    case INDICATEURS_REELS:
-                        return rapportService.genererEtatIndicateurs(dateDebut, dateFin);
-
-                    case REPARTITION_PRODUIT:
-                        return rapportService.genererEtatRepartitionParService(dateDebut, dateFin);
-
-                    case SITUATION_GENERALE:
-                        // Générer d'abord les données puis créer le HTML
-                        SituationGeneraleDTO situationData =
-                                rapportService.genererSituationGenerale(dateDebut, dateFin);
-                        dernierRapportData = situationData;
-                        // Créer le HTML manuellement
-                        return genererHtmlSituationGenerale(situationData);
-
-                    case TABLEAU_AMENDES_SERVICE:
-                        return rapportService.genererEtatAmendesParService(dateDebut, dateFin);
-
-                    case MANDATEMENT_AGENTS:
-                        return rapportService.genererEtatMandatementAgents(dateDebut, dateFin);
-
-                    case ENCAISSEMENTS_PERIODE:
-                        // Utiliser la méthode existante
-                        RapportService.RapportEncaissementsDTO encaissementsData =
-                                rapportService.genererRapportEncaissements(dateDebut, dateFin);
-                        dernierRapportData = encaissementsData;
-                        return rapportService.genererHtmlEncaissements(encaissementsData);
-
-                    case AFFAIRES_NON_SOLDEES:
-                        // Utiliser la méthode existante
-                        RapportService.RapportAffairesNonSoldeesDTO nonSoldeesData =
-                                rapportService.genererRapportAffairesNonSoldees();
-                        dernierRapportData = nonSoldeesData;
-                        return rapportService.genererHtmlAffairesNonSoldees(nonSoldeesData);
-
-                    default:
-                        throw new UnsupportedOperationException("Type de rapport non supporté: " + type);
-                }
-            }
-
-            @Override
-            protected void succeeded() {
-                Platform.runLater(() -> {
-                    progressIndicator.setVisible(false);
-                    statusLabel.setText("Rapport généré avec succès");
-                    dernierRapportGenere = getValue();
-
-                    // Afficher automatiquement l'aperçu
-                    webEngine.loadContent(dernierRapportGenere);
-                    updateButtonStates(true);
-
-                    logger.info("✅ Rapport {} généré avec succès", type.getLibelle());
-                });
-            }
-
-            @Override
-            protected void failed() {
-                Platform.runLater(() -> {
-                    progressIndicator.setVisible(false);
-                    statusLabel.setText("Erreur lors de la génération");
-                    updateButtonStates(false);
-
-                    logger.error("Erreur lors de la génération du rapport", getException());
-                    AlertUtil.showErrorAlert("Erreur",
-                            "Génération échouée",
-                            "Impossible de générer le rapport: " + getException().getMessage());
-                });
+            protected Object call() throws Exception {
+                return genererRapportParType(type, debut, fin);
             }
         };
 
-        new Thread(generateTask).start();
+        generationTask.setOnSucceeded(e -> {
+            Platform.runLater(() -> {
+                Object rapportData = generationTask.getValue();
+
+                if (rapportData != null) {
+                    dernierRapportData = rapportData;
+                    dernierTypeRapport = type;
+
+                    // Générer et afficher le HTML
+                    String htmlContent = genererHtmlParType(type, debut, fin, rapportData);
+                    afficherRapportDansWebView(htmlContent);
+
+                    // Activer les boutons d'export
+                    activerBoutonsExport(true);
+
+                    AlertUtil.showSuccess("Rapport généré",
+                            "Le rapport a été généré avec succès.");
+
+                } else {
+                    AlertUtil.showWarningAlert("Génération échouée",
+                            "Aucune donnée",
+                            "Aucune donnée trouvée pour la période sélectionnée.");
+                }
+
+                showProgressIndicator(false, "");
+                genererButton.setDisable(false);
+            });
+        });
+
+        generationTask.setOnFailed(e -> {
+            Platform.runLater(() -> {
+                Throwable exception = generationTask.getException();
+                logger.error("Erreur lors de la génération du rapport", exception);
+
+                AlertUtil.showErrorAlert("Erreur de génération",
+                        "Impossible de générer le rapport",
+                        exception.getMessage());
+
+                showProgressIndicator(false, "");
+                genererButton.setDisable(false);
+            });
+        });
+
+        // Lancer la tâche
+        Thread generationThread = new Thread(generationTask);
+        generationThread.setDaemon(true);
+        generationThread.start();
     }
 
     // Méthode alternative si besoin d'afficher des statistiques simples
@@ -389,6 +449,210 @@ public class RapportController implements Initializable {
         alert.setContentText(stats.toString());
         alert.showAndWait();
     }
+
+    /**
+     * ENRICHISSEMENT : Génération HTML selon le type de rapport
+     */
+    private String genererHtmlParType(TypeRapport type, LocalDate debut, LocalDate fin, Object rapportData) {
+        try {
+            switch (type) {
+                // Templates avec HTML direct
+                case ETAT_REPARTITION_AFFAIRES:
+                    return rapportService.genererEtatRepartitionAffaires(debut, fin);
+
+                case ETAT_MANDATEMENT:
+                    return rapportService.genererEtatMandatement(debut, fin);
+
+                case CENTRE_REPARTITION:
+                    return rapportService.genererEtatCentreRepartition(debut, fin);
+
+                case INDICATEURS_REELS:
+                    return rapportService.genererEtatIndicateursReels(debut, fin);
+
+                case REPARTITION_PRODUIT:
+                    return rapportService.genererEtatRepartitionProduit(debut, fin);
+
+                case ETAT_CUMULE_AGENT:
+                    return rapportService.genererEtatCumuleParAgent(debut, fin);
+
+                case MANDATEMENT_AGENTS:
+                    return rapportService.genererEtatMandatementAgents(debut, fin);
+
+                case TABLEAU_AMENDES_SERVICE:
+                    return rapportService.genererTableauAmendesParServices(debut, fin);
+
+                // Templates avec conversion de données
+                case REPARTITION_RETROCESSION:
+                    return convertirRepartitionVersHTML((RapportService.RapportRepartitionDTO) rapportData, debut, fin);
+
+                case SITUATION_GENERALE:
+                    return convertirSituationVersHTML((SituationGeneraleDTO) rapportData, debut, fin);
+
+                default:
+                    return genererHtmlGenerique(type, rapportData, debut, fin);
+            }
+
+        } catch (Exception e) {
+            logger.error("Erreur lors de la génération HTML pour {}", type, e);
+            return genererHtmlErreur(type, e);
+        }
+    }
+
+    /**
+     * ENRICHISSEMENT : HTML d'erreur
+     */
+    private String genererHtmlErreur(TypeRapport type, Exception erreur) {
+        StringBuilder html = new StringBuilder();
+        html.append(genererEnTeteHTML("Erreur - " + type.getLibelle(), LocalDate.now(), LocalDate.now()));
+
+        html.append("<div class='error-box'>");
+        html.append("<h3>Erreur lors de la génération du rapport</h3>");
+        html.append("<p><strong>Type :</strong> ").append(type.getLibelle()).append("</p>");
+        html.append("<p><strong>Erreur :</strong> ").append(erreur.getMessage()).append("</p>");
+        html.append("<p>Veuillez vérifier les paramètres et réessayer.</p>");
+        html.append("</div>");
+
+        html.append(genererPiedHTML());
+
+        return html.toString();
+    }
+
+
+    /**
+     * ENRICHISSEMENT : HTML générique en cas de type non supporté
+     */
+    private String genererHtmlGenerique(TypeRapport type, Object rapportData, LocalDate debut, LocalDate fin) {
+        StringBuilder html = new StringBuilder();
+        html.append(genererEnTeteHTML(type.getLibelle(), debut, fin));
+
+        html.append("<div class='info-box'>");
+        html.append("<h3>Rapport en cours de développement</h3>");
+        html.append("<p>Le template HTML pour ce type de rapport sera disponible prochainement.</p>");
+        html.append("<p><strong>Type :</strong> ").append(type.getLibelle()).append("</p>");
+        html.append("<p><strong>Période :</strong> ").append(debut).append(" au ").append(fin).append("</p>");
+
+        if (rapportData != null) {
+            html.append("<p><strong>Données générées :</strong> ").append(rapportData.getClass().getSimpleName()).append("</p>");
+        }
+
+        html.append("<p><em>Vous pouvez exporter les données en Excel pour consultation.</em></p>");
+        html.append("</div>");
+
+        html.append(genererPiedHTML());
+
+        return html.toString();
+    }
+
+    /**
+     * ENRICHISSEMENT : Conversion HTML générique pour les nouveaux types
+     */
+    private String convertirRepartitionVersHTML(RapportService.RapportRepartitionDTO rapport, LocalDate debut, LocalDate fin) {
+        StringBuilder html = new StringBuilder();
+        html.append(genererEnTeteHTML("ÉTAT DE RÉPARTITION ET DE RÉTROCESSION", debut, fin));
+
+        html.append("""
+        <table class="rapport-table">
+            <thead>
+                <tr>
+                    <th>N° Affaire</th>
+                    <th>Contrevenant</th>
+                    <th>Montant Total</th>
+                    <th>Part État (60%)</th>
+                    <th>Part Collectivité (40%)</th>
+                </tr>
+            </thead>
+            <tbody>
+    """);
+
+        for (RapportService.AffaireRepartitionDTO affaire : rapport.getAffaires()) {
+            html.append("<tr>");
+            html.append("<td>").append(affaire.getNumeroAffaire()).append("</td>");
+            html.append("<td>").append(affaire.getContrevenant()).append("</td>");
+            html.append("<td class='montant'>").append(formatMontant(affaire.getMontantTotal())).append("</td>");
+            html.append("<td class='montant'>").append(formatMontant(affaire.getPartEtat())).append("</td>");
+            html.append("<td class='montant'>").append(formatMontant(affaire.getPartCollectivite())).append("</td>");
+            html.append("</tr>");
+        }
+
+        // Totaux
+        html.append("""
+        <tr class="total-row">
+            <td colspan="2"><strong>TOTAUX</strong></td>
+            <td class="montant"><strong>""").append(formatMontant(rapport.getTotalMontant())).append("""
+            </strong></td>
+            <td class="montant"><strong>""").append(formatMontant(rapport.getTotalPartEtat())).append("""
+            </strong></td>
+            <td class="montant"><strong>""").append(formatMontant(rapport.getTotalPartCollectivite())).append("""
+            </strong></td>
+        </tr>
+    """);
+
+        html.append("</tbody></table>");
+        html.append(genererPiedHTML());
+
+        return html.toString();
+    }
+
+    // ==================== GÉNÉRATION PAR TYPE DE RAPPORT ====================
+
+    /**
+     * ENRICHISSEMENT : Génération des données selon le type de rapport
+     */
+    private Object genererRapportParType(TypeRapport type, LocalDate debut, LocalDate fin) {
+        logger.info("Génération rapport type: {} pour période {} - {}", type, debut, fin);
+
+        try {
+            switch (type) {
+                // Templates existants
+                case ETAT_REPARTITION_AFFAIRES:
+                    return rapportService.genererDonneesEtatRepartitionAffaires(debut, fin);
+
+                case REPARTITION_RETROCESSION:
+                    return rapportService.genererRapportRepartition(debut, fin);
+
+                case TABLEAU_AMENDES_SERVICE:
+                    return rapportService.genererDonneesTableauAmendesParServices(debut, fin);
+
+                // NOUVEAUX TEMPLATES - Phase 3
+                case ETAT_MANDATEMENT: // Template 2
+                    return rapportService.genererDonneesEtatMandatement(debut, fin);
+
+                case CENTRE_REPARTITION: // Template 3
+                    return rapportService.genererDonneesCentreRepartition(debut, fin);
+
+                case INDICATEURS_REELS: // Template 4
+                    return rapportService.genererDonneesIndicateursReels(debut, fin);
+
+                case REPARTITION_PRODUIT: // Template 5
+                    return rapportService.genererDonneesRepartitionProduit(debut, fin);
+
+                case ETAT_CUMULE_AGENT: // Template 6
+                    return rapportService.genererDonneesEtatCumuleParAgent(debut, fin);
+
+                case MANDATEMENT_AGENTS: // Template 8
+                    return rapportService.genererDonneesMandatementAgents(debut, fin);
+
+                // Autres rapports
+                case SITUATION_GENERALE:
+                    return rapportService.genererSituationGenerale(debut, fin);
+
+                case ENCAISSEMENTS_PERIODE:
+                    return rapportService.genererRapportEncaissements(debut, fin);
+
+                case AFFAIRES_NON_SOLDEES:
+                    return rapportService.genererRapportAffairesNonSoldees(debut, fin);
+
+                default:
+                    logger.warn("Type de rapport non supporté: {}", type);
+                    return null;
+            }
+
+        } catch (Exception e) {
+            logger.error("Erreur lors de la génération des données pour {}", type, e);
+            throw new RuntimeException("Erreur de génération: " + e.getMessage(), e);
+        }
+    }
+
 
     /**
      * Génère le HTML pour la situation générale
@@ -490,66 +754,197 @@ public class RapportController implements Initializable {
         }
     }
 
+    /**
+     * ENRICHISSEMENT : Export Excel avec support de tous les types
+     */
     @FXML
     private void handleExportExcel() {
-        if (dernierRapportData == null) {
-            AlertUtil.showWarningAlert("Aucun rapport",
-                    "Export impossible",
+        if (dernierRapportData == null || dernierTypeRapport == null) {
+            AlertUtil.showWarningAlert("Aucun rapport", "Export impossible",
                     "Veuillez d'abord générer un rapport.");
             return;
         }
 
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("Exporter en Excel");
-        fileChooser.setInitialFileName("rapport_" +
-                LocalDate.now() + ".xlsx");
+        fileChooser.setInitialFileName(genererNomFichier(dernierTypeRapport, "xlsx"));
         fileChooser.getExtensionFilters().add(
                 new FileChooser.ExtensionFilter("Excel Files", "*.xlsx")
         );
 
         File file = fileChooser.showSaveDialog(exportExcelButton.getScene().getWindow());
         if (file != null) {
-            boolean success = false;
-            TypeRapport type = typeRapportComboBox.getValue();
 
-            // Export selon le type
-            if (type == TypeRapport.REPARTITION_RETROCESSION &&
-                    dernierRapportData instanceof RapportService.RapportRepartitionDTO) {
-                success = exportService.exportRepartitionToExcel(
-                        (RapportService.RapportRepartitionDTO) dernierRapportData,
-                        file.getAbsolutePath()
-                );
-            } else if (type == TypeRapport.SITUATION_GENERALE &&
-                    dernierRapportData instanceof SituationGeneraleDTO) {
-                success = exportService.exportSituationToExcel(
-                        (SituationGeneraleDTO) dernierRapportData,
-                        file.getAbsolutePath()
-                );
-            } else if (type == TypeRapport.TABLEAU_AMENDES_SERVICE &&
-                    dernierRapportData instanceof RapportService.TableauAmendesParServicesDTO) {
-                success = exportService.exportTableauAmendesToExcel(
-                        (RapportService.TableauAmendesParServicesDTO) dernierRapportData,
-                        file.getAbsolutePath()
-                );
-            } else {
-                // Export générique
-                success = exportService.exportGenericToExcel(
-                        dernierRapportData,
-                        file.getAbsolutePath()
-                );
-            }
+            // Indicateur de progression
+            showProgressIndicator(true, "Export Excel en cours...");
+            exportExcelButton.setDisable(true);
 
-            if (success) {
-                AlertUtil.showInfoAlert("Export réussi",
-                        "Export Excel",
-                        "Le rapport a été exporté avec succès.");
-            } else {
-                AlertUtil.showErrorAlert("Export échoué",
-                        "Erreur",
-                        "Impossible d'exporter le rapport.");
-            }
+            Task<Boolean> exportTask = new Task<>() {
+                @Override
+                protected Boolean call() throws Exception {
+                    return exporterSelonType(dernierTypeRapport, dernierRapportData, file.getAbsolutePath(), "excel");
+                }
+            };
+
+            exportTask.setOnSucceeded(e -> {
+                Platform.runLater(() -> {
+                    boolean success = exportTask.getValue();
+
+                    if (success) {
+                        AlertUtil.showSuccess("Export réussi",
+                                "Le rapport a été exporté en Excel avec succès.");
+
+                        // Proposer d'ouvrir le fichier
+                        if (AlertUtil.showConfirmation("Ouvrir le fichier",
+                                "Voulez-vous ouvrir le fichier Excel ?")) {
+                            ouvrirFichier(file);
+                        }
+                    } else {
+                        AlertUtil.showErrorAlert("Export échoué", "Erreur d'export",
+                                "Impossible d'exporter le rapport en Excel.");
+                    }
+
+                    showProgressIndicator(false, "");
+                    exportExcelButton.setDisable(false);
+                });
+            });
+
+            exportTask.setOnFailed(e -> {
+                Platform.runLater(() -> {
+                    Throwable exception = exportTask.getException();
+                    logger.error("Erreur lors de l'export Excel", exception);
+
+                    AlertUtil.showErrorAlert("Erreur d'export",
+                            "Impossible d'exporter en Excel",
+                            exception.getMessage());
+
+                    showProgressIndicator(false, "");
+                    exportExcelButton.setDisable(false);
+                });
+            });
+
+            Thread exportThread = new Thread(exportTask);
+            exportThread.setDaemon(true);
+            exportThread.start();
         }
     }
+
+    /**
+     * ENRICHISSEMENT : Export selon le type de rapport
+     */
+    private boolean exporterSelonType(TypeRapport type, Object rapportData, String outputPath, String format) {
+        try {
+            if ("excel".equalsIgnoreCase(format)) {
+                return exportService.exportGenericToExcel(rapportData, outputPath);
+            } else if ("pdf".equalsIgnoreCase(format)) {
+                String htmlContent = genererHtmlParType(type, getDateDebut(), getDateFin(), rapportData);
+                return exportService.exportReportToPDF(htmlContent, outputPath, type.getLibelle());
+            }
+
+            return false;
+
+        } catch (Exception e) {
+            logger.error("Erreur lors de l'export {} pour type {}", format, type, e);
+            return false;
+        }
+    }
+
+    /**
+     * ENRICHISSEMENT : Génération de nom de fichier intelligent
+     */
+    private String genererNomFichier(TypeRapport type, String extension) {
+        String typeNom = type.name().toLowerCase().replace("_", "-");
+        String dateSuffix = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        String periodeSuffix = "";
+
+        // Ajouter la période si disponible
+        if (getDateDebut() != null && getDateFin() != null) {
+            periodeSuffix = "_" + getDateDebut().format(DateTimeFormatter.ofPattern("yyyy-MM")) +
+                    "_" + getDateFin().format(DateTimeFormatter.ofPattern("yyyy-MM"));
+        }
+
+        return String.format("rapport-%s%s_%s.%s", typeNom, periodeSuffix, dateSuffix, extension);
+    }
+
+    /**
+     * ENRICHISSEMENT : Export PDF avec support de tous les types
+     */
+    @FXML
+    private void handleExportPDF() {
+        if (dernierRapportData == null || dernierTypeRapport == null) {
+            AlertUtil.showWarningAlert("Aucun rapport", "Export impossible",
+                    "Veuillez d'abord générer un rapport.");
+            return;
+        }
+
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Exporter en PDF");
+        fileChooser.setInitialFileName(genererNomFichier(dernierTypeRapport, "pdf"));
+        fileChooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter("PDF Files", "*.pdf")
+        );
+
+        File file = fileChooser.showSaveDialog(exportPDFButton.getScene().getWindow());
+        if (file != null) {
+
+            showProgressIndicator(true, "Export PDF en cours...");
+            exportPDFButton.setDisable(true);
+
+            Task<Boolean> exportTask = new Task<>() {
+                @Override
+                protected Boolean call() throws Exception {
+                    // Obtenir le contenu HTML actuel
+                    String htmlContent = dernierHtmlContent != null ?
+                            dernierHtmlContent :
+                            genererHtmlParType(dernierTypeRapport, getDateDebut(), getDateFin(), dernierRapportData);
+
+                    return exportService.exportReportToPDF(htmlContent, file.getAbsolutePath(),
+                            dernierTypeRapport.getLibelle());
+                }
+            };
+
+            exportTask.setOnSucceeded(e -> {
+                Platform.runLater(() -> {
+                    boolean success = exportTask.getValue();
+
+                    if (success) {
+                        AlertUtil.showSuccess("Export réussi",
+                                "Le rapport a été exporté en PDF avec succès.");
+
+                        if (AlertUtil.showConfirmation("Ouvrir le fichier",
+                                "Voulez-vous ouvrir le fichier PDF ?")) {
+                            ouvrirFichier(file);
+                        }
+                    } else {
+                        AlertUtil.showErrorAlert("Export échoué", "Erreur d'export",
+                                "Impossible d'exporter le rapport en PDF.");
+                    }
+
+                    showProgressIndicator(false, "");
+                    exportPDFButton.setDisable(false);
+                });
+            });
+
+            exportTask.setOnFailed(e -> {
+                Platform.runLater(() -> {
+                    Throwable exception = exportTask.getException();
+                    logger.error("Erreur lors de l'export PDF", exception);
+
+                    AlertUtil.showErrorAlert("Erreur d'export",
+                            "Impossible d'exporter en PDF",
+                            exception.getMessage());
+
+                    showProgressIndicator(false, "");
+                    exportPDFButton.setDisable(false);
+                });
+            });
+
+            Thread exportThread = new Thread(exportTask);
+            exportThread.setDaemon(true);
+            exportThread.start();
+        }
+    }
+
 
     @FXML
     private void handleOpenRapportAvance() {

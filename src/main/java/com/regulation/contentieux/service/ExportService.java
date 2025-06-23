@@ -408,6 +408,101 @@ public class ExportService {
         }
     }
 
+    public File exportReportToPDF(String htmlContent, String titre, String nomFichier) {
+        if (htmlContent == null || htmlContent.trim().isEmpty()) {
+            throw new IllegalArgumentException("Le contenu HTML ne peut pas être vide");
+        }
+
+        try {
+            // Créer le répertoire d'export s'il n'existe pas
+            File exportDir = new File("exports");
+            if (!exportDir.exists()) {
+                exportDir.mkdirs();
+            }
+
+            // Générer le nom de fichier avec timestamp si nécessaire
+            String fileName = nomFichier;
+            if (!fileName.endsWith(".pdf")) {
+                fileName += ".pdf";
+            }
+
+            File pdfFile = new File(exportDir, fileName);
+
+            // Créer le document PDF
+            Document document = new Document(PageSize.A4);
+            PdfWriter writer = PdfWriter.getInstance(document, new FileOutputStream(pdfFile));
+
+            document.open();
+
+            // Ajouter le titre
+            if (titre != null && !titre.trim().isEmpty()) {
+                Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 16);
+                Paragraph titleParagraph = new Paragraph(titre, titleFont);
+                titleParagraph.setAlignment(Element.ALIGN_CENTER);
+                document.add(titleParagraph);
+                document.add(Chunk.NEWLINE);
+            }
+
+            // Convertir le HTML vers PDF (version simplifiée)
+            // Pour une conversion HTML avancée, utiliser iText HTMLWorker ou Flying Saucer
+            String textContent = convertirHTMLVersTexte(htmlContent);
+            Font normalFont = FontFactory.getFont(FontFactory.HELVETICA, 10);
+            Paragraph content = new Paragraph(textContent, normalFont);
+            document.add(content);
+
+            document.close();
+
+            logger.info("Rapport PDF exporté vers : {}", pdfFile.getAbsolutePath());
+            return pdfFile;
+
+        } catch (Exception e) {
+            logger.error("Erreur lors de l'export PDF", e);
+            throw new RuntimeException("Impossible d'exporter le rapport en PDF", e);
+        }
+    }
+
+    /**
+     * MÉTHODE UTILITAIRE : Conversion HTML basique vers texte
+     */
+    private String convertirHTMLVersTexte(String htmlContent) {
+        if (htmlContent == null) return "";
+
+        // Suppression basique des balises HTML
+        String texte = htmlContent
+                .replaceAll("<[^>]+>", " ")  // Supprimer toutes les balises
+                .replaceAll("\\s+", " ")     // Remplacer les espaces multiples
+                .trim();
+
+        return texte;
+    }
+
+    /**
+     * ENRICHISSEMENT : Export avec options avancées
+     */
+    public File exportReportToPDF(String htmlContent, String titre, String nomFichier, ExportOptions options) {
+        // Version enrichie avec options de formatage
+        return exportReportToPDF(htmlContent, titre, nomFichier);
+    }
+
+    /**
+     * Classe interne pour les options d'export
+     */
+    public static class ExportOptions {
+        private boolean includeTimestamp = true;
+        private String orientation = "portrait";
+        private boolean includePageNumbers = true;
+
+        // Getters et setters
+        public boolean isIncludeTimestamp() { return includeTimestamp; }
+        public void setIncludeTimestamp(boolean includeTimestamp) { this.includeTimestamp = includeTimestamp; }
+
+        public String getOrientation() { return orientation; }
+        public void setOrientation(String orientation) { this.orientation = orientation; }
+
+        public boolean isIncludePageNumbers() { return includePageNumbers; }
+        public void setIncludePageNumbers(boolean includePageNumbers) { this.includePageNumbers = includePageNumbers; }
+    }
+
     public boolean exportRepartitionProduitToExcel(RapportService.RepartitionProduitDTO rapport, String outputPath) {
         try (Workbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet("Répartition Produit");

@@ -1,5 +1,12 @@
 package com.regulation.contentieux.controller;
 
+import java.time.format.DateTimeFormatter;
+import java.awt.Desktop;
+import java.math.BigDecimal;
+import java.text.NumberFormat;
+import java.util.Locale;
+import com.regulation.contentieux.dao.ContraventionDAO;
+
 import com.regulation.contentieux.model.enums.TypeRapport;
 import com.regulation.contentieux.service.RapportService;
 import com.regulation.contentieux.service.ExportService;
@@ -72,6 +79,13 @@ public class RapportController implements Initializable {
     @FXML private ProgressIndicator progressIndicator;
     @FXML private Label statusLabel;
 
+    // CORRECTION : Variable webView manquante
+    @FXML private WebView webView;
+
+    // CORRECTION : Variables d'état manquantes
+    private TypeRapport dernierTypeRapport;
+    @FXML private Button exportPDFButton;
+
     @FXML
     private void handleShowStatistics() {
         // Suppression de la référence à RapportStatistiquesController
@@ -89,8 +103,15 @@ public class RapportController implements Initializable {
         alert.showAndWait();
     }
 
+    // CORRECTION : Variables pour la gestion des dates
+    private LocalDate dateDebut;
+    private LocalDate dateFin;
+
+    // CORRECTION : Formateur de devises
+    private static final NumberFormat CURRENCY_FORMATTER = NumberFormat.getCurrencyInstance(Locale.FRANCE);
+
     // Services
-    private final RapportService rapportService = Pnew RapportService();
+    private RapportService rapportService = Pnew RapportService();
     private final ExportService exportService = new ExportService();
     private final PrintService printService = new PrintService();
 
@@ -101,14 +122,25 @@ public class RapportController implements Initializable {
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-        webEngine = previewWebView.getEngine();
+        // CORRECTION : Initialiser RapportService avec ContraventionDAO
+        initializeServices();
+
+        if (webView != null) {
+            webEngine = webView.getEngine();
+        }
+
+        if (previewWebView != null && webEngine == null) {
+            webEngine = previewWebView.getEngine();
+        }
 
         initializeTypeRapport();
         initializePeriode();
         initializeFiltres();
 
         // État initial
-        progressIndicator.setVisible(false);
+        if (progressIndicator != null) {
+            progressIndicator.setVisible(false);
+        }
         updateButtonStates(false);
     }
 
@@ -137,6 +169,20 @@ public class RapportController implements Initializable {
 
         // Sélection par défaut
         typeRapportComboBox.getSelectionModel().selectFirst();
+    }
+
+    /**
+     * CORRECTION BUG : Initialisation des services avec dépendances
+     */
+    private void initializeServices() {
+        try {
+            ContraventionDAO contraventionDAO = new ContraventionDAO();
+            this.rapportService = new RapportService(contraventionDAO);
+        } catch (Exception e) {
+            logger.error("Erreur lors de l'initialisation des services", e);
+            // Fallback : utiliser un constructeur sans paramètre si disponible
+            this.rapportService = new RapportService();
+        }
     }
 
     // Variables pour conserver le dernier contenu HTML généré
@@ -337,6 +383,29 @@ public class RapportController implements Initializable {
         }
 
         return new LocalDate[]{debut, fin};
+    }
+
+    /**
+     * CORRECTION BUG : Méthode manquante getDateDebut()
+     */
+    private LocalDate getDateDebut() {
+        if (dateDebutPicker != null && dateDebutPicker.getValue() != null) {
+            return dateDebutPicker.getValue();
+        }
+        // Fallback : début du mois courant
+        return LocalDate.now().withDayOfMonth(1);
+    }
+
+    /**
+     * CORRECTION BUG : Méthode manquante getDateFin()
+     */
+    private LocalDate getDateFin() {
+        if (dateFinPicker != null && dateFinPicker.getValue() != null) {
+            return dateFinPicker.getValue();
+        }
+        // Fallback : fin du mois courant
+        LocalDate now = LocalDate.now();
+        return now.withDayOfMonth(now.lengthOfMonth());
     }
 
     /**
@@ -945,6 +1014,202 @@ public class RapportController implements Initializable {
         }
     }
 
+    /**
+     * CORRECTION BUG : Méthode manquante showProgressIndicator()
+     */
+    private void showProgressIndicator(boolean show, String message) {
+        Platform.runLater(() -> {
+            if (progressIndicator != null) {
+                progressIndicator.setVisible(show);
+            }
+            if (statusLabel != null) {
+                statusLabel.setText(message != null ? message : "");
+            }
+        });
+    }
+
+    /**
+     * CORRECTION BUG : Méthode manquante activerBoutonsExport()
+     */
+    private void activerBoutonsExport(boolean activer) {
+        Platform.runLater(() -> {
+            if (exportPdfButton != null) {
+                exportPdfButton.setDisable(!activer);
+            }
+            if (exportPDFButton != null) {
+                exportPDFButton.setDisable(!activer);
+            }
+            if (exportExcelButton != null) {
+                exportExcelButton.setDisable(!activer);
+            }
+            if (imprimerButton != null) {
+                imprimerButton.setDisable(!activer);
+            }
+        });
+    }
+
+// ==================== MÉTHODES DE FORMATAGE ====================
+
+    /**
+     * CORRECTION BUG : Méthode manquante formatMontant()
+     */
+    private String formatMontant(BigDecimal montant) {
+        if (montant == null) {
+            return "0,00 €";
+        }
+        return CURRENCY_FORMATTER.format(montant).replace("€", "FCFA");
+    }
+
+// ==================== MÉTHODES DE GÉNÉRATION HTML ====================
+
+    /**
+     * CORRECTION BUG : Méthode manquante genererEnTeteHTML()
+     */
+    private String genererEnTeteHTML(String titreRapport, LocalDate dateDebut, LocalDate dateFin) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
+        return String.format("""
+        <div class="rapport-header">
+            <h1>%s</h1>
+            <p class="periode">Période : du %s au %s</p>
+            <p class="generation">Généré le : %s</p>
+        </div>
+        """,
+                titreRapport,
+                dateDebut.format(formatter),
+                dateFin.format(formatter),
+                LocalDate.now().format(formatter)
+        );
+    }
+
+    /**
+     * CORRECTION BUG : Méthode manquante genererPiedHTML()
+     */
+    private String genererPiedHTML() {
+        return """
+        <div class="rapport-footer">
+            <p>Application de Gestion des Affaires Contentieuses</p>
+            <p>Rapport généré automatiquement</p>
+        </div>
+        """;
+    }
+
+    /**
+     * CORRECTION BUG : Méthode manquante convertirSituationVersHTML()
+     */
+    private String convertirSituationVersHTML(SituationGeneraleDTO situation, LocalDate dateDebut, LocalDate dateFin) {
+        StringBuilder html = new StringBuilder();
+
+        html.append(genererEnTeteHTML("Situation Générale", dateDebut, dateFin));
+
+        html.append("<div class='situation-content'>");
+        html.append("<h2>Résumé de la Situation</h2>");
+
+        if (situation != null) {
+            html.append("<table class='rapport-table'>");
+            html.append("<tr><th>Indicateur</th><th>Valeur</th></tr>");
+            html.append("<tr><td>Total Encaissements</td><td>").append(formatMontant(situation.getTotalEncaissements())).append("</td></tr>");
+            html.append("<tr><td>Nombre d'Affaires</td><td>").append(situation.getNombreAffaires()).append("</td></tr>");
+            html.append("<tr><td>Affaires Soldées</td><td>").append(situation.getAffairesSoldees()).append("</td></tr>");
+            html.append("</table>");
+        } else {
+            html.append("<p>Aucune donnée disponible pour la période sélectionnée.</p>");
+        }
+
+        html.append("</div>");
+        html.append(genererPiedHTML());
+
+        return html.toString();
+    }
+
+// ==================== MÉTHODES D'OUVERTURE DE FICHIERS ====================
+
+    /**
+     * CORRECTION BUG : Méthode manquante ouvrirFichier()
+     */
+    private void ouvrirFichier(File fichier) {
+        if (fichier == null || !fichier.exists()) {
+            AlertUtil.showError("Erreur", "Le fichier n'existe pas.");
+            return;
+        }
+
+        try {
+            if (Desktop.isDesktopSupported()) {
+                Desktop.getDesktop().open(fichier);
+            } else {
+                // Alternative pour les systèmes sans Desktop support
+                ProcessBuilder pb = new ProcessBuilder("cmd", "/c", "start", fichier.getAbsolutePath());
+                pb.start();
+            }
+        } catch (Exception e) {
+            logger.error("Erreur lors de l'ouverture du fichier: {}", fichier.getAbsolutePath(), e);
+            AlertUtil.showError("Erreur", "Impossible d'ouvrir le fichier : " + e.getMessage());
+        }
+    }
+
+// ==================== CORRECTIONS DE SIGNATURE DE MÉTHODES ====================
+
+    /**
+     * CORRECTION BUG : Appel avec paramètres corrects
+     */
+    @FXML
+    private void handleGenererRapportAffairesNonSoldees() {
+        try {
+            dernierTypeRapport = TypeRapport.AFFAIRES_NON_SOLDEES;
+            showProgressIndicator(true, "Génération du rapport des affaires non soldées...");
+
+            Task<String> task = new Task<String>() {
+                @Override
+                protected String call() throws Exception {
+                    // CORRECTION : Appel sans paramètres selon la signature existante
+                    var rapport = rapportService.genererRapportAffairesNonSoldees();
+                    return convertirRapportVersHTML(rapport);
+                }
+            };
+
+            task.setOnSucceeded(e -> {
+                String htmlContent = task.getValue();
+                if (webView != null) {
+                    webView.getEngine().loadContent(htmlContent);
+                }
+                showProgressIndicator(false, "Rapport généré avec succès");
+                activerBoutonsExport(true);
+            });
+
+            task.setOnFailed(e -> {
+                showProgressIndicator(false, "Erreur lors de la génération");
+                AlertUtil.showError("Erreur", "Impossible de générer le rapport : " + task.getException().getMessage());
+            });
+
+            Thread thread = new Thread(task);
+            thread.setDaemon(true);
+            thread.start();
+
+        } catch (Exception e) {
+            logger.error("Erreur lors de la génération du rapport", e);
+            showProgressIndicator(false, "");
+            AlertUtil.showError("Erreur", "Erreur lors de la génération : " + e.getMessage());
+        }
+    }
+
+    /**
+     * CORRECTION BUG : Méthode utilitaire pour convertir les rapports vers HTML
+     */
+    private String convertirRapportVersHTML(Object rapport) {
+        if (rapport == null) {
+            return "<html><body><h1>Aucune donnée disponible</h1></body></html>";
+        }
+
+        // Conversion basique - à enrichir selon le type de rapport
+        StringBuilder html = new StringBuilder();
+        html.append("<html><head><title>Rapport</title></head><body>");
+        html.append(genererEnTeteHTML("Rapport", getDateDebut(), getDateFin()));
+        html.append("<div>").append(rapport.toString()).append("</div>");
+        html.append(genererPiedHTML());
+        html.append("</body></html>");
+
+        return html.toString();
+    }
 
     @FXML
     private void handleOpenRapportAvance() {

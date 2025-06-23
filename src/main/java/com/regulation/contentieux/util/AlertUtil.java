@@ -237,4 +237,82 @@ public class AlertUtil {
     public static void showInfo(String title, String content) {
         showInfoAlert(title, title, content);
     }
+
+    public static void showError(String erreur, String s) {
+    }
+
+    /**
+     * CORRECTION BUG : Méthode manquante showConfirmation()
+     */
+    public static boolean showConfirmation(String titre, String message) {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle(titre);
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+
+        // Personnaliser les boutons
+        ButtonType buttonOui = new ButtonType("Oui", ButtonBar.ButtonData.YES);
+        ButtonType buttonNon = new ButtonType("Non", ButtonBar.ButtonData.NO);
+        alert.getButtonTypes().setAll(buttonOui, buttonNon);
+
+        // Afficher et attendre la réponse
+        Optional<ButtonType> result = alert.showAndWait();
+        return result.isPresent() && result.get() == buttonOui;
+    }
+
+    /**
+     * ENRICHISSEMENT : Confirmation avec message détaillé
+     */
+    public static boolean showConfirmation(String titre, String headerText, String message) {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle(titre);
+        alert.setHeaderText(headerText);
+        alert.setContentText(message);
+
+        Optional<ButtonType> result = alert.showAndWait();
+        return result.isPresent() && result.get() == ButtonType.OK;
+    }
+
+    /**
+     * ENRICHISSEMENT : Confirmation avec choix personnalisés
+     */
+    public static Optional<ButtonType> showConfirmationWithOptions(String titre, String message, ButtonType... options) {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle(titre);
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+
+        if (options.length > 0) {
+            alert.getButtonTypes().setAll(options);
+        }
+
+        return alert.showAndWait();
+    }
+
+    /**
+     * ENRICHISSEMENT : Méthodes de convenance pour les erreurs
+     */
+    public static void showError(String titre, String message) {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle(titre);
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
+    }
+
+    public static void showWarning(String titre, String message) {
+        Alert alert = new Alert(Alert.AlertType.WARNING);
+        alert.setTitle(titre);
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
+    }
+
+    public static void showInfo(String titre, String message) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle(titre);
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
+    }
 }

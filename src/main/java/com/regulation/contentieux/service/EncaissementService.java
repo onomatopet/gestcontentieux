@@ -318,7 +318,8 @@ public class EncaissementService {
 
         // Validation de la référence si fournie
         if (encaissement.getReference() != null && !encaissement.getReference().trim().isEmpty()) {
-            if (!validationService.isValidEncaissementReference(encaissement.getReference())) {
+            // CORRECTION : Utiliser isValidNumeroEncaissement au lieu de isValidEncaissementReference
+            if (!validationService.isValidNumeroEncaissement(encaissement.getReference())) {
                 throw new IllegalArgumentException("Format de référence d'encaissement invalide");
             }
         }
@@ -405,7 +406,7 @@ public class EncaissementService {
         private final long totalEncaissements;
         private final long validEncaissements;
         private final long pendingEncaissements;
-        // LIGNE 271 - CORRECTION: Changer le type de Double à BigDecimal
+        // LIGNE 271 - CORRECTION : Changer le type de Double à BigDecimal
         private final BigDecimal totalMontant;
 
         public EncaissementStatistics(long totalEncaissements, long validEncaissements,

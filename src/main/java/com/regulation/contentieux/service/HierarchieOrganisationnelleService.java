@@ -362,10 +362,18 @@ public class HierarchieOrganisationnelleService {
         Bureau bureau = new Bureau();
         bureau.setCodeBureau(code);
         bureau.setNomBureau(nom);
-        bureau.setCentreId(centreId);
+        // CORRECTION : Suppression de l'appel à setCentreId qui n'existe pas dans Bureau
+        // bureau.setCentreId(centreId); // Cette méthode n'existe pas dans la classe Bureau
+
+        // NOTE : Dans le modèle actuel, un Bureau appartient à un Service, pas directement à un Centre
+        // Si vous voulez lier un Bureau à un Centre, il faut soit :
+        // 1. Ajouter la propriété centreId dans la classe Bureau
+        // 2. Où créer le Bureau via un Service qui appartient au Centre
+
         bureau.setActif(true);
 
         // TODO: Sauvegarder en base via BureauDAO
+        // NOTE : Il faudra gérer la relation Bureau-Service ou Bureau-Centre selon votre modèle
 
         return bureau;
     }

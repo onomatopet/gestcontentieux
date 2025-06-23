@@ -21,7 +21,7 @@ public class ContrevenantService {
 
     public ContrevenantService() {
         this.contrevenantDAO = new ContrevenantDAO();
-        this.validationService = new ValidationService();
+        this.validationService = ValidationService.getInstance();
     }
 
     /**

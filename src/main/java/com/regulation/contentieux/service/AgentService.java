@@ -21,7 +21,7 @@ public class AgentService {
 
     public AgentService() {
         this.agentDAO = new AgentDAO();
-        this.validationService = new ValidationService();
+        this.validationService = ValidationService.getInstance(); // Utiliser getInstance() au lieu de new
     }
 
     /**
@@ -127,14 +127,32 @@ public class AgentService {
         }
 
         // TODO: Vérifier s'il y a des affaires liées avant suppression
-        // Pour l'instant, suppression directe
         agentDAO.deleteById(id);
-        logger.info("Agent supprimé: {} - {} {}",
-                agent.get().getCodeAgent(), agent.get().getPrenom(), agent.get().getNom());
+        logger.info("Agent supprimé: {} - {} {}", agent.get().getCodeAgent(),
+                agent.get().getPrenom(), agent.get().getNom());
     }
 
     /**
-     * Désactive un agent (soft delete)
+     * Active/désactive un agent
+     */
+    public void toggleAgentActif(Long id) {
+        Optional<Agent> optAgent = agentDAO.findById(id);
+        if (optAgent.isEmpty()) {
+            throw new IllegalArgumentException("Agent non trouvé avec l'ID: " + id);
+        }
+
+        Agent agent = optAgent.get();
+        agent.setActif(!agent.isActif());
+
+        agentDAO.update(agent);
+        logger.info("Agent {} {}: {} {}",
+                agent.getCodeAgent(),
+                agent.isActif() ? "activé" : "désactivé",
+                agent.getPrenom(), agent.getNom());
+    }
+
+    /**
+     * Désactive un agent
      */
     public boolean deactivateAgent(Long id) {
         Optional<Agent> agent = agentDAO.findById(id);
@@ -237,19 +255,19 @@ public class AgentService {
     /**
      * Génère le prochain code agent
      */
-    public String generateNextCodeAgent() {
+    public String generateNextCode() {
         return agentDAO.generateNextCodeAgent();
     }
 
     /**
-     * Vérifie si un code agent existe déjà
+     * Vérifie si un code existe déjà
      */
-    public boolean codeAgentExists(String codeAgent) {
-        return agentDAO.existsByCodeAgent(codeAgent);
+    public boolean codeExists(String code) {
+        return agentDAO.existsByCodeAgent(code);
     }
 
     /**
-     * Recherche rapide par nom, prénom ou code (pour autocomplete)
+     * Recherche rapide par nom ou code (pour autocomplete)
      */
     public List<Agent> searchQuick(String query, int limit) {
         if (query == null || query.trim().length() < 2) {
@@ -257,46 +275,5 @@ public class AgentService {
         }
 
         return agentDAO.searchAgents(query.trim(), null, null, true, 0, limit);
-    }
-
-    /**
-     * Obtient les agents pour un rapport
-     */
-    public List<Agent> getAgentsForReport(Long serviceId, Boolean actif) {
-        return agentDAO.searchAgents(null, null, serviceId, actif, 0, Integer.MAX_VALUE);
-    }
-
-    /**
-     * Statistiques des agents
-     */
-    public AgentStatistics getAgentStatistics() {
-        long totalAgents = agentDAO.count();
-        long activeAgents = agentDAO.countSearchAgents(null, null, null, true);
-        long inactiveAgents = totalAgents - activeAgents;
-
-        return new AgentStatistics(totalAgents, activeAgents, inactiveAgents);
-    }
-
-    /**
-     * Classe pour encapsuler les statistiques des agents
-     */
-    public static class AgentStatistics {
-        private final long totalAgents;
-        private final long activeAgents;
-        private final long inactiveAgents;
-
-        public AgentStatistics(long totalAgents, long activeAgents, long inactiveAgents) {
-            this.totalAgents = totalAgents;
-            this.activeAgents = activeAgents;
-            this.inactiveAgents = inactiveAgents;
-        }
-
-        public long getTotalAgents() { return totalAgents; }
-        public long getActiveAgents() { return activeAgents; }
-        public long getInactiveAgents() { return inactiveAgents; }
-
-        public double getActivePercentage() {
-            return totalAgents > 0 ? (activeAgents * 100.0 / totalAgents) : 0.0;
-        }
     }
 }

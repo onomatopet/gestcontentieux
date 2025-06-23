@@ -79,7 +79,7 @@ public class UserManagementController implements Initializable {
     // Services et DAO
     private final UtilisateurDAO utilisateurDAO = new UtilisateurDAO();
     private final AuthenticationService authenticationService = AuthenticationService.getInstance();
-    private final ValidationService validationService = new ValidationService();
+    private final ValidationService validationService = ValidationService.getInstance();
 
     // État
     private ObservableList<UtilisateurViewModel> utilisateurs = FXCollections.observableArrayList();

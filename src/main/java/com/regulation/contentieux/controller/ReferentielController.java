@@ -82,7 +82,7 @@ public class ReferentielController implements Initializable {
     private String typeActuel = "";
 
     public ReferentielController() {
-        this.validationService = new ValidationService();
+        this.validationService = ValidationService.getInstance();
 
         // Initialisation des DAOs harmonisés
         this.serviceDAO = new ServiceDAO();

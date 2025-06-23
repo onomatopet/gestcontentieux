@@ -45,7 +45,7 @@ public class AffaireService {
         this.agentDAO = new AgentDAO();
         this.repartitionService = new RepartitionService();
         this.mandatService = MandatService.getInstance();
-        this.validationService = new ValidationService();
+        this.validationService = ValidationService.getInstance();
         this.authService = AuthenticationService.getInstance();
         this.transactionManager = TransactionManager.getInstance();
     }

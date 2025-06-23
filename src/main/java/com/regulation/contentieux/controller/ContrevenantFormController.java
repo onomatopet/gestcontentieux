@@ -90,7 +90,7 @@ public class ContrevenantFormController implements Initializable {
         // Initialisation des services - SUIT LE PATTERN ÉTABLI
         contrevenantDAO = new ContrevenantDAO();
         authService = AuthenticationService.getInstance();
-        validationService = new ValidationService();
+        validationService = ValidationService.getInstance();
 
         setupUI();
         setupEventHandlers();

@@ -32,7 +32,7 @@ public class ValidationService {
     // Instance unique
     private static ValidationService instance;
 
-    public ValidationService() {}
+    private ValidationService() {}
 
     public static synchronized ValidationService getInstance() {
         if (instance == null) {
@@ -387,6 +387,83 @@ public class ValidationService {
     }
 
     /**
+     * AJOUT : Valide un nom de personne (nom ou prénom)
+     * Utilisé par AgentService
+     */
+    public boolean isValidPersonName(String name) {
+        if (name == null || name.trim().isEmpty()) {
+            return false;
+        }
+        String trimmed = name.trim();
+        // Accepte les lettres, espaces, tirets et apostrophes
+        return trimmed.length() >= 2 && trimmed.length() <= 100 &&
+                trimmed.matches("^[a-zA-ZÀ-ÿ\\s\\-']+$");
+    }
+
+    /**
+     * AJOUT : Normalise un nom de personne (capitalisation correcte)
+     * Utilisé par AgentService
+     */
+    public String normalizePersonName(String name) {
+        if (name == null) {
+            return null;
+        }
+
+        // Supprimer les espaces en début/fin
+        String normalized = name.trim();
+
+        // Remplacer les espaces multiples par un seul
+        normalized = normalized.replaceAll("\\s+", " ");
+
+        // Capitaliser la première lettre de chaque mot
+        String[] words = normalized.split(" ");
+        StringBuilder result = new StringBuilder();
+
+        for (String word : words) {
+            if (!word.isEmpty()) {
+                if (result.length() > 0) {
+                    result.append(" ");
+                }
+                // Première lettre en majuscule, le reste en minuscule
+                result.append(word.substring(0, 1).toUpperCase());
+                if (word.length() > 1) {
+                    result.append(word.substring(1).toLowerCase());
+                }
+            }
+        }
+
+        return result.toString();
+    }
+
+    /**
+     * AJOUT : Valide un grade d'agent
+     * Utilisé par AgentService
+     */
+    public boolean isValidGrade(String grade) {
+        if (grade == null || grade.trim().isEmpty()) {
+            return true; // Le grade est optionnel
+        }
+
+        // Liste des grades valides
+        String[] gradesValides = {
+                "Inspecteur Principal",
+                "Inspecteur",
+                "Contrôleur Principal",
+                "Contrôleur",
+                "Agent Principal",
+                "Agent"
+        };
+
+        for (String gradeValide : gradesValides) {
+            if (gradeValide.equalsIgnoreCase(grade.trim())) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Vérifie l'unicité d'un numéro
      * À implémenter avec les DAOs correspondants
      */
@@ -467,7 +544,7 @@ public class ValidationService {
             }
 
             if (!fieldErrors.isEmpty()) {
-                if (!sb.isEmpty()) sb.append("\n");
+                if (sb.length() > 0) sb.append("\n");
                 fieldErrors.forEach((field, error) ->
                         sb.append(field).append(" : ").append(error).append("\n")
                 );

@@ -29,7 +29,7 @@ public class EncaissementService {
     public EncaissementService() {
         this.encaissementDAO = new EncaissementDAO();
         this.affaireDAO = new AffaireDAO();
-        this.validationService = new ValidationService();
+        this.validationService = ValidationService.getInstance();
     }
 
     /**

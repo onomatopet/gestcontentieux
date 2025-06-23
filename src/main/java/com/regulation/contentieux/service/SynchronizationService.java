@@ -55,41 +55,63 @@ public class SynchronizationService {
             synchronizationInProgress = true;
             SyncResult result = new SyncResult();
 
+            Connection sqliteConn = null;
+            Connection mysqlConn = null;
+
             try {
                 // Vérifier la disponibilité de MySQL
                 if (!DatabaseConfig.isMySQLAvailable()) {
                     throw new SQLException("MySQL non disponible");
                 }
 
-                try (Connection sqliteConn = DatabaseConfig.getSQLiteConnection();
-                     Connection mysqlConn = DatabaseConfig.getMySQLConnection()) {
-
-                    // Désactiver l'autocommit
-                    mysqlConn.setAutoCommit(false);
-
-                    // Synchroniser chaque table
-                    for (String table : TABLES_ORDER) {
-                        syncTableToMySQL(sqliteConn, mysqlConn, table, result);
-                    }
-
-                    // Commit si tout est OK
-                    mysqlConn.commit();
-
-                    // Enregistrer le timestamp
-                    lastSyncTime = LocalDateTime.now();
-                    enregistrerSynchronisation(sqliteConn, "SAUVEGARDE", result);
-
-                    result.setSuccess(true);
-                    result.setMessage("Synchronisation réussie");
-                    logger.info("✅ Synchronisation terminée avec succès");
-
-                } catch (Exception e) {
-                    logger.error("❌ Erreur lors de la synchronisation", e);
+                // CORRECTION: Gestion des SQLException des méthodes getConnection
+                try {
+                    sqliteConn = DatabaseConfig.getSQLiteConnection();
+                    mysqlConn = DatabaseConfig.getMySQLConnection();
+                } catch (SQLException e) {
+                    logger.error("❌ Erreur lors de l'obtention des connexions", e);
                     result.setSuccess(false);
-                    result.setMessage("Erreur: " + e.getMessage());
+                    result.setMessage("Erreur de connexion: " + e.getMessage());
+                    return result;
                 }
 
+                // Désactiver l'autocommit
+                mysqlConn.setAutoCommit(false);
+
+                // Synchroniser chaque table
+                for (String table : TABLES_ORDER) {
+                    syncTableToMySQL(sqliteConn, mysqlConn, table, result);
+                }
+
+                // Commit si tout est OK
+                mysqlConn.commit();
+
+                // Enregistrer le timestamp
+                lastSyncTime = LocalDateTime.now();
+                enregistrerSynchronisation(sqliteConn, "SAUVEGARDE", result);
+
+                result.setSuccess(true);
+                result.setMessage("Synchronisation réussie");
+                logger.info("✅ Synchronisation terminée avec succès");
+
+            } catch (Exception e) {
+                // Rollback en cas d'erreur
+                if (mysqlConn != null) {
+                    try {
+                        mysqlConn.rollback();
+                    } catch (SQLException ex) {
+                        logger.error("Erreur lors du rollback", ex);
+                    }
+                }
+
+                logger.error("❌ Erreur lors de la synchronisation", e);
+                result.setSuccess(false);
+                result.setMessage("Erreur: " + e.getMessage());
+
             } finally {
+                // Fermeture des connexions
+                closeConnection(sqliteConn);
+                closeConnection(mysqlConn);
                 synchronizationInProgress = false;
             }
 
@@ -112,6 +134,9 @@ public class SynchronizationService {
             synchronizationInProgress = true;
             SyncResult result = new SyncResult();
 
+            Connection sqliteConn = null;
+            Connection mysqlConn = null;
+
             try {
                 // Vérifier la disponibilité de MySQL
                 if (!DatabaseConfig.isMySQLAvailable()) {
@@ -121,60 +146,115 @@ public class SynchronizationService {
                 // Créer une sauvegarde avant restauration
                 creerSauvegardeLocale();
 
-                try (Connection sqliteConn = DatabaseConfig.getSQLiteConnection();
-                     Connection mysqlConn = DatabaseConfig.getMySQLConnection()) {
-
-                    // Désactiver l'autocommit et les contraintes temporairement
-                    sqliteConn.setAutoCommit(false);
-                    try (Statement stmt = sqliteConn.createStatement()) {
-                        stmt.execute("PRAGMA foreign_keys = OFF");
-                    }
-
-                    // Synchroniser chaque table (ordre inverse pour suppression)
-                    List<String> reversedTables = new ArrayList<>(Arrays.asList(TABLES_ORDER));
-                    Collections.reverse(reversedTables);
-
-                    // D'abord vider les tables locales
-                    for (String table : reversedTables) {
-                        truncateTable(sqliteConn, table);
-                    }
-
-                    // Puis importer depuis MySQL
-                    for (String table : TABLES_ORDER) {
-                        syncTableFromMySQL(mysqlConn, sqliteConn, table, result);
-                    }
-
-                    // Réactiver les contraintes
-                    try (Statement stmt = sqliteConn.createStatement()) {
-                        stmt.execute("PRAGMA foreign_keys = ON");
-                    }
-
-                    // Commit
-                    sqliteConn.commit();
-
-                    // Enregistrer le timestamp
-                    lastSyncTime = LocalDateTime.now();
-                    enregistrerSynchronisation(sqliteConn, "RESTAURATION", result);
-
-                    result.setSuccess(true);
-                    result.setMessage("Restauration réussie");
-                    logger.info("✅ Restauration terminée avec succès");
-
-                } catch (Exception e) {
-                    logger.error("❌ Erreur lors de la restauration", e);
+                // CORRECTION: Gestion des SQLException des méthodes getConnection
+                try {
+                    sqliteConn = DatabaseConfig.getSQLiteConnection();
+                    mysqlConn = DatabaseConfig.getMySQLConnection();
+                } catch (SQLException e) {
+                    logger.error("❌ Erreur lors de l'obtention des connexions", e);
                     result.setSuccess(false);
-                    result.setMessage("Erreur: " + e.getMessage());
-
-                    // Tenter de restaurer la sauvegarde
-                    restaurerSauvegardeLocale();
+                    result.setMessage("Erreur de connexion: " + e.getMessage());
+                    return result;
                 }
 
+                // Désactiver l'autocommit
+                sqliteConn.setAutoCommit(false);
+
+                // Synchroniser chaque table dans l'ordre inverse (pour respecter les FK)
+                for (int i = TABLES_ORDER.length - 1; i >= 0; i--) {
+                    String table = TABLES_ORDER[i];
+                    // Vider la table avant import
+                    truncateTable(sqliteConn, table);
+                    // Importer les données
+                    syncTableFromMySQL(mysqlConn, sqliteConn, table, result);
+                }
+
+                // Commit si tout est OK
+                sqliteConn.commit();
+
+                // Enregistrer le timestamp
+                lastSyncTime = LocalDateTime.now();
+                enregistrerSynchronisation(sqliteConn, "RESTAURATION", result);
+
+                result.setSuccess(true);
+                result.setMessage("Restauration réussie");
+                logger.info("✅ Restauration terminée avec succès");
+
+            } catch (Exception e) {
+                // Rollback en cas d'erreur
+                if (sqliteConn != null) {
+                    try {
+                        sqliteConn.rollback();
+                        restaurerSauvegardeLocale();
+                    } catch (SQLException ex) {
+                        logger.error("Erreur lors du rollback", ex);
+                    }
+                }
+
+                logger.error("❌ Erreur lors de la restauration", e);
+                result.setSuccess(false);
+                result.setMessage("Erreur: " + e.getMessage());
+
             } finally {
+                // Fermeture des connexions
+                closeConnection(sqliteConn);
+                closeConnection(mysqlConn);
                 synchronizationInProgress = false;
             }
 
             return result;
         });
+    }
+
+    /**
+     * Ferme une connexion de manière sécurisée
+     */
+    private void closeConnection(Connection conn) {
+        if (conn != null) {
+            try {
+                conn.close();
+            } catch (SQLException e) {
+                logger.error("Erreur lors de la fermeture de la connexion", e);
+            }
+        }
+    }
+
+    /**
+     * Vérifie si une synchronisation est en cours
+     */
+    public boolean isSynchronizationInProgress() {
+        return synchronizationInProgress;
+    }
+
+    /**
+     * Retourne le timestamp de la dernière synchronisation
+     */
+    public LocalDateTime getLastSyncTime() {
+        return lastSyncTime;
+    }
+
+    /**
+     * Retourne le statut actuel de la synchronisation
+     */
+    public SyncStatus getCurrentStatus() {
+        if (synchronizationInProgress) {
+            return SyncStatus.EN_COURS;
+        }
+
+        if (!DatabaseConfig.isMySQLAvailable()) {
+            return SyncStatus.MYSQL_INDISPONIBLE;
+        }
+
+        if (lastSyncTime == null) {
+            return SyncStatus.JAMAIS_SYNCHRONISE;
+        }
+
+        // Si dernière sync > 24h
+        if (lastSyncTime.isBefore(LocalDateTime.now().minusDays(1))) {
+            return SyncStatus.SYNCHRONISATION_ANCIENNE;
+        }
+
+        return SyncStatus.SYNCHRONISE;
     }
 
     /**
@@ -238,7 +318,7 @@ public class SynchronizationService {
 
         // Préparer les requêtes
         String selectSql = "SELECT * FROM " + tableName;
-        String insertSql = buildInsertQuery(tableName, columns);
+        String insertSql = buildInsertQuery(tableName, columns); // SQLite syntax
 
         int count = 0;
         try (Statement selectStmt = source.createStatement();
@@ -248,7 +328,7 @@ public class SynchronizationService {
             while (rs.next()) {
                 // Copier les valeurs
                 for (int i = 1; i <= columns.size(); i++) {
-                    insertStmt.setObject(i, rs.getObject(columns.get(i-1)));
+                    insertStmt.setObject(i, rs.getObject(i));
                 }
 
                 insertStmt.addBatch();
@@ -276,12 +356,12 @@ public class SynchronizationService {
     }
 
     /**
-     * Récupère les colonnes d'une table
+     * Récupère la liste des colonnes d'une table
      */
     private List<String> getTableColumns(Connection conn, String tableName) throws SQLException {
         List<String> columns = new ArrayList<>();
-
         DatabaseMetaData metaData = conn.getMetaData();
+
         try (ResultSet rs = metaData.getColumns(null, null, tableName, null)) {
             while (rs.next()) {
                 columns.add(rs.getString("COLUMN_NAME"));
@@ -295,7 +375,9 @@ public class SynchronizationService {
      * Construit une requête INSERT
      */
     private String buildInsertQuery(String tableName, List<String> columns) {
-        StringBuilder sql = new StringBuilder("INSERT INTO ").append(tableName).append(" (");
+        StringBuilder sql = new StringBuilder("INSERT INTO ");
+        sql.append(tableName).append(" (");
+
         StringBuilder values = new StringBuilder(" VALUES (");
 
         for (int i = 0; i < columns.size(); i++) {
@@ -389,47 +471,71 @@ public class SynchronizationService {
         private Map<String, Integer> tableSyncs = new HashMap<>();
         private LocalDateTime timestamp = LocalDateTime.now();
 
-        public SyncResult() {}
+        public SyncResult() {
+            this.success = false;
+            this.message = "";
+        }
 
         public SyncResult(boolean success, String message) {
             this.success = success;
             this.message = message;
         }
 
-        public void addTableSync(String table, int count) {
-            tableSyncs.put(table, count);
+        public void addTableSync(String tableName, int recordCount) {
+            tableSyncs.put(tableName, recordCount);
         }
 
         public String toJson() {
-            // Simple JSON pour l'exemple
-            return String.format(
-                    "{\"success\":%s,\"message\":\"%s\",\"tables\":%d,\"timestamp\":\"%s\"}",
-                    success, message, tableSyncs.size(), timestamp
-            );
+            // Simple conversion JSON manuelle
+            StringBuilder json = new StringBuilder("{");
+            json.append("\"success\":").append(success).append(",");
+            json.append("\"message\":\"").append(message).append("\",");
+            json.append("\"timestamp\":\"").append(timestamp).append("\",");
+            json.append("\"tables\":{");
+
+            boolean first = true;
+            for (Map.Entry<String, Integer> entry : tableSyncs.entrySet()) {
+                if (!first) json.append(",");
+                json.append("\"").append(entry.getKey()).append("\":").append(entry.getValue());
+                first = false;
+            }
+
+            json.append("}}");
+            return json.toString();
         }
 
-        // Getters et setters
+        // Getters et Setters
         public boolean isSuccess() { return success; }
         public void setSuccess(boolean success) { this.success = success; }
+
         public String getMessage() { return message; }
         public void setMessage(String message) { this.message = message; }
+
         public Map<String, Integer> getTableSyncs() { return tableSyncs; }
+        public LocalDateTime getTimestamp() { return timestamp; }
+
+        public int getTotalRecordsSynced() {
+            return tableSyncs.values().stream().mapToInt(Integer::intValue).sum();
+        }
     }
 
     /**
-     * Vérifie si une synchronisation est nécessaire
+     * Énumération des statuts de synchronisation
      */
-    public boolean isSyncNeeded() {
-        if (lastSyncTime == null) return true;
+    public enum SyncStatus {
+        JAMAIS_SYNCHRONISE("Jamais synchronisé"),
+        SYNCHRONISE("Synchronisé"),
+        EN_COURS("Synchronisation en cours"),
+        SYNCHRONISATION_ANCIENNE("Synchronisation ancienne (>24h)"),
+        MYSQL_INDISPONIBLE("MySQL indisponible"),
+        ERREUR("Erreur de synchronisation");
 
-        // Synchroniser si plus de 24h depuis la dernière sync
-        return LocalDateTime.now().minusHours(24).isAfter(lastSyncTime);
-    }
+        private final String libelle;
 
-    /**
-     * @return Le timestamp de la dernière synchronisation
-     */
-    public LocalDateTime getLastSyncTime() {
-        return lastSyncTime;
+        SyncStatus(String libelle) {
+            this.libelle = libelle;
+        }
+
+        public String getLibelle() { return libelle; }
     }
 }

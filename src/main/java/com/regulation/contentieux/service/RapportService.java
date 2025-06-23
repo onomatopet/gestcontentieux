@@ -793,6 +793,278 @@ public class RapportService {
     // ==================== CLASSES DTO ====================
 
     /**
+     * COMPLÉTER : genererEtatMandatement (Template 2)
+     */
+    public EtatMandatementDTO genererEtatMandatement(LocalDate dateDebut, LocalDate dateFin) {
+        try {
+            logger.info("Génération de l'état de mandatement du {} au {}", dateDebut, dateFin);
+
+            EtatMandatementDTO etat = new EtatMandatementDTO();
+            etat.setDateDebut(dateDebut);
+            etat.setDateFin(dateFin);
+            etat.setPeriodeLibelle(formatPeriode(dateDebut, dateFin));
+
+            List<MandatementDTO> mandatements = new ArrayList<>();
+
+            // Récupérer les encaissements de la période
+            List<Encaissement> encaissements = encaissementDAO.findByPeriod(dateDebut, dateFin);
+
+            for (Encaissement enc : encaissements) {
+                if (enc.getStatut() != StatutEncaissement.VALIDE) continue;
+
+                Affaire affaire = enc.getAffaire();
+                RepartitionResultat repartition = repartitionService.calculerRepartition(enc, affaire);
+
+                MandatementDTO ligne = new MandatementDTO();
+                ligne.setNumeroEncaissement(enc.getReference());
+                ligne.setDateEncaissement(enc.getDateEncaissement());
+                ligne.setNumeroAffaire(affaire.getNumeroAffaire());
+                ligne.setDateAffaire(affaire.getDateCreation());
+                ligne.setProduitNet(repartition.getProduitNet());
+                ligne.setPartChefs(repartition.getPartChefs());
+                ligne.setPartSaisissants(repartition.getPartSaisissants());
+                ligne.setPartMutuelleNationale(repartition.getPartMutuelle());
+                ligne.setPartMasseCommune(repartition.getPartMasseCommune());
+                ligne.setPartInteressement(repartition.getPartInteressement());
+                ligne.setObservations("");
+
+                mandatements.add(ligne);
+
+                // Accumuler les totaux
+                etat.setTotalProduitNet(etat.getTotalProduitNet().add(ligne.getProduitNet()));
+                etat.setTotalChefs(etat.getTotalChefs().add(ligne.getPartChefs()));
+                etat.setTotalSaisissants(etat.getTotalSaisissants().add(ligne.getPartSaisissants()));
+                etat.setTotalMutuelleNationale(etat.getTotalMutuelleNationale().add(ligne.getPartMutuelleNationale()));
+                etat.setTotalMasseCommune(etat.getTotalMasseCommune().add(ligne.getPartMasseCommune()));
+                etat.setTotalInteressement(etat.getTotalInteressement().add(ligne.getPartInteressement()));
+            }
+
+            etat.setMandatements(mandatements);
+            logger.info("État de mandatement généré : {} lignes", mandatements.size());
+            return etat;
+
+        } catch (Exception e) {
+            logger.error("Erreur lors de la génération de l'état de mandatement", e);
+            throw new RuntimeException("Impossible de générer l'état: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * COMPLÉTER : genererEtatCentreRepartition (Template 3)
+     */
+    public EtatCentreRepartitionDTO genererEtatCentreRepartition(LocalDate dateDebut, LocalDate dateFin) {
+        try {
+            logger.info("Génération de l'état par centre de répartition du {} au {}", dateDebut, dateFin);
+
+            EtatCentreRepartitionDTO etat = new EtatCentreRepartitionDTO();
+            etat.setDateDebut(dateDebut);
+            etat.setDateFin(dateFin);
+            etat.setPeriodeLibelle(formatPeriode(dateDebut, dateFin));
+
+            List<CentreRepartitionDTO> centres = new ArrayList<>();
+
+            // Récupérer tous les centres
+            List<Centre> listeCentres = centreDAO.findAll();
+
+            for (Centre centre : listeCentres) {
+                CentreRepartitionDTO centreDTO = new CentreRepartitionDTO();
+                centreDTO.setNomCentre(centre.getNomCentre());
+
+                BigDecimal repartitionBase = BigDecimal.ZERO;
+                BigDecimal repartitionIndicateur = BigDecimal.ZERO;
+
+                // Récupérer les affaires du centre pour la période
+                List<Affaire> affairesCentre = affaireDAO.findByCentreAndPeriod(
+                        centre.getId(), dateDebut, dateFin
+                );
+
+                for (Affaire affaire : affairesCentre) {
+                    List<Encaissement> encaissements = encaissementDAO.findByAffaireAndPeriod(
+                            affaire.getId(), dateDebut, dateFin
+                    );
+
+                    for (Encaissement enc : encaissements) {
+                        if (enc.getStatut() != StatutEncaissement.VALIDE) continue;
+
+                        RepartitionResultat rep = repartitionService.calculerRepartition(enc, affaire);
+                        repartitionBase = repartitionBase.add(rep.getProduitNet());
+                        repartitionIndicateur = repartitionIndicateur.add(rep.getPartIndicateur());
+                    }
+                }
+
+                if (repartitionBase.compareTo(BigDecimal.ZERO) > 0) {
+                    centreDTO.setRepartitionBase(repartitionBase);
+                    centreDTO.setRepartitionIndicateurFictif(repartitionIndicateur);
+                    centreDTO.setPartCentre(repartitionBase.add(repartitionIndicateur));
+                    centres.add(centreDTO);
+
+                    // Accumuler les totaux
+                    etat.setTotalRepartitionBase(etat.getTotalRepartitionBase().add(repartitionBase));
+                    etat.setTotalRepartitionIndicateurFictif(
+                            etat.getTotalRepartitionIndicateurFictif().add(repartitionIndicateur)
+                    );
+                    etat.setTotalPartCentre(etat.getTotalPartCentre().add(centreDTO.getPartCentre()));
+                }
+            }
+
+            etat.setCentres(centres);
+            logger.info("État cumulé par centre généré : {} centres", centres.size());
+            return etat;
+
+        } catch (Exception e) {
+            logger.error("Erreur lors de la génération de l'état par centre de répartition", e);
+            throw new RuntimeException("Impossible de générer l'état: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * COMPLÉTER : genererEtatMandatementAgents (Template 8)
+     */
+    public EtatMandatementDTO genererEtatMandatementAgents(LocalDate dateDebut, LocalDate dateFin) {
+        try {
+            logger.info("Génération de l'état de mandatement agents du {} au {}", dateDebut, dateFin);
+
+            EtatMandatementDTO etat = new EtatMandatementDTO();
+            etat.setDateDebut(dateDebut);
+            etat.setDateFin(dateFin);
+            etat.setPeriodeLibelle(formatPeriode(dateDebut, dateFin));
+            etat.setTypeEtat("AGENTS");
+
+            List<MandatementDTO> mandatements = new ArrayList<>();
+
+            // Récupérer les encaissements avec répartition
+            List<Encaissement> encaissements = encaissementDAO.findByPeriod(dateDebut, dateFin);
+
+            for (Encaissement enc : encaissements) {
+                if (enc.getStatut() != StatutEncaissement.VALIDE) continue;
+
+                RepartitionResultat rep = repartitionService.calculerRepartition(enc, enc.getAffaire());
+
+                // Pour chaque agent ayant une part
+                for (RepartitionResultat.PartIndividuelle part : rep.getPartsIndividuelles()) {
+                    MandatementDTO ligne = new MandatementDTO();
+                    ligne.setNumeroEncaissement(enc.getReference());
+                    ligne.setDateEncaissement(enc.getDateEncaissement());
+                    ligne.setNumeroAffaire(enc.getAffaire().getNumeroAffaire());
+                    ligne.setDateAffaire(enc.getAffaire().getDateCreation());
+
+                    // Initialiser toutes les parts à zéro
+                    ligne.setPartChefs(BigDecimal.ZERO);
+                    ligne.setPartSaisissants(BigDecimal.ZERO);
+                    ligne.setPartMutuelleNationale(BigDecimal.ZERO);
+                    ligne.setPartDG(BigDecimal.ZERO);
+                    ligne.setPartDD(BigDecimal.ZERO);
+
+                    // Affecter la part selon le rôle
+                    switch (part.getRole()) {
+                        case "CHEF":
+                            ligne.setPartChefs(part.getMontant());
+                            break;
+                        case "SAISISSANT":
+                            ligne.setPartSaisissants(part.getMontant());
+                            break;
+                        case "DG":
+                            ligne.setPartDG(part.getMontant());
+                            break;
+                        case "DD":
+                            ligne.setPartDD(part.getMontant());
+                            break;
+                    }
+
+                    mandatements.add(ligne);
+                }
+
+                // Ajouter la part mutuelle
+                if (rep.getPartMutuelle().compareTo(BigDecimal.ZERO) > 0) {
+                    MandatementDTO ligneMutuelle = new MandatementDTO();
+                    ligneMutuelle.setNumeroEncaissement(enc.getReference());
+                    ligneMutuelle.setDateEncaissement(enc.getDateEncaissement());
+                    ligneMutuelle.setNumeroAffaire(enc.getAffaire().getNumeroAffaire());
+                    ligneMutuelle.setDateAffaire(enc.getAffaire().getDateCreation());
+                    ligneMutuelle.setPartMutuelleNationale(rep.getPartMutuelle());
+                    ligneMutuelle.setPartChefs(BigDecimal.ZERO);
+                    ligneMutuelle.setPartSaisissants(BigDecimal.ZERO);
+                    ligneMutuelle.setPartDG(BigDecimal.ZERO);
+                    ligneMutuelle.setPartDD(BigDecimal.ZERO);
+                    mandatements.add(ligneMutuelle);
+                }
+            }
+
+            // Calculer les totaux
+            for (MandatementDTO m : mandatements) {
+                etat.setTotalChefs(etat.getTotalChefs().add(m.getPartChefs()));
+                etat.setTotalSaisissants(etat.getTotalSaisissants().add(m.getPartSaisissants()));
+                etat.setTotalMutuelleNationale(etat.getTotalMutuelleNationale().add(m.getPartMutuelleNationale()));
+                etat.setTotalDG(etat.getTotalDG().add(m.getPartDG()));
+                etat.setTotalDD(etat.getTotalDD().add(m.getPartDD()));
+            }
+
+            etat.setMandatements(mandatements);
+            logger.info("État de mandatement agents généré : {} lignes", mandatements.size());
+            return etat;
+
+        } catch (Exception e) {
+            logger.error("Erreur lors de la génération de l'état de mandatement agents", e);
+            throw new RuntimeException("Impossible de générer l'état: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * AJOUTER : Méthode utilitaire pour mapper TypeRapport vers les bonnes méthodes
+     */
+    public Object genererRapportSelonType(com.regulation.contentieux.model.enums.TypeRapport type,
+                                          LocalDate dateDebut, LocalDate dateFin) {
+        logger.info("Génération du rapport {} pour la période {} - {}",
+                type.getLibelle(), dateDebut, dateFin);
+
+        switch (type) {
+            case REPARTITION_RETROCESSION:
+                // Template 1 : utilise la méthode existante
+                return genererEtatRepartitionAffaires(dateDebut, dateFin);
+
+            case ETAT_MANDATEMENT:
+                // Template 2
+                return genererEtatMandatement(dateDebut, dateFin);
+
+            case CENTRE_REPARTITION:
+                // Template 3
+                return genererEtatCentreRepartition(dateDebut, dateFin);
+
+            case INDICATEURS_REELS:
+                // Template 4
+                return genererEtatIndicateursReels(dateDebut, dateFin);
+
+            case REPARTITION_PRODUIT:
+                // Template 5
+                return genererEtatRepartitionProduit(dateDebut, dateFin);
+
+            case TABLEAU_AMENDES_SERVICE:
+                // Template 7
+                return genererTableauAmendesParServices(dateDebut, dateFin);
+
+            case MANDATEMENT_AGENTS:
+                // Template 8
+                return genererEtatMandatementAgents(dateDebut, dateFin);
+
+            case SITUATION_GENERALE:
+            case AFFAIRES_NON_SOLDEES:
+            case ENCAISSEMENTS_PERIODE:
+                // Ces types ne correspondent pas directement aux 8 templates
+                // Utiliser les méthodes existantes ou créer un mapping approprié
+                return genererRapportRepartition(dateDebut, dateFin);
+
+            default:
+                logger.warn("Type de rapport non supporté : {}", type);
+                throw new UnsupportedOperationException("Type de rapport non supporté : " + type);
+        }
+    }
+
+    /**
+     * NOTE : Pour le Template 6 (État cumulé par agent),
+     * la méthode genererEtatCumuleParAgent() existe déjà et semble complète
+     */
+
+    /**
      * DTO principal pour le rapport de rétrocession
      */
     public static class RapportRepartitionDTO {

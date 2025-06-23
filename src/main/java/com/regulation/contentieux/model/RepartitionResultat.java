@@ -8,6 +8,7 @@ import java.util.List;
 /**
  * Résultat du calcul de répartition pour un encaissement
  * ENRICHI : Inclut les parts DD et DG qui sont toujours bénéficiaires
+ * CORRECTION BUG SÉRIE 2 : Ajout des méthodes manquantes
  */
 public class RepartitionResultat {
 
@@ -152,7 +153,7 @@ public class RepartitionResultat {
         return ecart.compareTo(new BigDecimal("10")) <= 0; // Tolérance de 10 FCFA
     }
 
-    // Getters et setters standards
+    // ==================== GETTERS ET SETTERS STANDARDS ====================
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -176,9 +177,7 @@ public class RepartitionResultat {
     public void setPartTresor(BigDecimal partTresor) { this.partTresor = partTresor; }
 
     public BigDecimal getProduitNetAyantsDroits() { return produitNetAyantsDroits; }
-    public void setProduitNetAyantsDroits(BigDecimal produitNetAyantsDroits) {
-        this.produitNetAyantsDroits = produitNetAyantsDroits;
-    }
+    public void setProduitNetAyantsDroits(BigDecimal produitNetAyantsDroits) { this.produitNetAyantsDroits = produitNetAyantsDroits; }
 
     public BigDecimal getPartDD() { return partDD; }
     public void setPartDD(BigDecimal partDD) { this.partDD = partDD; }
@@ -216,4 +215,57 @@ public class RepartitionResultat {
 
     public String getCalculatedBy() { return calculatedBy; }
     public void setCalculatedBy(String calculatedBy) { this.calculatedBy = calculatedBy; }
+
+    // ==================== MÉTHODES MANQUANTES CORRIGÉES ====================
+
+    /**
+     * CORRECTION BUG : Méthode manquante getProduitNetDroits()
+     * Alias pour getProduitNetAyantsDroits() selon les appellations métier
+     */
+    public BigDecimal getProduitNetDroits() {
+        return this.produitNetAyantsDroits;
+    }
+
+    /**
+     * CORRECTION BUG : Méthode manquante getPartFlcf()
+     * Alias pour getPartFLCF() selon les appellations métier
+     */
+    public BigDecimal getPartFlcf() {
+        return this.partFLCF;
+    }
+
+    /**
+     * ENRICHISSEMENT : Méthode pour obtenir le total des montants pour un agent spécifique
+     */
+    public BigDecimal getTotalMontantAgent(Agent agent) {
+        if (agent == null) return BigDecimal.ZERO;
+
+        BigDecimal total = BigDecimal.ZERO;
+
+        // Rechercher dans les parts individuelles
+        for (PartIndividuelle part : partsIndividuelles) {
+            if (part.getAgent() != null && part.getAgent().getId().equals(agent.getId())) {
+                total = total.add(part.getMontant());
+            }
+        }
+
+        return total;
+    }
+
+    /**
+     * ENRICHISSEMENT : Méthode pour obtenir tous les rôles d'un agent dans cette répartition
+     */
+    public List<String> getRolesAgent(Agent agent) {
+        List<String> roles = new ArrayList<>();
+
+        if (agent == null) return roles;
+
+        for (PartIndividuelle part : partsIndividuelles) {
+            if (part.getAgent() != null && part.getAgent().getId().equals(agent.getId())) {
+                roles.add(part.getRole());
+            }
+        }
+
+        return roles;
+    }
 }

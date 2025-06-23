@@ -78,7 +78,7 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
     }
 
     @Override
-    protected Encaissement mapResultSetToEntity(ResultSet rs) throws SQLException {
+    public Encaissement mapResultSetToEntity(ResultSet rs) throws SQLException {
         Encaissement encaissement = new Encaissement();
 
         encaissement.setId(rs.getLong("id"));
@@ -235,6 +235,78 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
     }
 
     /**
+     * ENRICHISSEMENT : Méthode pour mapper directement un ResultSet vers Encaissement
+     * Utilisée par RapportService pour les requêtes complexes
+     */
+    public static Encaissement mapResultSetToEncaissement(ResultSet rs) throws SQLException {
+        Encaissement encaissement = new Encaissement();
+
+        try {
+            // Mapping des colonnes de base
+            encaissement.setId(rs.getLong("id"));
+            encaissement.setReference(rs.getString("reference"));
+            encaissement.setMontantEncaisse(rs.getBigDecimal("montant_encaisse"));
+
+            // Gestion de la date d'encaissement
+            Date dateEnc = rs.getDate("date_encaissement");
+            if (dateEnc != null) {
+                encaissement.setDateEncaissement(dateEnc.toLocalDate());
+            }
+
+            // Gestion du statut avec enum
+            String statutStr = rs.getString("statut");
+            if (statutStr != null && !statutStr.trim().isEmpty()) {
+                try {
+                    encaissement.setStatut(StatutEncaissement.valueOf(statutStr.toUpperCase()));
+                } catch (IllegalArgumentException e) {
+                    encaissement.setStatut(StatutEncaissement.EN_ATTENTE); // Valeur par défaut
+                }
+            }
+
+            // Gestion des timestamps
+            Timestamp createdAt = rs.getTimestamp("created_at");
+            if (createdAt != null) {
+                encaissement.setCreatedAt(createdAt.toLocalDateTime());
+            }
+
+            Timestamp updatedAt = rs.getTimestamp("updated_at");
+            if (updatedAt != null) {
+                encaissement.setUpdatedAt(updatedAt.toLocalDateTime());
+            }
+
+            // Gestion des clés étrangères si présentes dans le ResultSet
+            try {
+                Long affaireId = rs.getLong("affaire_id");
+                if (affaireId != null && affaireId > 0) {
+                    // Créer un objet Affaire minimal avec juste l'ID
+                    Affaire affaire = new Affaire();
+                    affaire.setId(affaireId);
+                    encaissement.setAffaire(affaire);
+                }
+            } catch (SQLException e) {
+                // La colonne affaire_id n'est pas présente, ignorer
+            }
+
+            try {
+                String numeroAffaire = rs.getString("numero_affaire");
+                if (numeroAffaire != null && encaissement.getAffaire() != null) {
+                    encaissement.getAffaire().setNumeroAffaire(numeroAffaire);
+                }
+            } catch (SQLException e) {
+                // La colonne numero_affaire n'est pas présente, ignorer
+            }
+
+        } catch (SQLException e) {
+            // Logger l'erreur mais continuer le traitement
+            LoggerFactory.getLogger(EncaissementDAO.class)
+                    .warn("Erreur lors du mapping de l'encaissement ID {}: {}",
+                            rs.getLong("id"), e.getMessage());
+        }
+
+        return encaissement;
+    }
+
+    /**
      * Génère le prochain numéro d'encaissement selon le format YYMMRNNNNN
      * MÉTHODE UNIFIÉE ET ENRICHIE - REMPLACE L'ANCIENNE VERSION
      */
@@ -324,6 +396,15 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
             logger.error("🔄 Numéro de secours généré: {}", fallback);
             return fallback;
         }
+    }
+
+
+    /**
+     * ALTERNATIVE : Méthode publique instance pour accès depuis RapportService
+     * Si la méthode statique pose problème
+     */
+    public Encaissement mapResultSetToEntityPublic(ResultSet rs) throws SQLException {
+        return this.mapResultSetToEntity(rs);
     }
 
     /**

@@ -1032,13 +1032,6 @@ public class MainController implements Initializable {
     }
 
     /**
-     * ENRICHISSEMENT : F5 - Actualiser (alias pour refresh)
-     */
-    private void handleRefreshAction() {
-        handleRefreshAction();
-    }
-
-    /**
      * ENRICHISSEMENT : F11 - Basculer plein écran
      */
     private void handleToggleFullscreen() {

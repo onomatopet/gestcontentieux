@@ -1,5 +1,10 @@
 package com.regulation.contentieux.dao;
 
+import java.util.stream.Collectors;
+import java.util.Objects;
+import java.sql.Timestamp;
+import java.math.BigDecimal;
+
 import com.regulation.contentieux.dao.impl.AbstractSQLiteDAO;
 import com.regulation.contentieux.model.Contravention;
 import com.regulation.contentieux.config.DatabaseConfig;
@@ -197,10 +202,92 @@ public class ContraventionDAO extends AbstractSQLiteDAO<Contravention, Long> {
     }
 
     /**
-     * Version simplifiée pour compatibilité
+     * CORRECTION BUG : Méthode manquante findByAffaireId
+     * Trouve toutes les contraventions associées à une affaire
      */
-    public List<Contravention> searchContraventions(String libelleOuCode, int offset, int limit) {
-        return searchContraventions(libelleOuCode, null, offset, limit);
+    public List<Contravention> findByAffaireId(Long affaireId) {
+        if (affaireId == null) {
+            return new ArrayList<>();
+        }
+
+        String sql = """
+        SELECT c.id, c.code, c.libelle, c.description, 
+               c.montant_fixe, c.montant_min, c.montant_max, 
+               c.actif, c.created_at, c.updated_at,
+               ac.montant_applique
+        FROM contraventions c
+        INNER JOIN affaire_contraventions ac ON c.id = ac.contravention_id
+        WHERE ac.affaire_id = ?
+        ORDER BY c.code ASC
+    """;
+
+        List<Contravention> contraventions = new ArrayList<>();
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setLong(1, affaireId);
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                Contravention contravention = new Contravention();
+                contravention.setId(rs.getLong("id"));
+                contravention.setCode(rs.getString("code"));
+                contravention.setLibelle(rs.getString("libelle"));
+                contravention.setDescription(rs.getString("description"));
+                contravention.setActif(rs.getBoolean("actif"));
+
+                // Gérer le montant : utiliser montant_applique de la liaison, sinon montant_fixe
+                BigDecimal montantApplique = rs.getBigDecimal("montant_applique");
+                if (montantApplique != null) {
+                    contravention.setMontant(montantApplique);
+                } else {
+                    BigDecimal montantFixe = rs.getBigDecimal("montant_fixe");
+                    contravention.setMontant(montantFixe != null ? montantFixe : BigDecimal.ZERO);
+                }
+
+                // Gestion des timestamps
+                Timestamp createdAt = rs.getTimestamp("created_at");
+                if (createdAt != null) {
+                    contravention.setCreatedAt(createdAt.toLocalDateTime());
+                }
+
+                contraventions.add(contravention);
+            }
+
+        } catch (SQLException e) {
+            logger.error("Erreur lors de la récupération des contraventions pour l'affaire: {}", affaireId, e);
+        }
+
+        return contraventions;
+    }
+
+    /**
+     * ENRICHISSEMENT : Méthode pour obtenir les libellés des contraventions d'une affaire
+     * Utilisée pour l'affichage dans les rapports
+     */
+    public String getLibellesContraventions(Long affaireId) {
+        List<Contravention> contraventions = findByAffaireId(affaireId);
+
+        if (contraventions.isEmpty()) {
+            return "Aucune contravention";
+        }
+
+        return contraventions.stream()
+                .map(Contravention::getLibelle)
+                .collect(Collectors.joining(", "));
+    }
+
+    /**
+     * ENRICHISSEMENT : Méthode pour calculer le montant total des amendes d'une affaire
+     */
+    public BigDecimal getTotalAmandes(Long affaireId) {
+        List<Contravention> contraventions = findByAffaireId(affaireId);
+
+        return contraventions.stream()
+                .map(Contravention::getMontant)  // CORRECTION : utiliser getMontant() au lieu de getMontantAmende()
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     /**

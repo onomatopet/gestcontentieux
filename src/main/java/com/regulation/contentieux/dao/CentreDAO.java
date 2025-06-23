@@ -13,8 +13,8 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * DAO pour la gestion des centres - HARMONISÉ
- * Compatible avec le modèle Centre harmonisé
+ * DAO pour la gestion des centres - ENRICHI
+ * CORRECTION BUG SÉRIE 2 : Ajout de la méthode findAllActifs()
  */
 public class CentreDAO extends AbstractSQLiteDAO<Centre, Long> {
 
@@ -122,6 +122,36 @@ public class CentreDAO extends AbstractSQLiteDAO<Centre, Long> {
     // ========== MÉTHODES SPÉCIFIQUES AUX CENTRES ==========
 
     /**
+     * CORRECTION BUG SÉRIE 2 : Méthode manquante findAllActifs()
+     * Trouve tous les centres actifs - POUR LES RAPPORTS
+     */
+    public List<Centre> findAllActifs() {
+        String sql = """
+            SELECT id, code_centre, nom_centre, description, actif, created_at 
+            FROM centres 
+            WHERE actif = 1
+            ORDER BY nom_centre ASC
+        """;
+
+        List<Centre> centres = new ArrayList<>();
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                centres.add(mapResultSetToEntity(rs));
+            }
+
+        } catch (SQLException e) {
+            logger.error("Erreur lors de la récupération des centres actifs", e);
+        }
+
+        return centres;
+    }
+
+    /**
      * Trouve un centre par son code - COMPATIBLE AVEC ReferentielController
      */
     public Optional<Centre> findByCode(String code) {
@@ -204,32 +234,10 @@ public class CentreDAO extends AbstractSQLiteDAO<Centre, Long> {
     }
 
     /**
-     * Trouve tous les centres actifs - POUR LES COMBOBOX
+     * Trouve tous les centres actifs - ALIAS pour compatibilité
      */
     public List<Centre> findAllActive() {
-        String sql = """
-            SELECT id, code_centre, nom_centre, description, actif, created_at 
-            FROM centres 
-            WHERE actif = 1
-            ORDER BY nom_centre ASC
-        """;
-
-        List<Centre> centres = new ArrayList<>();
-
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-            ResultSet rs = stmt.executeQuery();
-
-            while (rs.next()) {
-                centres.add(mapResultSetToEntity(rs));
-            }
-
-        } catch (SQLException e) {
-            logger.error("Erreur lors de la récupération des centres actifs", e);
-        }
-
-        return centres;
+        return findAllActifs();
     }
 
     /**
@@ -253,47 +261,56 @@ public class CentreDAO extends AbstractSQLiteDAO<Centre, Long> {
 
             if (rs.next()) {
                 String lastCode = rs.getString("code_centre");
-                return generateNextCodeFromLast(lastCode, prefix);
+                String numberPart = lastCode.substring(prefix.length());
+                int nextNumber = Integer.parseInt(numberPart) + 1;
+                return String.format("%s%03d", prefix, nextNumber);
             } else {
-                return prefix + "01";
+                return prefix + "001";
             }
 
         } catch (SQLException e) {
             logger.error("Erreur lors de la génération du code centre", e);
-            return prefix + "01";
-        }
-    }
-
-    private String generateNextCodeFromLast(String lastCode, String prefix) {
-        try {
-            if (lastCode != null && lastCode.startsWith(prefix) && lastCode.length() == 5) {
-                String numericPart = lastCode.substring(3);
-                int lastNumber = Integer.parseInt(numericPart);
-                return prefix + String.format("%02d", lastNumber + 1);
-            }
-            return prefix + "01";
-        } catch (Exception e) {
-            logger.warn("Erreur lors du parsing du dernier code centre: {}", lastCode, e);
-            return prefix + "01";
+            return prefix + "001";
         }
     }
 
     /**
-     * Vérifie si un code centre existe déjà
+     * Compte le nombre total de centres selon les critères
      */
-    public boolean existsByCodeCentre(String codeCentre) {
-        String sql = "SELECT 1 FROM centres WHERE code_centre = ? LIMIT 1";
+    public long countCentres(String nomOuCode, Boolean actifOnly) {
+        StringBuilder sql = new StringBuilder();
+        sql.append("SELECT COUNT(*) FROM centres WHERE 1=1 ");
+
+        List<Object> parameters = new ArrayList<>();
+
+        if (nomOuCode != null && !nomOuCode.trim().isEmpty()) {
+            sql.append("AND (nom_centre LIKE ? OR code_centre LIKE ?) ");
+            String searchPattern = "%" + nomOuCode.trim() + "%";
+            parameters.add(searchPattern);
+            parameters.add(searchPattern);
+        }
+
+        if (actifOnly != null) {
+            sql.append("AND actif = ? ");
+            parameters.add(actifOnly);
+        }
 
         try (Connection conn = DatabaseConfig.getSQLiteConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+             PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
 
-            stmt.setString(1, codeCentre);
+            for (int i = 0; i < parameters.size(); i++) {
+                stmt.setObject(i + 1, parameters.get(i));
+            }
+
             ResultSet rs = stmt.executeQuery();
-            return rs.next();
+            if (rs.next()) {
+                return rs.getLong(1);
+            }
 
         } catch (SQLException e) {
-            logger.error("Erreur lors de la vérification du code centre", e);
-            return false;
+            logger.error("Erreur lors du comptage des centres", e);
         }
+
+        return 0;
     }
 }

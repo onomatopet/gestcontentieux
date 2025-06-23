@@ -21,7 +21,7 @@ public class ContraventionService {
 
     public ContraventionService() {
         this.contraventionDAO = new ContraventionDAO();
-        this.validationService = new ValidationService();
+        this.validationService = ValidationService.getInstance(); // Utiliser getInstance() au lieu de new
     }
 
     /**
@@ -176,12 +176,18 @@ public class ContraventionService {
         }
 
         // Validation du code
-        if (!validationService.isValidString(contravention.getCode(), 2, 10)) {
+        if (contravention.getCode() == null || contravention.getCode().trim().isEmpty()) {
+            throw new IllegalArgumentException("Le code est obligatoire");
+        }
+        if (contravention.getCode().length() < 2 || contravention.getCode().length() > 10) {
             throw new IllegalArgumentException("Le code doit contenir entre 2 et 10 caractères");
         }
 
         // Validation du libellé
-        if (!validationService.isValidString(contravention.getLibelle(), 3, 200)) {
+        if (contravention.getLibelle() == null || contravention.getLibelle().trim().isEmpty()) {
+            throw new IllegalArgumentException("Le libellé est obligatoire");
+        }
+        if (contravention.getLibelle().length() < 3 || contravention.getLibelle().length() > 200) {
             throw new IllegalArgumentException("Le libellé doit contenir entre 3 et 200 caractères");
         }
 
@@ -191,6 +197,18 @@ public class ContraventionService {
         }
 
         logger.debug("Validation réussie pour la contravention: {}", contravention.getCode());
+    }
+
+    /**
+     * Méthode utilitaire pour valider une chaîne avec longueur min/max
+     * Remplace l'appel à isValidString qui n'existe pas dans ValidationService
+     */
+    private boolean isValidString(String str, int minLength, int maxLength) {
+        if (str == null || str.trim().isEmpty()) {
+            return minLength == 0; // Retourne true si la chaîne peut être vide
+        }
+        String trimmed = str.trim();
+        return trimmed.length() >= minLength && trimmed.length() <= maxLength;
     }
 
     /**

@@ -1179,7 +1179,7 @@ public class AffaireFormController implements Initializable {
         // Informations supplémentaires selon le mode
         if (modeReglementComboBox != null && modeReglementComboBox.getValue() != null) {
             if (modeReglementComboBox.getValue().isNecessiteBanque() && banqueComboBox != null) {
-                encaissement.setBanque(banqueComboBox.getValue());
+                encaissement.setBanque(String.valueOf(banqueComboBox.getValue()));
             }
             if (modeReglementComboBox.getValue().isNecessiteReference() && numeroChequeField != null) {
                 encaissement.setNumeroPiece(numeroChequeField.getText());

@@ -15,6 +15,7 @@ import javafx.stage.Modality;
 import com.regulation.contentieux.model.enums.RoleUtilisateur;
 import com.regulation.contentieux.service.AuthenticationService;
 import com.regulation.contentieux.util.StageManager;
+import com.regulation.contentieux.util.AlertUtil;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
@@ -23,12 +24,20 @@ import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.scene.input.KeyCombination;
+import javafx.animation.Timeline;
+import javafx.animation.KeyFrame;
+import javafx.collections.ObservableList;
+import javafx.util.Duration;
 
 import java.io.IOException;
 import java.net.URL;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ResourceBundle;
+import java.math.BigDecimal;
 
 /**
  * Contrôleur principal de l'application
@@ -43,6 +52,11 @@ public class MainController implements Initializable {
     @FXML private StackPane mainContentArea;   // zone de contenu principal
     @FXML private MenuBar menuBar;
     @FXML private ToolBar toolBar;
+
+    // Variables FXML manquantes ajoutées
+    @FXML private MenuBar mainMenuBar;
+    @FXML private ToolBar mainToolBar;
+    @FXML private Button newAffaireButton;
 
     // Labels et boutons présents dans le FXML
     @FXML private Label titleLabel;
@@ -82,6 +96,9 @@ public class MainController implements Initializable {
 
     // Référence à la fenêtre principale
     private Stage currentStage;
+
+    // Contrôleur de bienvenue (ajouté pour résoudre l'erreur)
+    private WelcomeController welcomeController;
 
     // Titre de l'application
     private static final String APP_TITLE = "Gestion des Affaires Contentieuses";
@@ -139,48 +156,40 @@ public class MainController implements Initializable {
 
     private void addMandatButtonToToolbar() {
         if (mainToolBar != null) {
-            // Créer le bouton
-            Button mandatButton = new Button("Mandats");
-            mandatButton.getStyleClass().addAll("toolbar-button", "button-secondary");
+            // Créer un bouton pour la gestion des mandats
+            Button mandatButton = new Button();
+            mandatButton.setTooltip(new Tooltip("Gestion des Mandats (Ctrl+M)"));
 
-            // Icône
-            try {
-                ImageView icon = new ImageView(new Image(getClass().getResourceAsStream("/images/icons/calendar.png")));
-                icon.setFitWidth(16);
-                icon.setFitHeight(16);
-                mandatButton.setGraphic(icon);
-            } catch (Exception e) {
-                mandatButton.setText("📅 Mandats");
-            }
+            // Ajouter une icône
+            ImageView icon = new ImageView(new Image(getClass().getResourceAsStream("/images/mandat-icon.png")));
+            icon.setFitWidth(16);
+            icon.setFitHeight(16);
+            mandatButton.setGraphic(icon);
 
-            // Tooltip
-            mandatButton.setTooltip(new Tooltip("Gérer les mandats (Ctrl+M)"));
-
-            // Action
+            // Ajouter l'action
             mandatButton.setOnAction(e -> openMandatManagement());
 
-            // Ajouter à la toolbar (après le séparateur ou à la fin)
+            // Trouver la position après le séparateur ou à la fin
             ObservableList<Node> items = mainToolBar.getItems();
+            int insertIndex = -1;
 
-            // Chercher un bon endroit pour l'insérer
-            int insertIndex = 0;
+            // Chercher un séparateur après les boutons principaux
             for (int i = 0; i < items.size(); i++) {
-                Node node = items.get(i);
-                if (node instanceof Separator) {
-                    insertIndex = i;
+                if (items.get(i) instanceof Separator) {
+                    insertIndex = i + 1;
                     break;
                 }
             }
 
-            if (insertIndex > 0) {
-                items.add(insertIndex, mandatButton);
-                items.add(insertIndex + 1, new Separator());
-            } else {
-                if (!items.isEmpty()) {
-                    items.add(new Separator());
-                }
+            // Si pas de séparateur trouvé, ajouter à la fin
+            if (insertIndex == -1) {
+                items.add(new Separator());
                 items.add(mandatButton);
+            } else {
+                items.add(insertIndex, mandatButton);
             }
+
+            logger.debug("Bouton Mandat ajouté à la barre d'outils");
         }
     }
 
@@ -189,79 +198,108 @@ public class MainController implements Initializable {
      */
     private void setupUserInfo() {
         if (authService.isAuthenticated() && userInfoLabel != null) {
-            String userInfo = authService.getCurrentUser().getDisplayName() +
-                    " (" + authService.getCurrentUser().getRole().getLibelle() + ")";
-            userInfoLabel.setText(userInfo);
-            logger.debug("Informations utilisateur configurées: {}", userInfo);
-        } else if (userInfoLabel != null) {
-            userInfoLabel.setText("Non connecté");
+            var user = authService.getCurrentUser();
+            userInfoLabel.setText(user.getDisplayName() + " (" + user.getRole().getDisplayName() + ")");
+            logger.debug("Informations utilisateur configurées: {}", user.getDisplayName());
         }
     }
 
     /**
-     * Configure l'item de menu pour la gestion des mandats
+     * Configure l'accès aux menus selon les droits
      */
-    private void setupMandatMenuItem() {
-        logger.debug("Configuration du menu Mandat");
+    private void setupMenuAccess() {
+        if (!authService.isAuthenticated()) return;
 
-        // Trouver le menu Fichier s'il n'est pas déjà référencé
-        if (fileMenu == null && mainMenuBar != null) {
-            for (Menu menu : mainMenuBar.getMenus()) {
-                if ("Fichier".equals(menu.getText())) {
-                    fileMenu = menu;
-                    break;
-                }
-            }
+        var user = authService.getCurrentUser();
+        var role = user.getRole();
+
+        // Configuration des accès selon le rôle
+        if (menuAffaires != null) {
+            boolean affairesAccess = role == RoleUtilisateur.SUPER_ADMIN ||
+                    role == RoleUtilisateur.ADMINISTRATEUR ||
+                    role == RoleUtilisateur.CHEF_SERVICE ||
+                    role == RoleUtilisateur.AGENT_SAISIE;
+            menuAffaires.setVisible(affairesAccess);
+            logger.debug("Menu Affaires - Accès: {}", affairesAccess);
         }
 
-        if (fileMenu != null) {
-            // Créer l'item de menu
+        if (menuAgents != null) {
+            boolean agentsAccess = role == RoleUtilisateur.SUPER_ADMIN ||
+                    role == RoleUtilisateur.ADMINISTRATEUR ||
+                    role == RoleUtilisateur.CHEF_SERVICE;
+            menuAgents.setVisible(agentsAccess);
+            logger.debug("Menu Agents - Accès: {}", agentsAccess);
+        }
+
+        if (menuContrevenants != null) {
+            menuContrevenants.setVisible(true); // Accessible à tous
+            logger.debug("Menu Contrevenants - Accès: true");
+        }
+
+        if (menuEncaissements != null) {
+            boolean encaissementsAccess = role == RoleUtilisateur.SUPER_ADMIN ||
+                    role == RoleUtilisateur.ADMINISTRATEUR ||
+                    role == RoleUtilisateur.CHEF_SERVICE ||
+                    role == RoleUtilisateur.AGENT_SAISIE;
+            menuEncaissements.setVisible(encaissementsAccess);
+            logger.debug("Menu Encaissements - Accès: {}", encaissementsAccess);
+        }
+
+        if (menuRapports != null) {
+            boolean rapportsAccess = role == RoleUtilisateur.SUPER_ADMIN ||
+                    role == RoleUtilisateur.ADMINISTRATEUR ||
+                    role == RoleUtilisateur.CHEF_SERVICE;
+            menuRapports.setVisible(rapportsAccess);
+            logger.debug("Menu Rapports - Accès: {}", rapportsAccess);
+        }
+
+        if (menuAdministration != null) {
+            boolean adminAccess = role == RoleUtilisateur.SUPER_ADMIN || role == RoleUtilisateur.ADMINISTRATEUR;
+            menuAdministration.setVisible(adminAccess);
+            logger.debug("Menu Administration - Accès: {}", adminAccess);
+        }
+    }
+
+    private void setupMandatMenuItem() {
+        // Ajouter un item de menu pour la gestion des mandats dans le menu Fichier
+        if (fileMenu != null || menuFichier != null) {
+            Menu targetMenu = fileMenu != null ? fileMenu : menuFichier;
+
             MenuItem mandatMenuItem = new MenuItem("Gestion des Mandats");
             mandatMenuItem.setAccelerator(KeyCombination.keyCombination("Ctrl+M"));
+            mandatMenuItem.setOnAction(e -> openMandatManagement());
 
-            // Ajouter l'icône si disponible
+            // Ajouter une icône si disponible
             try {
-                ImageView icon = new ImageView(new Image(getClass().getResourceAsStream("/images/icons/mandat.png")));
+                ImageView icon = new ImageView(new Image(getClass().getResourceAsStream("/images/mandat-icon.png")));
                 icon.setFitWidth(16);
                 icon.setFitHeight(16);
                 mandatMenuItem.setGraphic(icon);
             } catch (Exception e) {
-                // Ignorer si l'icône n'est pas disponible
+                logger.debug("Icône mandat non trouvée");
             }
 
-            // Définir l'action
-            mandatMenuItem.setOnAction(event -> openMandatManagement());
+            // Insérer après "Nouveau" ou au début
+            ObservableList<MenuItem> items = targetMenu.getItems();
+            int insertIndex = 0;
 
-            // Chercher où insérer l'item (après "Nouveau" et avant "Quitter")
-            ObservableList<MenuItem> items = fileMenu.getItems();
-            int insertIndex = -1;
-
+            // Chercher l'item "Nouveau" ou "Quitter"
             for (int i = 0; i < items.size(); i++) {
                 MenuItem item = items.get(i);
-                if (item instanceof SeparatorMenuItem) {
-                    // Insérer avant le premier séparateur
-                    insertIndex = i;
-                    break;
-                } else if (item.getText() != null && item.getText().contains("Quitter")) {
-                    // Ou avant "Quitter"
-                    insertIndex = i;
+                if (item.getText() != null &&
+                        (item.getText().toLowerCase().contains("nouveau") ||
+                                item.getText().toLowerCase().contains("quitter"))) {
+                    insertIndex = i + 1;
                     break;
                 }
             }
 
-            if (insertIndex > 0) {
-                // Ajouter un séparateur avant si nécessaire
-                boolean needsSeparator = !(items.get(insertIndex - 1) instanceof SeparatorMenuItem);
-                if (needsSeparator) {
-                    items.add(insertIndex, new SeparatorMenuItem());
-                    insertIndex++;
-                }
-
-                // Ajouter l'item de menu
+            // Ajouter un séparateur si nécessaire
+            if (insertIndex > 0 && insertIndex < items.size()) {
                 items.add(insertIndex, mandatMenuItem);
-
-                // Ajouter un séparateur après si nécessaire
-                if (insertIndex + 1 < items.size() && !(items.get(insertIndex + 1) instanceof SeparatorMenuItem)) {
+                // Ajouter un séparateur après si l'élément suivant n'en est pas un
+                if (insertIndex + 1 < items.size() &&
+                        !(items.get(insertIndex + 1) instanceof SeparatorMenuItem)) {
                     items.add(insertIndex + 1, new SeparatorMenuItem());
                 }
             } else {
@@ -279,305 +317,111 @@ public class MainController implements Initializable {
     }
 
     /**
-     * Retourne le mandat actif ou null
-     */
-    public Mandat getMandatActif() {
-        return MandatService.getInstance().getMandatActif();
-    }
-
-    /**
-     * Vérifie si un mandat est actif
-     */
-    public boolean hasMandatActif() {
-        return MandatService.getInstance().hasMandatActif();
-    }
-
-    /**
-     * Ouvre la fenêtre de gestion des mandats
-     */
-    private void openMandatManagement() {
-        logger.info("Ouverture de la gestion des mandats");
-
-        try {
-            // Charger la vue
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/mandat-management.fxml"));
-            Parent root = loader.load();
-
-            // Créer une nouvelle fenêtre modale
-            Stage mandatStage = new Stage();
-            mandatStage.setTitle("Gestion des Mandats");
-            mandatStage.initModality(Modality.APPLICATION_MODAL);
-            mandatStage.initOwner(mainMenuBar.getScene().getWindow());
-
-            // Créer la scène
-            Scene scene = new Scene(root);
-
-            // Appliquer les styles
-            scene.getStylesheets().add(getClass().getResource("/css/main-styles.css").toExternalForm());
-            if (getClass().getResource("/css/mandat-styles.css") != null) {
-                scene.getStylesheets().add(getClass().getResource("/css/mandat-styles.css").toExternalForm());
-            }
-
-            // Configurer la fenêtre
-            mandatStage.setScene(scene);
-            mandatStage.setMinWidth(1000);
-            mandatStage.setMinHeight(700);
-            mandatStage.centerOnScreen();
-
-            // Afficher et attendre la fermeture
-            mandatStage.showAndWait();
-
-            // Rafraîchir l'affichage après fermeture
-            updateMandatActif();
-
-            // Notifier les autres composants si nécessaire
-            if (welcomeController != null) {
-                welcomeController.refreshStatistics();
-            }
-
-        } catch (IOException e) {
-            logger.error("Erreur lors de l'ouverture de la gestion des mandats", e);
-            AlertUtil.showError("Erreur", "Impossible d'ouvrir la gestion des mandats", e.getMessage());
-        }
-    }
-
-// 6. AJOUTER LA MÉTHODE POUR METTRE À JOUR L'AFFICHAGE DU MANDAT ACTIF :
-    /**
-     * Met à jour l'affichage du mandat actif dans la barre de statut
-     */
-    private void updateMandatActif() {
-        Platform.runLater(() -> {
-            try {
-                MandatService mandatService = MandatService.getInstance();
-                Mandat mandatActif = mandatService.getMandatActif();
-
-                // Mettre à jour le label dans la barre de statut
-                if (mandatLabel != null) {
-                    if (mandatActif != null) {
-                        mandatLabel.setText("Mandat actif : " + mandatActif.getNumeroMandat());
-                        mandatLabel.setStyle("-fx-text-fill: #28a745; -fx-font-weight: bold;");
-                        mandatLabel.setTooltip(new Tooltip("Période : " + mandatActif.getPeriodeFormatee()));
-                    } else {
-                        mandatLabel.setText("Aucun mandat actif");
-                        mandatLabel.setStyle("-fx-text-fill: #dc3545; -fx-font-weight: bold;");
-                        mandatLabel.setTooltip(new Tooltip("Cliquez sur Fichier > Gestion des Mandats pour activer un mandat"));
-                    }
-                }
-
-                mandatLabel.setCursor(Cursor.HAND);
-                mandatLabel.setOnMouseClicked(event -> {
-                    if (event.getClickCount() == 1) { // Simple clic
-                        openMandatManagement();
-                    }
-                });
-
-                // Effet visuel au survol
-                mandatLabel.setOnMouseEntered(e -> {
-                    mandatLabel.setUnderline(true);
-                });
-
-                mandatLabel.setOnMouseExited(e -> {
-                    mandatLabel.setUnderline(false);
-                });
-
-                // Activer/désactiver les actions qui nécessitent un mandat actif
-                boolean hasMandatActif = mandatActif != null;
-
-                if (newAffaireMenuItem != null) {
-                    newAffaireMenuItem.setDisable(!hasMandatActif);
-                }
-
-                if (newEncaissementMenuItem != null) {
-                    newEncaissementMenuItem.setDisable(!hasMandatActif);
-                }
-
-                // Mettre à jour les boutons de la toolbar si présents
-                if (newAffaireButton != null) {
-                    newAffaireButton.setDisable(!hasMandatActif);
-                    if (!hasMandatActif) {
-                        newAffaireButton.setTooltip(new Tooltip("Aucun mandat actif - Activez un mandat d'abord"));
-                    } else {
-                        newAffaireButton.setTooltip(new Tooltip("Créer une nouvelle affaire"));
-                    }
-                }
-
-            } catch (Exception e) {
-                logger.error("Erreur lors de la mise à jour du mandat actif", e);
-            }
-        });
-    }
-
-    /**
-     * Configure l'accès aux menus selon les permissions
-     * CORRIGÉ : utilise les Menu au lieu des TitledPane
-     */
-    private void setupMenuAccess() {
-        if (!authService.isAuthenticated()) {
-            logger.warn("Aucun utilisateur connecté pour configurer les permissions");
-            return;
-        }
-
-        try {
-            // Gestion des affaires
-            if (menuAffaires != null) {
-                boolean canManageAffaires = authService.hasPermission(RoleUtilisateur.Permission.GESTION_AFFAIRES);
-                menuAffaires.setDisable(!canManageAffaires);
-                logger.debug("Menu Affaires - Accès: {}", canManageAffaires);
-            }
-
-            // Gestion des agents
-            if (menuAgents != null) {
-                boolean canManageAgents = authService.hasPermission(RoleUtilisateur.Permission.GESTION_AGENTS);
-                menuAgents.setDisable(!canManageAgents);
-                logger.debug("Menu Agents - Accès: {}", canManageAgents);
-            }
-
-            // Gestion des contrevenants
-            if (menuContrevenants != null) {
-                boolean canManageContrevenants = authService.hasPermission(RoleUtilisateur.Permission.GESTION_CONTREVENANTS);
-                menuContrevenants.setDisable(!canManageContrevenants);
-                logger.debug("Menu Contrevenants - Accès: {}", canManageContrevenants);
-            }
-
-            // Gestion des encaissements
-            if (menuEncaissements != null) {
-                boolean canManageEncaissements = authService.hasPermission(RoleUtilisateur.Permission.GESTION_ENCAISSEMENTS);
-                menuEncaissements.setDisable(!canManageEncaissements);
-                logger.debug("Menu Encaissements - Accès: {}", canManageEncaissements);
-            }
-
-            // Génération des rapports
-            if (menuRapports != null) {
-                boolean canGenerateRapports = authService.hasPermission(RoleUtilisateur.Permission.GENERATION_RAPPORTS);
-                menuRapports.setDisable(!canGenerateRapports);
-                logger.debug("Menu Rapports - Accès: {}", canGenerateRapports);
-            }
-
-            // Administration
-            if (menuAdministration != null) {
-                boolean canManageUsers = authService.hasPermission(RoleUtilisateur.Permission.GESTION_UTILISATEURS);
-                boolean canManageReferentiel = authService.hasPermission(RoleUtilisateur.Permission.GESTION_REFERENTIEL);
-                menuAdministration.setDisable(!canManageUsers && !canManageReferentiel);
-                logger.debug("Menu Administration - Accès: {}", canManageUsers || canManageReferentiel);
-            }
-
-        } catch (Exception e) {
-            logger.error("Erreur lors de la configuration des permissions de menu", e);
-        }
-    }
-
-    /**
      * Configure les gestionnaires d'événements
      */
     private void setupEventHandlers() {
-        // Bouton de déconnexion
         if (logoutButton != null) {
             logoutButton.setOnAction(e -> onLogout());
         }
 
-        // Boutons de la toolbar
         if (newButton != null) {
-            newButton.setOnAction(e -> onNew());
+            newButton.setOnAction(e -> onNewAction());
         }
 
         if (editButton != null) {
-            editButton.setOnAction(e -> onEdit());
+            editButton.setOnAction(e -> onEditAction());
         }
 
         if (deleteButton != null) {
-            deleteButton.setOnAction(e -> onDelete());
+            deleteButton.setOnAction(e -> onDeleteAction());
         }
 
         if (refreshButton != null) {
-            refreshButton.setOnAction(e -> onRefresh());
+            refreshButton.setOnAction(e -> onRefreshAction());
         }
 
         if (printButton != null) {
-            printButton.setOnAction(e -> onPrint());
+            printButton.setOnAction(e -> onPrintAction());
         }
 
         if (filterButton != null) {
-            filterButton.setOnAction(e -> onFilter());
+            filterButton.setOnAction(e -> onFilterAction());
         }
 
-        // Champ de recherche
+        // Configuration de la recherche
         if (searchField != null) {
-            searchField.setOnAction(e -> onSearch());
+            searchField.textProperty().addListener((obs, oldText, newText) -> {
+                // Implémenter la logique de recherche
+                logger.debug("Recherche: {}", newText);
+            });
         }
 
-        // AJOUT : Configuration des menus avec des MenuItems
         setupMenuItems();
     }
 
     /**
-     * Configure les éléments de menu avec des actions
+     * Configure les éléments de menu
      */
     private void setupMenuItems() {
         try {
+            // Menu Fichier
+            if (menuFichier != null) {
+                MenuItem quitter = new MenuItem("Quitter");
+                quitter.setOnAction(e -> Platform.exit());
+
+                if (menuFichier.getItems().isEmpty()) {
+                    menuFichier.getItems().add(quitter);
+                }
+            }
+
             // Menu Affaires
             if (menuAffaires != null) {
-                MenuItem nouvelleAffaire = new MenuItem("Nouvelle Affaire");
-                nouvelleAffaire.setOnAction(e -> onMenuAffaires());
+                MenuItem nouvelleAffaire = new MenuItem("Nouvelle Affaire...");
+                nouvelleAffaire.setOnAction(e -> showNewAffaireDialog());
 
                 MenuItem listeAffaires = new MenuItem("Liste des Affaires");
                 listeAffaires.setOnAction(e -> loadView("/view/affaire-list.fxml"));
 
-                menuAffaires.getItems().addAll(nouvelleAffaire, listeAffaires);
+                if (menuAffaires.getItems().isEmpty()) {
+                    menuAffaires.getItems().addAll(nouvelleAffaire, new SeparatorMenuItem(), listeAffaires);
+                }
             }
 
             // Menu Contrevenants
             if (menuContrevenants != null) {
-                MenuItem nouveauContrevenant = new MenuItem("Nouveau Contrevenant");
-                nouveauContrevenant.setOnAction(e -> onMenuContrevenants());
+                MenuItem nouveauContrevenant = new MenuItem("Nouveau Contrevenant...");
+                nouveauContrevenant.setOnAction(e -> showNewContrevenantDialog());
 
                 MenuItem listeContrevenants = new MenuItem("Liste des Contrevenants");
                 listeContrevenants.setOnAction(e -> loadView("/view/contrevenant-list.fxml"));
 
-                menuContrevenants.getItems().addAll(nouveauContrevenant, listeContrevenants);
+                if (menuContrevenants.getItems().isEmpty()) {
+                    menuContrevenants.getItems().addAll(nouveauContrevenant, new SeparatorMenuItem(), listeContrevenants);
+                }
             }
 
-            // Menu Agents
-            if (menuAgents != null) {
-                MenuItem nouveauAgent = new MenuItem("Nouveau Agent");
-                nouveauAgent.setOnAction(e -> onMenuAgents());
-
-                MenuItem listeAgents = new MenuItem("Liste des Agents");
-                listeAgents.setOnAction(e -> loadView("/view/agent-list.fxml"));
-
-                menuAgents.getItems().addAll(nouveauAgent, listeAgents);
-            }
-
-            // Menu Encaissements
-            if (menuEncaissements != null) {
-                MenuItem nouvelEncaissement = new MenuItem("Nouvel Encaissement");
-                nouvelEncaissement.setOnAction(e -> onMenuEncaissements());
-
-                MenuItem listeEncaissements = new MenuItem("Liste des Encaissements");
-                listeEncaissements.setOnAction(e -> loadView("/view/encaissement-list.fxml"));
-
-                menuEncaissements.getItems().addAll(nouvelEncaissement, listeEncaissements);
-            }
-
-            // Menu Rapports
-            if (menuRapports != null) {
-                MenuItem rapportRepartition = new MenuItem("Rapport de Répartition");
-                rapportRepartition.setOnAction(e -> loadView("/view/rapport-repartition.fxml"));
-
-                MenuItem tableauAmendes = new MenuItem("Tableau des Amendes");
-                tableauAmendes.setOnAction(e -> onMenuRapports());
-
-                menuRapports.getItems().addAll(rapportRepartition, tableauAmendes);
+            // Configuration des boutons de la toolbar
+            if (newAffaireButton != null) {
+                newAffaireButton.setOnAction(e -> showNewAffaireDialog());
+                newAffaireButton.setTooltip(new Tooltip("Nouvelle Affaire"));
+                if (newAffaireButton.getGraphic() == null) {
+                    newAffaireButton.setText("Nouvelle Affaire");
+                } else {
+                    newAffaireButton.setText("");
+                }
             }
 
             // Menu Administration
-            if (menuAdministration != null) {
+            if (menuAdministration != null && authService.getCurrentUser().isAdmin()) {
                 MenuItem gestionUtilisateurs = new MenuItem("Gestion des Utilisateurs");
                 gestionUtilisateurs.setOnAction(e -> loadView("/view/user-management.fxml"));
 
-                MenuItem referentiel = new MenuItem("Référentiel");
-                referentiel.setOnAction(e -> onMenuAdministration());
+                MenuItem referentiel = new MenuItem("Référentiels");
+                referentiel.setOnAction(e -> loadView("/view/referentiel.fxml"));
 
-                menuAdministration.getItems().addAll(gestionUtilisateurs, referentiel);
+                if (menuAdministration.getItems().isEmpty()) {
+                    menuAdministration.getItems().addAll(gestionUtilisateurs, referentiel);
+                }
             }
 
             // Menu Aide
@@ -694,176 +538,242 @@ public class MainController implements Initializable {
         confirmAlert.setHeaderText("Déconnexion");
         confirmAlert.setContentText("Voulez-vous vraiment vous déconnecter ?");
 
-        confirmAlert.showAndWait().ifPresent(response -> {
-            if (response == ButtonType.OK) {
-                authService.logout();
-                try {
-                    // CORRIGÉ : utilise switchToLogin() au lieu de showLoginStage()
-                    stageManager.switchToLogin();
-                    logger.info("Déconnexion réussie, retour à l'écran de connexion");
-                } catch (Exception e) {
-                    logger.error("Erreur lors de la déconnexion", e);
-                    // Fallback : fermer l'application
-                    Platform.exit();
+        if (confirmAlert.showAndWait().orElse(ButtonType.CANCEL) == ButtonType.OK) {
+            authService.logout();
+            stageManager.switchToLogin();
+        }
+    }
+
+    @FXML
+    private void onNewAction() {
+        // Action générique de création - peut être spécialisée selon le contexte
+        logger.debug("Action Nouveau déclenchée");
+    }
+
+    @FXML
+    private void onEditAction() {
+        logger.debug("Action Éditer déclenchée");
+    }
+
+    @FXML
+    private void onDeleteAction() {
+        logger.debug("Action Supprimer déclenchée");
+    }
+
+    @FXML
+    private void onRefreshAction() {
+        logger.debug("Action Actualiser déclenchée");
+    }
+
+    @FXML
+    private void onPrintAction() {
+        logger.debug("Action Imprimer déclenchée");
+    }
+
+    @FXML
+    private void onFilterAction() {
+        logger.debug("Action Filtrer déclenchée");
+    }
+
+    @FXML
+    private void showNewAffaireDialog() {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/affaire-form.fxml"));
+            Parent root = loader.load();
+
+            Stage dialogStage = new Stage();
+            dialogStage.setTitle("Nouvelle Affaire");
+            dialogStage.initModality(Modality.WINDOW_MODAL);
+            dialogStage.initOwner(contentPane.getScene().getWindow());
+
+            Scene scene = new Scene(root);
+            dialogStage.setScene(scene);
+            dialogStage.showAndWait();
+
+            // Rafraîchir la liste si nécessaire
+            onRefreshAction();
+        } catch (IOException e) {
+            logger.error("Erreur lors de l'ouverture du formulaire de nouvelle affaire", e);
+            showErrorDialog("Erreur", "Impossible d'ouvrir le formulaire", e.getMessage());
+        }
+    }
+
+    @FXML
+    private void showNewContrevenantDialog() {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/contrevenant-form.fxml"));
+            Parent root = loader.load();
+
+            Stage dialogStage = new Stage();
+            dialogStage.setTitle("Nouveau Contrevenant");
+            dialogStage.initModality(Modality.WINDOW_MODAL);
+            dialogStage.initOwner(contentPane.getScene().getWindow());
+
+            Scene scene = new Scene(root);
+            dialogStage.setScene(scene);
+            dialogStage.showAndWait();
+        } catch (IOException e) {
+            logger.error("Erreur lors de l'ouverture du formulaire de nouveau contrevenant", e);
+            showErrorDialog("Erreur", "Impossible d'ouvrir le formulaire", e.getMessage());
+        }
+    }
+
+    private void showAboutDialog() {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("À propos");
+        alert.setHeaderText("Gestion des Affaires Contentieuses");
+        alert.setContentText("Version 1.0.0\n\n" +
+                "Application de gestion des affaires contentieuses\n" +
+                "© 2024 - Tous droits réservés");
+        alert.showAndWait();
+    }
+
+    // ==================== MÉTHODES PUBLIQUES ====================
+
+    /**
+     * Met à jour le label de statut
+     */
+    public void updateStatus(String status) {
+        if (statusLabel != null) {
+            Platform.runLater(() -> statusLabel.setText(status));
+        }
+    }
+
+    /**
+     * Met à jour la barre de progression
+     */
+    public void updateProgress(double progress, String message) {
+        Platform.runLater(() -> {
+            if (progressBar != null) {
+                progressBar.setProgress(progress);
+            }
+            if (progressLabel != null) {
+                progressLabel.setText(message);
+            }
+        });
+    }
+
+    /**
+     * Active/Désactive les boutons de la toolbar
+     */
+    public void setToolbarButtonsDisable(boolean disable) {
+        if (newButton != null) newButton.setDisable(disable);
+        if (editButton != null) editButton.setDisable(disable);
+        if (deleteButton != null) deleteButton.setDisable(disable);
+        if (refreshButton != null) refreshButton.setDisable(disable);
+        if (printButton != null) printButton.setDisable(disable);
+    }
+
+    /**
+     * Met à jour l'heure dans la barre de statut
+     */
+    private void updateDateTime() {
+        String dateTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
+        // Implémenter si un label de date/heure existe
+    }
+
+    /**
+     * Change le curseur de l'application
+     */
+    public void setCursor(Cursor cursor) {
+        if (contentPane != null && contentPane.getScene() != null) {
+            contentPane.getScene().setCursor(cursor);
+        }
+    }
+
+    /**
+     * Retourne le mandat actif ou null
+     */
+    public Mandat getMandatActif() {
+        return MandatService.getInstance().getMandatActif();
+    }
+
+    /**
+     * Vérifie si un mandat est actif
+     */
+    public boolean hasMandatActif() {
+        return MandatService.getInstance().hasMandatActif();
+    }
+
+    /**
+     * Ouvre la fenêtre de gestion des mandats
+     */
+    private void openMandatManagement() {
+        logger.info("Ouverture de la gestion des mandats");
+
+        try {
+            // Charger la vue
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/mandat-management.fxml"));
+            Parent root = loader.load();
+
+            // Créer une nouvelle fenêtre modale
+            Stage mandatStage = new Stage();
+            mandatStage.setTitle("Gestion des Mandats");
+            mandatStage.initModality(Modality.APPLICATION_MODAL);
+            mandatStage.initOwner(mainMenuBar.getScene().getWindow());
+
+            // Créer la scène
+            Scene scene = new Scene(root);
+
+            // Appliquer les styles
+            scene.getStylesheets().add(getClass().getResource("/css/main-styles.css").toExternalForm());
+            if (getClass().getResource("/css/mandat-styles.css") != null) {
+                scene.getStylesheets().add(getClass().getResource("/css/mandat-styles.css").toExternalForm());
+            }
+
+            // Configurer la fenêtre
+            mandatStage.setScene(scene);
+            mandatStage.setMinWidth(1000);
+            mandatStage.setMinHeight(700);
+            mandatStage.centerOnScreen();
+
+            // Afficher et attendre la fermeture
+            mandatStage.showAndWait();
+
+            // Rafraîchir l'affichage après fermeture
+            updateMandatActif();
+
+            // Notifier les autres composants si nécessaire
+            if (welcomeController != null) {
+                welcomeController.refreshStatistics();
+            }
+
+        } catch (IOException e) {
+            logger.error("Erreur lors de l'ouverture de la gestion des mandats", e);
+            showErrorDialog("Erreur", "Impossible d'ouvrir la gestion des mandats", e.getMessage());
+        }
+    }
+
+    /**
+     * Met à jour l'affichage du mandat actif dans la barre de statut
+     */
+    private void updateMandatActif() {
+        Platform.runLater(() -> {
+            if (mandatLabel != null) {
+                Mandat mandatActif = MandatService.getInstance().getMandatActif();
+                if (mandatActif != null) {
+                    String displayText = mandatActif.getNumeroMandat();
+                    if (mandatActif.getDescription() != null && !mandatActif.getDescription().isEmpty()) {
+                        displayText += " - " + mandatActif.getDescription();
+                    }
+                    mandatLabel.setText("Mandat actif: " + displayText);
+                    mandatLabel.setStyle("-fx-text-fill: green; -fx-font-weight: bold;");
+                } else {
+                    mandatLabel.setText("Aucun mandat actif");
+                    mandatLabel.setStyle("-fx-text-fill: red; -fx-font-weight: bold;");
                 }
             }
         });
     }
 
     /**
-     * Ouvre la fenêtre de gestion des mandats
+     * Affiche un dialogue d'erreur
      */
-    @FXML
-    private void openMandatManagement() {
-        logger.info("Ouverture de la gestion des mandats");
-
-        try {
-            // Charger la vue dans une nouvelle fenêtre
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/mandat-management.fxml"));
-            Parent root = loader.load();
-
-            // Créer une nouvelle fenêtre
-            Stage stage = new Stage();
-            stage.setTitle("Gestion des Mandats");
-            stage.initModality(Modality.APPLICATION_MODAL);
-            stage.initOwner(mainMenuBar.getScene().getWindow());
-
-            Scene scene = new Scene(root);
-            scene.getStylesheets().add(getClass().getResource("/css/main-styles.css").toExternalForm());
-
-            stage.setScene(scene);
-            stage.setMinWidth(1000);
-            stage.setMinHeight(700);
-
-            // Centrer la fenêtre
-            stage.centerOnScreen();
-
-            // Afficher la fenêtre
-            stage.showAndWait();
-
-            // Rafraîchir l'affichage du mandat actif après fermeture
-            updateMandatActif();
-
-        } catch (IOException e) {
-            logger.error("Erreur lors de l'ouverture de la gestion des mandats", e);
-            AlertUtil.showError("Erreur", "Impossible d'ouvrir la gestion des mandats", e.getMessage());
-        }
-    }
-
-    /**
-     * Actualise l'affichage du mandat actif dans la barre de statut
-     */
-    private void updateMandatActif() {
-        MandatService mandatService = MandatService.getInstance();
-        Mandat mandatActif = mandatService.getMandatActif();
-
-        if (mandatActif != null) {
-            mandatLabel.setText("Mandat : " + mandatActif.getNumeroMandat());
-            mandatLabel.setStyle("-fx-text-fill: green;");
-
-            // Activer les actions qui nécessitent un mandat actif
-            if (newAffaireMenuItem != null) {
-                newAffaireMenuItem.setDisable(false);
-            }
-            if (newEncaissementMenuItem != null) {
-                newEncaissementMenuItem.setDisable(false);
-            }
-        } else {
-            mandatLabel.setText("Mandat : Aucun");
-            mandatLabel.setStyle("-fx-text-fill: red;");
-
-            // Désactiver les actions qui nécessitent un mandat actif
-            if (newAffaireMenuItem != null) {
-                newAffaireMenuItem.setDisable(true);
-            }
-            if (newEncaissementMenuItem != null) {
-                newEncaissementMenuItem.setDisable(true);
-            }
-        }
-    }
-
-    @FXML
-    private void onNew() {
-        logger.info("Action: Nouveau");
-        // TODO: Implémenter l'action nouveau
-    }
-
-    @FXML
-    private void onEdit() {
-        logger.info("Action: Éditer");
-        // TODO: Implémenter l'action éditer
-    }
-
-    @FXML
-    private void onDelete() {
-        logger.info("Action: Supprimer");
-        // TODO: Implémenter l'action supprimer
-    }
-
-    @FXML
-    private void onRefresh() {
-        logger.info("Action: Actualiser");
-        // TODO: Implémenter l'action actualiser
-    }
-
-    @FXML
-    private void onPrint() {
-        logger.info("Action: Imprimer");
-        // TODO: Implémenter l'action imprimer
-    }
-
-    @FXML
-    private void onFilter() {
-        logger.info("Action: Filtrer");
-        // TODO: Implémenter l'action filtrer
-    }
-
-    @FXML
-    private void onSearch() {
-        String searchText = searchField.getText();
-        logger.info("Action: Rechercher '{}'", searchText);
-        // TODO: Implémenter la recherche
-    }
-
-    // Méthodes pour les menus (maintenant fonctionnelles)
-    public void onMenuAffaires() {
-        logger.info("Menu: Affaires");
-        loadView("/view/affaire-list.fxml");
-    }
-
-    public void onMenuContrevenants() {
-        logger.info("Menu: Contrevenants");
-        loadView("/view/contrevenant-list.fxml");
-    }
-
-    public void onMenuAgents() {
-        logger.info("Menu: Agents");
-        loadView("/view/agent-list.fxml");
-    }
-
-    public void onMenuEncaissements() {
-        logger.info("Menu: Encaissements");
-        loadView("/view/encaissement-list.fxml");
-    }
-
-    public void onMenuRapports() {
-        logger.info("Menu: Rapports");
-        loadView("/view/rapport-list.fxml");
-    }
-
-    public void onMenuAdministration() {
-        logger.info("Menu: Administration");
-        loadView("/view/user-management.fxml");
-    }
-
-    /**
-     * Affiche la boîte de dialogue À propos
-     */
-    private void showAboutDialog() {
-        Alert aboutAlert = new Alert(Alert.AlertType.INFORMATION);
-        aboutAlert.setTitle("À propos");
-        aboutAlert.setHeaderText("Gestion des Affaires Contentieuses");
-        aboutAlert.setContentText("Version 1.0.0\n\nApplication de gestion des affaires contentieuses\nDéveloppée avec JavaFX");
-        aboutAlert.showAndWait();
+    private void showErrorDialog(String title, String header, String content) {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle(title);
+        alert.setHeaderText(header);
+        alert.setContentText(content);
+        alert.showAndWait();
     }
 }

@@ -95,7 +95,7 @@ public class AffaireService {
         validateActeurs(acteurs);
 
         // ENRICHISSEMENT : Vérifier le mandat actif
-        String mandatActif = mandatService.getMandatActif();
+        String mandatActif = String.valueOf(mandatService.getMandatActif());
         if (mandatActif == null) {
             throw new BusinessException(
                     "Aucun mandat actif. Veuillez d'abord activer un mandat."
@@ -472,7 +472,7 @@ public class AffaireService {
      * ENRICHISSEMENT : Vérifie si une date est dans le mandat actif
      */
     private boolean estDansMandatActif(LocalDate date) {
-        String mandatActif = mandatService.getMandatActif();
+        String mandatActif = String.valueOf(mandatService.getMandatActif());
         if (mandatActif == null || date == null) {
             return false;
         }

@@ -27,11 +27,12 @@ public class ValidationService {
     private static final Pattern PATTERN_EMAIL = Pattern.compile("^[A-Za-z0-9+_.-]+@(.+)$");
     private static final Pattern PATTERN_TELEPHONE = Pattern.compile("^[0-9\\s\\-\\+\\.\\(\\)]+$");
     private static final Pattern PATTERN_CIN = Pattern.compile("^[A-Z0-9]{5,15}$");
+    private static final Pattern PATTERN_CODE = Pattern.compile("^[A-Z0-9]{2,20}$"); // AJOUT pour validation des codes
 
     // Instance unique
     private static ValidationService instance;
 
-    private ValidationService() {}
+    public ValidationService() {}
 
     public static synchronized ValidationService getInstance() {
         if (instance == null) {
@@ -148,8 +149,9 @@ public class ValidationService {
         }
 
         // Vérifier qu'il y a au moins un saisissant
+        // Le rôle est stocké comme String dans AffaireActeur
         boolean hasSaisissant = acteurs.stream()
-                .anyMatch(a -> RoleAffaire.SAISISSANT.name().equals(a.getRoleSurAffaire()));
+                .anyMatch(a -> "SAISISSANT".equals(a.getRoleSurAffaire()));
 
         if (!hasSaisissant) {
             throw new ValidationException("Au moins un agent saisissant est obligatoire");
@@ -345,6 +347,13 @@ public class ValidationService {
         return telephone != null && PATTERN_TELEPHONE.matcher(telephone).matches();
     }
 
+    /**
+     * AJOUT : Alias isValidPhone pour compatibilité avec ContrevenantService
+     */
+    public boolean isValidPhone(String telephone) {
+        return isValidTelephone(telephone);
+    }
+
     public boolean isValidCIN(String cin) {
         return cin != null && PATTERN_CIN.matcher(cin.toUpperCase()).matches();
     }
@@ -355,6 +364,26 @@ public class ValidationService {
 
     public boolean isValidDate(LocalDate date) {
         return date != null && !date.isAfter(LocalDate.now());
+    }
+
+    /**
+     * AJOUT : Valide un code générique (pour les codes agent, contrevenant, etc.)
+     * Utilisé par ContrevenantService
+     */
+    public boolean isValidCode(String code) {
+        return code != null && PATTERN_CODE.matcher(code.toUpperCase()).matches();
+    }
+
+    /**
+     * AJOUT : Valide une chaîne de caractères avec longueur min/max
+     * Utilisé par ContraventionService et ContrevenantService
+     */
+    public boolean isValidString(String str, int minLength, int maxLength) {
+        if (str == null || str.trim().isEmpty()) {
+            return minLength == 0; // Retourne true si la chaîne peut être vide
+        }
+        String trimmed = str.trim();
+        return trimmed.length() >= minLength && trimmed.length() <= maxLength;
     }
 
     /**
@@ -438,7 +467,7 @@ public class ValidationService {
             }
 
             if (!fieldErrors.isEmpty()) {
-                if (sb.length() > 0) sb.append("\n");
+                if (!sb.isEmpty()) sb.append("\n");
                 fieldErrors.forEach((field, error) ->
                         sb.append(field).append(" : ").append(error).append("\n")
                 );

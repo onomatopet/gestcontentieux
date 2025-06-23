@@ -90,7 +90,7 @@ public class RapportController implements Initializable {
     }
 
     // Services
-    private final RapportService rapportService = new RapportService();
+    private final RapportService rapportService = Pnew RapportService();
     private final ExportService exportService = new ExportService();
     private final PrintService printService = new PrintService();
 

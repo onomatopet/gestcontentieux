@@ -19,7 +19,7 @@ import java.util.Optional;
 
 /**
  * Service pour la gestion des mandats selon le cahier des charges
- * Format: YYMM0001 (ex: 250600001)
+ * Format: YYMMM0001 (ex: 2506M0001)
  * Un seul mandat actif à la fois
  * ENRICHISSEMENT COMPLET du service
  */
@@ -31,8 +31,8 @@ public class MandatService {
     private static MandatService instance;
     private Mandat mandatActif;
 
-    // Format standard du cahier des charges (sans le 'M')
-    private static final String FORMAT_PATTERN = "yyMM";
+    // Format standard du cahier des charges (AVEC le 'M' obligatoire)
+    private static final String FORMAT_PATTERN = "yyMM'M'";  // yyMM + M littéral
     private static final int NUMERO_LENGTH = 4; // 0001 à 9999
 
     private MandatService() {
@@ -54,15 +54,28 @@ public class MandatService {
     public Mandat creerNouveauMandat(String description) {
         logger.info("🆕 === CRÉATION NOUVEAU MANDAT ===");
 
-        // Vérifier qu'il n'y a pas déjà un mandat actif
-        if (mandatActif != null && mandatActif.getStatut() == StatutMandat.ACTIF) {
+        // VÉRIFICATION STRICTE : Un seul mandat actif autorisé
+        Mandat mandatActifActuel = getMandatActif();
+        if (mandatActifActuel != null) {
             throw new BusinessException(
-                    "Un mandat est déjà actif (" + mandatActif.getNumeroMandat() +
-                            "). Veuillez le clôturer avant d'en créer un nouveau."
+                    "ERREUR : Un mandat est déjà actif (" + mandatActifActuel.getNumeroMandat() +
+                            "). Vous devez le clôturer avant de créer un nouveau mandat.\n\n" +
+                            "Actions possibles :\n" +
+                            "1. Clôturer le mandat actif\n" +
+                            "2. Ou désactiver le mandat actif\n" +
+                            "3. Puis créer le nouveau mandat"
             );
         }
 
-        // Générer le numéro
+        // Vérifier également en base pour être sûr
+        if (existeMandatActifEnBase()) {
+            throw new BusinessException(
+                    "CONTRAINTE VIOLÉE : Un mandat actif existe déjà en base de données. " +
+                            "L'intégrité du système exige qu'un seul mandat soit actif à la fois."
+            );
+        }
+
+        // Générer le numéro (format corrigé YYMMM0001)
         String numeroMandat = genererNouveauMandat();
 
         // Créer le mandat
@@ -80,8 +93,33 @@ public class MandatService {
         // Sauvegarder en base
         sauvegarderMandat(nouveauMandat);
 
-        logger.info("✅ Mandat créé : {}", numeroMandat);
+        logger.info("✅ Mandat créé avec format corrigé : {}", numeroMandat);
         return nouveauMandat;
+    }
+
+    /**
+     * NOUVELLE MÉTHODE : Vérification stricte en base
+     */
+    private boolean existeMandatActifEnBase() {
+        String sql = "SELECT COUNT(*) FROM mandats WHERE actif = 1 OR statut = 'ACTIF'";
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                int count = rs.getInt(1);
+                logger.debug("Nombre de mandats actifs en base : {}", count);
+                return count > 0;
+            }
+
+        } catch (SQLException e) {
+            logger.error("Erreur lors de la vérification des mandats actifs", e);
+            // En cas d'erreur, on suppose qu'il y en a un pour la sécurité
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -296,30 +334,32 @@ public class MandatService {
      */
     private String genererNouveauMandat() {
         LocalDate now = LocalDate.now();
-        String yearMonth = now.format(DateTimeFormatter.ofPattern(FORMAT_PATTERN));
+        // Format : yyMM + M + 0001
+        String yearMonth = now.format(DateTimeFormatter.ofPattern("yyMM"));
+        String prefixe = yearMonth + "M";  // Ajouter le M obligatoire
 
-        logger.debug("🔍 Génération mandat pour période : {}", yearMonth);
+        logger.debug("🔍 Génération mandat pour période : {}", prefixe);
 
         // Rechercher le dernier mandat du mois
         String sql = """
-            SELECT numero_mandat FROM mandats
-            WHERE numero_mandat LIKE ?
-            ORDER BY numero_mandat DESC
-            LIMIT 1
-        """;
+        SELECT numero_mandat FROM mandats
+        WHERE numero_mandat LIKE ?
+        ORDER BY numero_mandat DESC
+        LIMIT 1
+    """;
 
         try (Connection conn = DatabaseConfig.getSQLiteConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-            stmt.setString(1, yearMonth + "%");
+            stmt.setString(1, prefixe + "%");
             ResultSet rs = stmt.executeQuery();
 
             if (rs.next()) {
                 String lastMandat = rs.getString("numero_mandat");
-                return genererProchainNumero(lastMandat, yearMonth);
+                return genererProchainNumero(lastMandat, prefixe);
             } else {
                 // Premier mandat du mois
-                String numero = yearMonth + "0001";
+                String numero = prefixe + "0001";
                 logger.info("🆕 Premier mandat du mois : {}", numero);
                 return numero;
             }
@@ -333,28 +373,33 @@ public class MandatService {
     /**
      * Génère le prochain numéro à partir du dernier
      */
-    private String genererProchainNumero(String dernierNumero, String yearMonth) {
-        try {
-            // Extraire le numéro séquentiel
-            String numeroSeq = dernierNumero.substring(4);
-            int numero = Integer.parseInt(numeroSeq);
+    private String genererProchainNumero(String dernierNumero, String prefixe) {
+        if (dernierNumero == null || dernierNumero.length() < prefixe.length() + NUMERO_LENGTH) {
+            return prefixe + "0001";
+        }
 
-            // Vérifier si on est toujours dans le même mois
-            if (dernierNumero.startsWith(yearMonth)) {
-                // Incrémenter
-                String nextNumero = yearMonth + String.format("%04d", numero + 1);
-                logger.info("📈 Prochain numéro dans la séquence : {}", nextNumero);
-                return nextNumero;
-            } else {
-                // Nouveau mois
-                String nextNumero = yearMonth + "0001";
-                logger.info("🔄 Nouveau mois - Réinitialisation : {}", nextNumero);
-                return nextNumero;
+        try {
+            // Extraire le numéro séquentiel (4 derniers caractères)
+            String sequenceStr = dernierNumero.substring(prefixe.length());
+            int sequence = Integer.parseInt(sequenceStr);
+
+            // Incrémenter
+            sequence++;
+
+            // Vérifier la limite
+            if (sequence > 9999) {
+                throw new BusinessException("Limite de mandats atteinte pour ce mois (9999)");
             }
 
-        } catch (Exception e) {
-            logger.error("Erreur dans le parsing du numéro", e);
-            return yearMonth + "0001";
+            // Formater avec padding
+            String nouveauNumero = prefixe + String.format("%04d", sequence);
+            logger.info("📈 Prochain mandat généré : {}", nouveauNumero);
+
+            return nouveauNumero;
+
+        } catch (NumberFormatException e) {
+            logger.warn("⚠️ Format de mandat invalide : {}, génération nouveau : {}", dernierNumero, prefixe + "0001");
+            return prefixe + "0001";
         }
     }
 

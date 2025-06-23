@@ -9,6 +9,9 @@ import com.regulation.contentieux.util.DateFormatter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.regulation.contentieux.model.Centre;
+import com.regulation.contentieux.model.enums.StatutEncaissement;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.Connection;
@@ -140,42 +143,6 @@ public class RapportService {
     }
 
     /**
-     * Génère le tableau des amendes par services
-     * NOUVELLE MÉTHODE pour corriger le bug
-     */
-    public static class TableauAmendesParServicesDTO {
-        private LocalDate dateDebut;
-        private LocalDate dateFin;
-        private LocalDate dateGeneration;
-        private String periodeLibelle;
-        private List<ServiceAmendeDTO> services = new ArrayList<>();
-        private BigDecimal totalGeneral = BigDecimal.ZERO;
-        private int nombreTotalAffaires = 0;
-
-        // Getters et setters
-        public LocalDate getDateDebut() { return dateDebut; }
-        public void setDateDebut(LocalDate dateDebut) { this.dateDebut = dateDebut; }
-
-        public LocalDate getDateFin() { return dateFin; }
-        public void setDateFin(LocalDate dateFin) { this.dateFin = dateFin; }
-
-        public LocalDate getDateGeneration() { return dateGeneration; }
-        public void setDateGeneration(LocalDate dateGeneration) { this.dateGeneration = dateGeneration; }
-
-        public String getPeriodeLibelle() { return periodeLibelle; }
-        public void setPeriodeLibelle(String periodeLibelle) { this.periodeLibelle = periodeLibelle; }
-
-        public List<ServiceAmendeDTO> getServices() { return services; }
-        public void setServices(List<ServiceAmendeDTO> services) { this.services = services; }
-
-        public BigDecimal getTotalGeneral() { return totalGeneral; }
-        public void setTotalGeneral(BigDecimal totalGeneral) { this.totalGeneral = totalGeneral; }
-
-        public int getNombreTotalAffaires() { return nombreTotalAffaires; }
-        public void setNombreTotalAffaires(int nombreTotalAffaires) { this.nombreTotalAffaires = nombreTotalAffaires; }
-    }
-
-    /**
      * DTO pour le tableau des amendes par services
      * NOUVELLE CLASSE pour corriger le bug
      */
@@ -209,6 +176,26 @@ public class RapportService {
 
         public int getNombreTotalAffaires() { return nombreTotalAffaires; }
         public void setNombreTotalAffaires(int nombreTotalAffaires) { this.nombreTotalAffaires = nombreTotalAffaires; }
+
+        /**
+         * Alias pour getNombreTotalAffaires()
+         * Utilisé par ExportService pour la compatibilité
+         *
+         * @return le nombre total d'affaires
+         */
+        public int getTotalAffaires() {
+            return nombreTotalAffaires;
+        }
+
+        /**
+         * Alias pour getTotalGeneral()
+         * Utilisé par ExportService pour la compatibilité
+         *
+         * @return le montant total général
+         */
+        public BigDecimal getTotalMontant() {
+            return totalGeneral;
+        }
     }
 
     /**
@@ -1213,6 +1200,69 @@ public class RapportService {
         }
 
         return stats;
+    }
+
+    /**
+     * Calcule la part d'un centre pour une période donnée
+     *
+     * @param centre le centre concerné
+     * @param dateDebut date de début de la période
+     * @param dateFin date de fin de la période
+     * @param indicateurFictif true pour la part indicateur fictif, false pour la part base
+     * @return le montant calculé pour ce centre
+     */
+    private BigDecimal calculerPartCentre(Centre centre, LocalDate dateDebut, LocalDate dateFin, boolean indicateurFictif) {
+        if (centre == null) {
+            return BigDecimal.ZERO;
+        }
+
+        BigDecimal total = BigDecimal.ZERO;
+
+        try {
+            // Récupérer tous les services de ce centre
+            List<Service> services = serviceDAO.findByCentreId(centre.getId());
+
+            if (services.isEmpty()) {
+                return BigDecimal.ZERO;
+            }
+
+            // Récupérer les affaires de la période pour ce centre
+            List<Affaire> affaires = affaireDAO.findByPeriod(dateDebut, dateFin);
+
+            for (Affaire affaire : affaires) {
+                if (affaire.getService() != null &&
+                        services.stream().anyMatch(s -> s.getId().equals(affaire.getService().getId()))) {
+
+                    // Récupérer les encaissements validés de cette affaire
+                    List<Encaissement> encaissements = encaissementDAO.findByAffaireId(affaire.getId());
+
+                    for (Encaissement enc : encaissements) {
+                        if (enc.getStatut() == StatutEncaissement.VALIDE &&
+                                !enc.getDateEncaissement().isBefore(dateDebut) &&
+                                !enc.getDateEncaissement().isAfter(dateFin)) {
+
+                            // Calculer la répartition pour cet encaissement
+                            RepartitionResultat repartition = repartitionService.calculerRepartition(enc, affaire);
+
+                            if (indicateurFictif) {
+                                // Part indicateur fictif
+                                total = total.add(repartition.getPartIndicateur());
+                            } else {
+                                // Part base (produit net)
+                                total = total.add(repartition.getProduitNet());
+                            }
+                        }
+                    }
+                }
+            }
+
+        } catch (Exception e) {
+            logger.error("Erreur lors du calcul de la part du centre {} : {}",
+                    centre.getNomCentre(), e.getMessage());
+            return BigDecimal.ZERO;
+        }
+
+        return total;
     }
 
     /**

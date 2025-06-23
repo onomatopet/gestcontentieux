@@ -9,8 +9,7 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * Entité représentant un service
- * Un service appartient à un centre et contient plusieurs bureaux
+ * Entité représentant un service * appartient à un centre et contient plusieurs bureaux
  */
 public class Service {
     private Long id;

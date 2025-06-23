@@ -23,7 +23,7 @@ public class ValidationService {
     // Patterns de validation
     private static final Pattern PATTERN_NUMERO_AFFAIRE = Pattern.compile("^\\d{9}$"); // YYMMNNNNN
     private static final Pattern PATTERN_NUMERO_ENCAISSEMENT = Pattern.compile("^\\d{4}R\\d{5}$"); // YYMMRNNNNN
-    private static final Pattern PATTERN_NUMERO_MANDAT = Pattern.compile("^\\d{8}$"); // YYMM0001
+    private static final Pattern PATTERN_NUMERO_MANDAT = Pattern.compile("^\\d{4}M\\d{4}$"); // YYMMM0001 // YYMM0001
     private static final Pattern PATTERN_EMAIL = Pattern.compile("^[A-Za-z0-9+_.-]+@(.+)$");
     private static final Pattern PATTERN_TELEPHONE = Pattern.compile("^[0-9\\s\\-\\+\\.\\(\\)]+$");
     private static final Pattern PATTERN_CIN = Pattern.compile("^[A-Z0-9]{5,15}$");
@@ -323,18 +323,34 @@ public class ValidationService {
     }
 
     public boolean isValidNumeroMandat(String numero) {
-        if (numero == null) return false;
+        if (numero == null || numero.trim().isEmpty()) {
+            return false;
+        }
 
-        // Format YYMM0001
+        // Format YYMMM0001 (avec M obligatoire)
         if (!PATTERN_NUMERO_MANDAT.matcher(numero).matches()) {
             return false;
         }
 
-        // Vérifier que le mois est valide
+        // Vérifier que le mois est valide (01-12)
         try {
-            int month = Integer.parseInt(numero.substring(2, 4));
-            return month >= 1 && month <= 12;
-        } catch (NumberFormatException e) {
+            String moisStr = numero.substring(2, 4);
+            int mois = Integer.parseInt(moisStr);
+            if (mois < 1 || mois > 12) {
+                return false;
+            }
+
+            // Vérifier que le M est bien présent à la position 4
+            if (numero.charAt(4) != 'M') {
+                return false;
+            }
+
+            // Vérifier que le numéro séquentiel est valide (0001-9999)
+            String sequenceStr = numero.substring(5);
+            int sequence = Integer.parseInt(sequenceStr);
+            return sequence >= 1 && sequence <= 9999;
+
+        } catch (NumberFormatException | StringIndexOutOfBoundsException e) {
             return false;
         }
     }

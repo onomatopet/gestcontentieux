@@ -11,7 +11,7 @@ import java.util.Objects;
 /**
  * Entité représentant un mandat de gestion
  * Un mandat correspond à une période mensuelle de gestion des affaires
- * Format numéro : YYMM0001 (ex: 250600001)
+ * Format numéro : YYMMM0001 (ex: 2506M0001)
  */
 public class Mandat {
 

@@ -121,6 +121,16 @@ public class Agent {
         return display;
     }
 
+    /**
+     * Retourne le matricule de l'agent (alias pour codeAgent)
+     * Utilisé dans les rapports pour l'affichage du matricule
+     *
+     * @return le code agent qui sert de matricule
+     */
+    public String getMatricule() {
+        return codeAgent;
+    }
+
     // Getters et Setters
 
     public Long getId() {

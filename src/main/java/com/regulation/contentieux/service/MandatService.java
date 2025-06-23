@@ -7,8 +7,10 @@ import com.regulation.contentieux.model.enums.StatutMandat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.math.BigDecimal;  // AJOUT : Import manquant pour BigDecimal
 import java.sql.*;
 import java.time.LocalDate;
+import java.time.LocalDateTime;  // AJOUT : Import manquant pour LocalDateTime
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;

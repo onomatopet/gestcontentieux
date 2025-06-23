@@ -10,6 +10,7 @@ import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.collections.ListChangeListener;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
@@ -20,6 +21,8 @@ import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.scene.layout.GridPane;
+import javafx.scene.Cursor;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.util.Callback;
@@ -143,6 +146,8 @@ public class AffaireFormController implements Initializable {
 
     private ObservableList<AgentViewModel> agents;
     private ObservableList<ContraventionViewModel> contraventionsList;
+    private ObservableList<Agent> saisissantsList;
+    private Label saisissantsErrorLabel;
     private Affaire currentAffaire;
     private boolean isEditMode = false;
     private Stage currentStage;
@@ -186,13 +191,15 @@ public class AffaireFormController implements Initializable {
         this.serviceDAO = new ServiceDAO();
         this.centreDAO = new CentreDAO();
         this.banqueDAO = new BanqueDAO();
-        this.validationService = new ValidationService();
+        this.validationService = ValidationService.getInstance();
         this.authService = AuthenticationService.getInstance();
     }
 
     private void initializeCollections() {
         this.agents = FXCollections.observableArrayList();
         this.contraventionsList = FXCollections.observableArrayList();
+        this.saisissantsList = FXCollections.observableArrayList();
+        this.saisissantsErrorLabel = new Label();
     }
 
     private void setupUI() {
@@ -209,7 +216,6 @@ public class AffaireFormController implements Initializable {
 
         // Formatage des montants
         if (montantAmendeField != null) {
-            CurrencyFormatter.setupCurrencyField(montantAmendeField);
             montantAmendeField.textProperty().addListener((obs, old, newVal) -> {
                 updateMontantEnLettres(newVal, montantEnLettresLabel);
                 updateSoldeRestant();
@@ -217,7 +223,6 @@ public class AffaireFormController implements Initializable {
         }
 
         if (montantEncaisseField != null) {
-            CurrencyFormatter.setupCurrencyField(montantEncaisseField);
             montantEncaisseField.textProperty().addListener((obs, old, newVal) -> {
                 updateMontantEnLettres(newVal, montantEncaisseEnLettresLabel);
                 updateSoldeRestant();
@@ -483,8 +488,8 @@ public class AffaireFormController implements Initializable {
         if (soldeRestantLabel == null || montantAmendeField == null || montantEncaisseField == null) return;
 
         try {
-            BigDecimal montantAmende = CurrencyFormatter.parse(montantAmendeField.getText());
-            BigDecimal montantEncaisse = CurrencyFormatter.parse(montantEncaisseField.getText());
+            BigDecimal montantAmende = parseMontant(montantAmendeField.getText());
+            BigDecimal montantEncaisse = parseMontant(montantEncaisseField.getText());
 
             BigDecimal solde = montantAmende.subtract(montantEncaisse);
 
@@ -505,120 +510,51 @@ public class AffaireFormController implements Initializable {
     private void setupValidation() {
         // Validation en temps réel
         if (contrevenantComboBox != null) {
-            validationService.setupRequiredField(contrevenantComboBox, "Contrevenant obligatoire");
+            contrevenantComboBox.valueProperty().addListener((obs, old, val) -> {
+                if (val == null) {
+                    showFieldError(contrevenantComboBox, "Contrevenant obligatoire");
+                } else {
+                    clearFieldError(contrevenantComboBox);
+                }
+            });
         }
-        if (contraventionComboBox != null) {
-            validationService.setupRequiredField(contraventionComboBox, "Type de contravention obligatoire");
-        }
+
         if (montantAmendeField != null) {
-            validationService.setupRequiredField(montantAmendeField, "Montant de l'amende obligatoire");
+            montantAmendeField.focusedProperty().addListener((obs, wasFocused, isFocused) -> {
+                if (!isFocused) {
+                    validateMontantAmende();
+                }
+            });
         }
 
         // ENRICHISSEMENT : Validation du premier encaissement
         if (montantEncaisseField != null) {
-            validationService.setupRequiredField(montantEncaisseField, "Montant encaissé obligatoire");
-        }
-        if (dateEncaissementPicker != null) {
-            validationService.setupRequiredField(dateEncaissementPicker, "Date d'encaissement obligatoire");
-        }
-        if (modeReglementComboBox != null) {
-            validationService.setupRequiredField(modeReglementComboBox, "Mode de règlement obligatoire");
-        }
-
-        // Validation du montant encaissé
-        if (montantEncaisseField != null) {
-            montantEncaisseField.focusedProperty().addListener((obs, wasFocused, isNowFocused) -> {
-                if (!isNowFocused) {
+            montantEncaisseField.focusedProperty().addListener((obs, wasFocused, isFocused) -> {
+                if (!isFocused) {
                     validateMontantEncaisse();
                 }
             });
         }
-    }
 
-    /**
-     * Configure la validation temps réel sur tous les champs
-     */
-    private void setupRealTimeValidation() {
-        logger.debug("Configuration de la validation temps réel");
-
-        // Validation du contrevenant
-        if (contrevenantComboBox != null) {
-            contrevenantComboBox.valueProperty().addListener((obs, oldVal, newVal) -> {
-                validateContrevenant();
-            });
-        }
-
-        // Validation du montant amende
-        if (montantAmendeField != null) {
-            montantAmendeField.textProperty().addListener((obs, oldVal, newVal) -> {
-                validateMontantAmende();
-                updateMontantEnLettres();
-            });
-
-            // Formater automatiquement le montant
-            montantAmendeField.focusedProperty().addListener((obs, wasFocused, isFocused) -> {
-                if (!isFocused) {
-                    formatMontantField(montantAmendeField);
-                }
-            });
-        }
-
-        // Validation du montant encaissé
-        if (montantEncaisseField != null) {
-            montantEncaisseField.textProperty().addListener((obs, oldVal, newVal) -> {
-                validateMontantEncaisse();
-            });
-
-            montantEncaisseField.focusedProperty().addListener((obs, wasFocused, isFocused) -> {
-                if (!isFocused) {
-                    formatMontantField(montantEncaisseField);
-                }
-            });
-        }
-
-        // Validation de la date d'encaissement
         if (dateEncaissementPicker != null) {
-            dateEncaissementPicker.valueProperty().addListener((obs, oldVal, newVal) -> {
-                validateDateEncaissement();
-            });
-
-            // Désactiver les dates futures
-            dateEncaissementPicker.setDayCellFactory(picker -> new DateCell() {
-                @Override
-                public void updateItem(LocalDate date, boolean empty) {
-                    super.updateItem(date, empty);
-                    setDisable(date.isAfter(LocalDate.now()));
+            dateEncaissementPicker.valueProperty().addListener((obs, old, val) -> {
+                if (val == null) {
+                    showFieldError(dateEncaissementPicker, "Date d'encaissement obligatoire");
+                } else {
+                    clearFieldError(dateEncaissementPicker);
                 }
             });
         }
 
-        // Validation du mode de règlement
-        if (modeReglementCombo != null) {
-            modeReglementCombo.valueProperty().addListener((obs, oldVal, newVal) -> {
-                validateModeReglement();
-                updateBanqueVisibility();
-            });
-        }
-
-        // Validation des informations bancaires
-        if (banqueCombo != null) {
-            banqueCombo.valueProperty().addListener((obs, oldVal, newVal) -> {
-                if (modeReglementCombo.getValue() == ModeReglement.CHEQUE) {
-                    validateBanque();
+        if (modeReglementComboBox != null) {
+            modeReglementComboBox.valueProperty().addListener((obs, old, val) -> {
+                if (val == null) {
+                    showFieldError(modeReglementComboBox, "Mode de règlement obligatoire");
+                } else {
+                    clearFieldError(modeReglementComboBox);
                 }
             });
         }
-
-        if (numeroChequeField != null) {
-            numeroChequeField.textProperty().addListener((obs, oldVal, newVal) -> {
-                if (modeReglementCombo.getValue() == ModeReglement.CHEQUE) {
-                    validateNumeroCheque();
-                }
-            });
-        }
-
-        // Validation des acteurs
-        setupActeursValidation();
     }
 
     /**
@@ -646,7 +582,7 @@ public class AffaireFormController implements Initializable {
         }
 
         try {
-            BigDecimal montant = CurrencyFormatter.parse(montantText);
+            BigDecimal montant = parseMontant(montantText);
             if (montant.compareTo(BigDecimal.ZERO) <= 0) {
                 showFieldError(montantAmendeField, "Le montant doit être supérieur à zéro");
                 return false;
@@ -674,7 +610,7 @@ public class AffaireFormController implements Initializable {
         }
 
         try {
-            BigDecimal montantEncaisse = CurrencyFormatter.parse(montantText);
+            BigDecimal montantEncaisse = parseMontant(montantText);
 
             if (montantEncaisse.compareTo(BigDecimal.ZERO) <= 0) {
                 showFieldError(montantEncaisseField, "Le montant doit être supérieur à zéro");
@@ -682,7 +618,7 @@ public class AffaireFormController implements Initializable {
             }
 
             // Vérifier que le montant encaissé ne dépasse pas le montant de l'amende
-            BigDecimal montantAmende = CurrencyFormatter.parse(montantAmendeField.getText());
+            BigDecimal montantAmende = parseMontant(montantAmendeField.getText());
             if (montantEncaisse.compareTo(montantAmende) > 0) {
                 showFieldError(montantEncaisseField,
                         "Le montant encaissé ne peut pas dépasser le montant de l'amende");
@@ -734,11 +670,11 @@ public class AffaireFormController implements Initializable {
      * Validation du mode de règlement
      */
     private boolean validateModeReglement() {
-        if (modeReglementCombo.getValue() == null) {
-            showFieldError(modeReglementCombo, "Le mode de règlement est obligatoire");
+        if (modeReglementComboBox.getValue() == null) {
+            showFieldError(modeReglementComboBox, "Le mode de règlement est obligatoire");
             return false;
         } else {
-            clearFieldError(modeReglementCombo);
+            clearFieldError(modeReglementComboBox);
             return true;
         }
     }
@@ -747,11 +683,11 @@ public class AffaireFormController implements Initializable {
      * Validation de la banque (si chèque)
      */
     private boolean validateBanque() {
-        if (banqueCombo.getValue() == null) {
-            showFieldError(banqueCombo, "La banque est obligatoire pour un paiement par chèque");
+        if (banqueComboBox.getValue() == null) {
+            showFieldError(banqueComboBox, "La banque est obligatoire pour un paiement par chèque");
             return false;
         } else {
-            clearFieldError(banqueCombo);
+            clearFieldError(banqueComboBox);
             return true;
         }
     }
@@ -772,33 +708,25 @@ public class AffaireFormController implements Initializable {
     }
 
     /**
-     * Configuration de la validation des acteurs
-     */
-    private void setupActeursValidation() {
-        // Vérifier qu'il y a au moins un saisissant lors de l'ajout/suppression
-        if (saisissantsList != null) {
-            saisissantsList.addListener((ListChangeListener<Agent>) change -> {
-                validateSaisissants();
-            });
-        }
-    }
-
-    /**
      * Validation des saisissants (au moins un obligatoire)
      */
     private boolean validateSaisissants() {
-        if (saisissantsList == null || saisissantsList.isEmpty()) {
-            if (saisissantsErrorLabel != null) {
-                saisissantsErrorLabel.setText("Au moins un saisissant est obligatoire");
-                saisissantsErrorLabel.setVisible(true);
+        // Vérifier dans la table des agents si au moins un a le rôle SAISISSANT
+        if (agents != null && !agents.isEmpty()) {
+            boolean hasSaisissant = agents.stream()
+                    .anyMatch(a -> a.isSelected() && "SAISISSANT".equals(a.getRole()));
+
+            if (!hasSaisissant) {
+                showFieldError(agentsTableView, "Au moins un saisissant est obligatoire");
+                return false;
             }
-            return false;
         } else {
-            if (saisissantsErrorLabel != null) {
-                saisissantsErrorLabel.setVisible(false);
-            }
-            return true;
+            showFieldError(agentsTableView, "Au moins un agent doit être sélectionné");
+            return false;
         }
+
+        clearFieldError(agentsTableView);
+        return true;
     }
 
     /**
@@ -890,7 +818,7 @@ public class AffaireFormController implements Initializable {
      */
     private void formatMontantField(TextField field) {
         try {
-            BigDecimal montant = CurrencyFormatter.parse(field.getText());
+            BigDecimal montant = parseMontant(field.getText());
             field.setText(CurrencyFormatter.format(montant));
         } catch (Exception e) {
             // Ignorer si le format est invalide
@@ -902,8 +830,8 @@ public class AffaireFormController implements Initializable {
      */
     private void updateMontantEnLettres() {
         try {
-            BigDecimal montant = CurrencyFormatter.parse(montantAmendeField.getText());
-            String enLettres = NumberToWords.convert(montant);
+            BigDecimal montant = parseMontant(montantAmendeField.getText());
+            String enLettres = NumberToWords.convert(montant.longValue());
             montantEnLettresLabel.setText(enLettres);
         } catch (Exception e) {
             montantEnLettresLabel.setText("");
@@ -911,81 +839,60 @@ public class AffaireFormController implements Initializable {
     }
 
     /**
-     * Met à jour l'affichage du solde restant
-     */
-    private void updateSoldeRestant() {
-        try {
-            BigDecimal montantAmende = CurrencyFormatter.parse(montantAmendeField.getText());
-            BigDecimal montantEncaisse = CurrencyFormatter.parse(montantEncaisseField.getText());
-            BigDecimal solde = montantAmende.subtract(montantEncaisse);
-
-            if (soldeRestantLabel != null) {
-                soldeRestantLabel.setText("Solde restant : " + CurrencyFormatter.format(solde));
-
-                if (solde.compareTo(BigDecimal.ZERO) == 0) {
-                    soldeRestantLabel.getStyleClass().add("label-success");
-                } else {
-                    soldeRestantLabel.getStyleClass().remove("label-success");
-                }
-            }
-        } catch (Exception e) {
-            // Ignorer si les montants sont invalides
-        }
-    }
-
-    /**
      * Valide le formulaire complet avant sauvegarde
      */
     private boolean validateForm() {
-        boolean valid = true;
+        List<String> errors = new ArrayList<>();
 
-        // Valider tous les champs
-        valid &= validateContrevenant();
-        valid &= validateMontantAmende();
-        valid &= validateMontantEncaisse();
-        valid &= validateDateEncaissement();
-        valid &= validateModeReglement();
-
-        if (modeReglementCombo.getValue() == ModeReglement.CHEQUE) {
-            valid &= validateBanque();
-            valid &= validateNumeroCheque();
+        // Validation de l'affaire
+        if (contrevenantComboBox != null && contrevenantComboBox.getValue() == null) {
+            errors.add("Le contrevenant est obligatoire");
         }
 
-        valid &= validateSaisissants();
-
-        // Vérifier qu'il y a au moins une contravention
-        if (contraventionsList == null || contraventionsList.isEmpty()) {
-            AlertUtil.showWarning("Validation", "Au moins une contravention est obligatoire");
-            valid = false;
+        if (montantAmendeField != null && montantAmendeField.getText().trim().isEmpty()) {
+            errors.add("Le montant de l'amende est obligatoire");
         }
 
-        return valid;
-    }
-
-    /**
-     * Valide le montant encaissé
-     */
-    private void validateMontantEncaisse() {
-        if (montantAmendeField == null || montantEncaisseField == null) return;
-
-        try {
-            BigDecimal montantAmende = CurrencyFormatter.parse(montantAmendeField.getText());
-            BigDecimal montantEncaisse = CurrencyFormatter.parse(montantEncaisseField.getText());
-
-            if (montantEncaisse.compareTo(BigDecimal.ZERO) <= 0) {
-                AlertUtil.showWarningAlert("Validation",
-                        "Montant invalide",
-                        "Le montant encaissé doit être supérieur à zéro");
-                montantEncaisseField.requestFocus();
-            } else if (montantEncaisse.compareTo(montantAmende) > 0) {
-                AlertUtil.showWarningAlert("Validation",
-                        "Montant trop élevé",
-                        "Le montant encaissé ne peut pas dépasser le montant de l'amende");
-                montantEncaisseField.requestFocus();
+        // ENRICHISSEMENT : Validation du premier encaissement
+        if (!isEditMode) {
+            if (montantEncaisseField != null && montantEncaisseField.getText().trim().isEmpty()) {
+                errors.add("Le montant encaissé est obligatoire (règle : pas d'affaire sans paiement)");
             }
-        } catch (Exception e) {
-            // Ignorer si les montants ne sont pas valides
+
+            if (dateEncaissementPicker != null && dateEncaissementPicker.getValue() == null) {
+                errors.add("La date d'encaissement est obligatoire");
+            }
+
+            if (modeReglementComboBox != null && modeReglementComboBox.getValue() == null) {
+                errors.add("Le mode de règlement est obligatoire");
+            }
+
+            // Validation spécifique selon le mode
+            if (modeReglementComboBox != null && modeReglementComboBox.getValue() != null) {
+                ModeReglement mode = modeReglementComboBox.getValue();
+                if (mode.isNecessiteBanque() && banqueComboBox != null && banqueComboBox.getValue() == null) {
+                    errors.add("La banque est obligatoire pour ce mode de règlement");
+                }
+                if (mode.isNecessiteReference() && numeroChequeField != null && numeroChequeField.getText().trim().isEmpty()) {
+                    errors.add("La référence est obligatoire pour ce mode de règlement");
+                }
+            }
         }
+
+        // Validation des contraventions
+        if (contraventionsList != null && contraventionsList.isEmpty()) {
+            errors.add("Au moins une contravention doit être ajoutée");
+        }
+
+        // Affichage des erreurs
+        if (!errors.isEmpty()) {
+            AlertUtil.showErrorAlert("Validation",
+                    "Veuillez corriger les erreurs suivantes :",
+                    String.join("\n", errors));
+            return false;
+        }
+
+        return true;
     }
 
     private void setupEventHandlers() {
@@ -1104,8 +1011,6 @@ public class AffaireFormController implements Initializable {
             statutLabel.getStyleClass().add("status-open");
         }
 
-        setupRealTimeValidation();
-
         // ENRICHISSEMENT : Message sur l'encaissement obligatoire
         Alert info = new Alert(Alert.AlertType.INFORMATION);
         info.setTitle("Information importante");
@@ -1221,7 +1126,13 @@ public class AffaireFormController implements Initializable {
         Affaire affaire = isEditMode ? currentAffaire : new Affaire();
 
         if (contrevenantComboBox != null) affaire.setContrevenant(contrevenantComboBox.getValue());
-        if (montantAmendeField != null) affaire.setMontantAmendeTotal(CurrencyFormatter.parse(montantAmendeField.getText()));
+        if (montantAmendeField != null) {
+            try {
+                affaire.setMontantAmendeTotal(parseMontant(montantAmendeField.getText()));
+            } catch (Exception e) {
+                affaire.setMontantAmendeTotal(BigDecimal.ZERO);
+            }
+        }
         if (bureauComboBox != null) affaire.setBureau(bureauComboBox.getValue());
         if (serviceComboBox != null) affaire.setService(serviceComboBox.getValue());
         if (observationsArea != null) affaire.setObservations(observationsArea.getText());
@@ -1252,7 +1163,11 @@ public class AffaireFormController implements Initializable {
         Encaissement encaissement = new Encaissement();
 
         if (montantEncaisseField != null) {
-            encaissement.setMontantEncaisse(CurrencyFormatter.parse(montantEncaisseField.getText()));
+            try {
+                encaissement.setMontantEncaisse(parseMontant(montantEncaisseField.getText()));
+            } catch (Exception e) {
+                encaissement.setMontantEncaisse(BigDecimal.ZERO);
+            }
         }
         if (dateEncaissementPicker != null) {
             encaissement.setDateEncaissement(dateEncaissementPicker.getValue());
@@ -1300,63 +1215,6 @@ public class AffaireFormController implements Initializable {
         }
 
         return acteurs;
-    }
-
-    /**
-     * Valide le formulaire complet
-     */
-    private boolean validateForm() {
-        List<String> errors = new ArrayList<>();
-
-        // Validation de l'affaire
-        if (contrevenantComboBox != null && contrevenantComboBox.getValue() == null) {
-            errors.add("Le contrevenant est obligatoire");
-        }
-
-        if (montantAmendeField != null && montantAmendeField.getText().trim().isEmpty()) {
-            errors.add("Le montant de l'amende est obligatoire");
-        }
-
-        // ENRICHISSEMENT : Validation du premier encaissement
-        if (!isEditMode) {
-            if (montantEncaisseField != null && montantEncaisseField.getText().trim().isEmpty()) {
-                errors.add("Le montant encaissé est obligatoire (règle : pas d'affaire sans paiement)");
-            }
-
-            if (dateEncaissementPicker != null && dateEncaissementPicker.getValue() == null) {
-                errors.add("La date d'encaissement est obligatoire");
-            }
-
-            if (modeReglementComboBox != null && modeReglementComboBox.getValue() == null) {
-                errors.add("Le mode de règlement est obligatoire");
-            }
-
-            // Validation spécifique selon le mode
-            if (modeReglementComboBox != null && modeReglementComboBox.getValue() != null) {
-                ModeReglement mode = modeReglementComboBox.getValue();
-                if (mode.isNecessiteBanque() && banqueComboBox != null && banqueComboBox.getValue() == null) {
-                    errors.add("La banque est obligatoire pour ce mode de règlement");
-                }
-                if (mode.isNecessiteReference() && numeroChequeField != null && numeroChequeField.getText().trim().isEmpty()) {
-                    errors.add("La référence est obligatoire pour ce mode de règlement");
-                }
-            }
-        }
-
-        // Validation des contraventions
-        if (contraventionsList != null && contraventionsList.isEmpty()) {
-            errors.add("Au moins une contravention doit être ajoutée");
-        }
-
-        // Affichage des erreurs
-        if (!errors.isEmpty()) {
-            AlertUtil.showErrorAlert("Validation",
-                    "Veuillez corriger les erreurs suivantes :",
-                    String.join("\n", errors));
-            return false;
-        }
-
-        return true;
     }
 
     // Méthodes d'action
@@ -1533,10 +1391,26 @@ public class AffaireFormController implements Initializable {
         if (label == null) return;
 
         try {
-            BigDecimal value = CurrencyFormatter.parse(montant);
+            BigDecimal value = parseMontant(montant);
             label.setText(NumberToWords.convert(value.longValue()) + " francs CFA");
         } catch (Exception e) {
             label.setText("");
+        }
+    }
+
+    /**
+     * Parse un montant depuis une chaîne
+     */
+    private BigDecimal parseMontant(String montant) {
+        if (montant == null || montant.trim().isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+        try {
+            // Utiliser la méthode parse de CurrencyFormatter qui retourne un double
+            double value = CurrencyFormatter.parse(montant);
+            return BigDecimal.valueOf(value);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Format de montant invalide: " + montant);
         }
     }
 

@@ -21,11 +21,6 @@ import com.regulation.contentieux.model.enums.StatutEncaissement;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.sql.Connection;
-import java.sql.Date;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -48,9 +43,9 @@ public class RapportService {
     private AffaireDAO affaireDAO = new AffaireDAO();
     private EncaissementDAO encaissementDAO = new EncaissementDAO();
     private AgentDAO agentDAO = new AgentDAO();
-    private final ServiceDAO serviceDAO = new ServiceDAO();
-    private final CentreDAO centreDAO = new CentreDAO();
-    private final RepartitionService repartitionService = new RepartitionService();
+    private ServiceDAO serviceDAO = new ServiceDAO();
+    private CentreDAO centreDAO = new CentreDAO();
+    private RepartitionService repartitionService = new RepartitionService();
 
     private ContraventionDAO contraventionDAO; // CORRECTION : Variable manquante
 
@@ -61,10 +56,18 @@ public class RapportService {
     // Constante pour les rôles spéciaux
     private static final String RoleSpecial = "ROLE_SPECIAL"; // CORRECTION : Variable manquante
 
-    public RapportService(ContraventionDAO contraventionDAO) {
-        this.affaireDAO = new AffaireDAO();
+    public RapportService() {
         this.encaissementDAO = new EncaissementDAO();
+        this.affaireDAO = new AffaireDAO();
         this.agentDAO = new AgentDAO();
+        this.serviceDAO = new ServiceDAO();
+        this.centreDAO = new CentreDAO();
+        this.repartitionService = new RepartitionService();
+        this.contraventionDAO = new ContraventionDAO();
+    }
+
+    public RapportService(ContraventionDAO contraventionDAO) {
+        this();
         this.contraventionDAO = contraventionDAO;
     }
 

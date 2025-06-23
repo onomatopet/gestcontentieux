@@ -111,7 +111,7 @@ public class RapportController implements Initializable {
     private static final NumberFormat CURRENCY_FORMATTER = NumberFormat.getCurrencyInstance(Locale.FRANCE);
 
     // Services
-    private RapportService rapportService = Pnew RapportService();
+    private RapportService rapportService;
     private final ExportService exportService = new ExportService();
     private final PrintService printService = new PrintService();
 
@@ -122,8 +122,15 @@ public class RapportController implements Initializable {
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-        // CORRECTION : Initialiser RapportService avec ContraventionDAO
-        initializeServices();
+        // CORRECTION : Initialiser RapportService avec gestion d'erreurs
+        try {
+            ContraventionDAO contraventionDAO = new ContraventionDAO();
+            this.rapportService = new RapportService(contraventionDAO);
+        } catch (Exception e) {
+            logger.error("Erreur lors de l'initialisation des services", e);
+            // Fallback : utiliser un constructeur par défaut si disponible
+            this.rapportService = new RapportService();
+        }
 
         if (webView != null) {
             webEngine = webView.getEngine();

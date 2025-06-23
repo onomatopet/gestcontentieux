@@ -6,6 +6,7 @@ import java.util.Objects;
 /**
  * Entité représentant un agent de la régulation
  * Un agent peut verbaliser et gérer des affaires contentieuses
+ * ENRICHI : Ajout du roleSpecial pour DD et DG
  */
 public class Agent {
 
@@ -18,6 +19,9 @@ public class Agent {
     private String telephone;
     private Boolean actif; // Changé de boolean à Boolean pour la compatibilité
     private Long serviceId; // Ajout pour compatibilité avec DAO
+
+    // ENRICHISSEMENT : Rôle spécial (DD, DG, etc.)
+    private String roleSpecial;
 
     // Relations
     private Service service;
@@ -53,9 +57,14 @@ public class Agent {
 
     /**
      * Retourne le nom d'affichage (Code - Nom complet)
+     * ENRICHI : Inclut le rôle spécial si présent
      */
     public String getDisplayName() {
-        return codeAgent + " - " + getNomComplet();
+        String display = codeAgent + " - " + getNomComplet();
+        if (hasRoleSpecial()) {
+            display += " (" + roleSpecial + ")";
+        }
+        return display;
     }
 
     /**
@@ -73,10 +82,43 @@ public class Agent {
     }
 
     /**
+     * ENRICHISSEMENT : Vérifie si l'agent a un rôle spécial
+     */
+    public boolean hasRoleSpecial() {
+        return roleSpecial != null && !roleSpecial.trim().isEmpty();
+    }
+
+    /**
+     * ENRICHISSEMENT : Vérifie si l'agent est DD
+     */
+    public boolean isDD() {
+        return "DD".equals(roleSpecial);
+    }
+
+    /**
+     * ENRICHISSEMENT : Vérifie si l'agent est DG
+     */
+    public boolean isDG() {
+        return "DG".equals(roleSpecial);
+    }
+
+    /**
+     * ENRICHISSEMENT : Vérifie si l'agent est DD ou DG
+     */
+    public boolean isDDorDG() {
+        return isDD() || isDG();
+    }
+
+    /**
      * Retourne une représentation courte
+     * ENRICHI : Inclut le rôle spécial
      */
     public String getShortDisplay() {
-        return codeAgent + " (" + nom + ")";
+        String display = codeAgent + " (" + nom + ")";
+        if (hasRoleSpecial()) {
+            display = "[" + roleSpecial + "] " + display;
+        }
+        return display;
     }
 
     // Getters et Setters
@@ -181,6 +223,17 @@ public class Agent {
 
     public void setBureau(Bureau bureau) {
         this.bureau = bureau;
+    }
+
+    /**
+     * ENRICHISSEMENT : Getter/Setter pour roleSpecial
+     */
+    public String getRoleSpecial() {
+        return roleSpecial;
+    }
+
+    public void setRoleSpecial(String roleSpecial) {
+        this.roleSpecial = roleSpecial;
     }
 
     public String getCreatedBy() {

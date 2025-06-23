@@ -5,25 +5,32 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.stream.Collectors;
+
+import com.regulation.contentieux.dao.*;
+import com.regulation.contentieux.model.*;
+import com.regulation.contentieux.model.enums.*;
+import com.regulation.contentieux.util.CurrencyFormatter;
+import com.regulation.contentieux.util.DateFormatter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.*;
+import java.util.stream.Collectors;
+
 import java.util.List;
 import java.util.Map;
 
 import com.regulation.contentieux.dao.AffaireDAO;
 import com.regulation.contentieux.dao.EncaissementDAO;
 import com.regulation.contentieux.dao.AgentDAO;
-import com.regulation.contentieux.dao.ContraventionDAO;
 import com.regulation.contentieux.model.Affaire;
-import com.regulation.contentieux.model.Contravention;
 import com.regulation.contentieux.model.Encaissement;
-import com.regulation.contentieux.model.Agent;
 import com.regulation.contentieux.model.enums.StatutAffaire;
 import com.regulation.contentieux.model.enums.StatutEncaissement;
 import com.regulation.contentieux.util.CurrencyFormatter;
-import com.regulation.contentieux.util.DateFormatter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,9 +46,12 @@ public class RapportService {
     private static final BigDecimal POURCENTAGE_ETAT = new BigDecimal("60.00");
     private static final BigDecimal POURCENTAGE_COLLECTIVITE = new BigDecimal("40.00");
 
-    private final AffaireDAO affaireDAO;
-    private final EncaissementDAO encaissementDAO;
-    private final AgentDAO agentDAO;
+    private AffaireDAO affaireDAO = new AffaireDAO();
+    private EncaissementDAO encaissementDAO = new EncaissementDAO();
+    private AgentDAO agentDAO = new AgentDAO();
+    private final ServiceDAO serviceDAO = new ServiceDAO();
+    private final CentreDAO centreDAO = new CentreDAO();
+    private final RepartitionService repartitionService = new RepartitionService();
 
     public RapportService() {
         this.affaireDAO = new AffaireDAO();
@@ -50,6 +60,711 @@ public class RapportService {
     }
 
     // ==================== RAPPORT PRINCIPAL DE RÉTROCESSION ====================
+
+    // ==================== TEMPLATE 1: ÉTAT DE RÉPARTITION DES AFFAIRES CONTENTIEUSES ====================
+
+    /**
+     * Génère le rapport HTML pour l'état de répartition (Template 1)
+     */
+    public String genererHtmlEtatRepartition(LocalDate dateDebut, LocalDate dateFin) {
+        logger.info("📊 Génération du rapport État de Répartition - {} au {}", dateDebut, dateFin);
+
+        StringBuilder html = new StringBuilder();
+
+        // En-tête du rapport
+        html.append(genererEnTeteRapport("ÉTAT DE RÉPARTITION DES AFFAIRES CONTENTIEUSES", dateDebut, dateFin));
+
+        // Tableau principal
+        html.append("""
+            <table class="rapport-table">
+                <thead>
+                    <tr>
+                        <th>N° encaissement<br/>et Date</th>
+                        <th>N° Affaire<br/>et Date</th>
+                        <th>Produit<br/>disponible</th>
+                        <th>Direction<br/>Départementale</th>
+                        <th>Indicateur</th>
+                        <th>Produit net</th>
+                        <th>FLCF</th>
+                        <th>Trésor</th>
+                        <th>Produit net<br/>ayants droits</th>
+                        <th>Chefs</th>
+                        <th>Saisissants</th>
+                        <th>Mutuelle<br/>nationale</th>
+                        <th>Masse<br/>commune</th>
+                        <th>Intéressement</th>
+                    </tr>
+                </thead>
+                <tbody>
+        """);
+
+        // Récupérer les données
+        List<Encaissement> encaissements = encaissementDAO.findByPeriode(dateDebut, dateFin);
+        BigDecimal totalProduitDisponible = BigDecimal.ZERO;
+        BigDecimal totalDD = BigDecimal.ZERO;
+        BigDecimal totalIndicateur = BigDecimal.ZERO;
+        BigDecimal totalProduitNet = BigDecimal.ZERO;
+        BigDecimal totalFLCF = BigDecimal.ZERO;
+        BigDecimal totalTresor = BigDecimal.ZERO;
+        BigDecimal totalProduitNetAyantsDroits = BigDecimal.ZERO;
+        BigDecimal totalChefs = BigDecimal.ZERO;
+        BigDecimal totalSaisissants = BigDecimal.ZERO;
+        BigDecimal totalMutuelle = BigDecimal.ZERO;
+        BigDecimal totalMasseCommune = BigDecimal.ZERO;
+        BigDecimal totalInteressement = BigDecimal.ZERO;
+
+        for (Encaissement enc : encaissements) {
+            if (enc.getAffaire() == null) continue;
+
+            // Calculer la répartition
+            RepartitionResultat repartition = repartitionService.calculerRepartition(enc);
+
+            html.append("<tr>");
+            html.append("<td>").append(enc.getReference()).append("<br/>")
+                    .append(DateFormatter.format(enc.getDateEncaissement())).append("</td>");
+            html.append("<td>").append(enc.getAffaire().getNumeroAffaire()).append("<br/>")
+                    .append(DateFormatter.format(enc.getAffaire().getDateCreation())).append("</td>");
+            html.append("<td class='montant'>").append(CurrencyFormatter.format(repartition.getProduitDisponible())).append("</td>");
+            html.append("<td class='montant'>").append(CurrencyFormatter.format(repartition.getPartDD())).append("</td>");
+            html.append("<td class='montant'>").append(CurrencyFormatter.format(repartition.getPartIndicateur())).append("</td>");
+            html.append("<td class='montant'>").append(CurrencyFormatter.format(repartition.getProduitNet())).append("</td>");
+            html.append("<td class='montant'>").append(CurrencyFormatter.format(repartition.getPartFLCF())).append("</td>");
+            html.append("<td class='montant'>").append(CurrencyFormatter.format(repartition.getPartTresor())).append("</td>");
+            html.append("<td class='montant'>").append(CurrencyFormatter.format(repartition.getProduitNetAyantsDroits())).append("</td>");
+            html.append("<td class='montant'>").append(CurrencyFormatter.format(repartition.getPartChefs())).append("</td>");
+            html.append("<td class='montant'>").append(CurrencyFormatter.format(repartition.getPartSaisissants())).append("</td>");
+            html.append("<td class='montant'>").append(CurrencyFormatter.format(repartition.getPartMutuelle())).append("</td>");
+            html.append("<td class='montant'>").append(CurrencyFormatter.format(repartition.getPartMasseCommune())).append("</td>");
+            html.append("<td class='montant'>").append(CurrencyFormatter.format(repartition.getPartInteressement())).append("</td>");
+            html.append("</tr>");
+
+            // Accumuler les totaux
+            totalProduitDisponible = totalProduitDisponible.add(repartition.getProduitDisponible());
+            totalDD = totalDD.add(repartition.getPartDD());
+            totalIndicateur = totalIndicateur.add(repartition.getPartIndicateur());
+            totalProduitNet = totalProduitNet.add(repartition.getProduitNet());
+            totalFLCF = totalFLCF.add(repartition.getPartFLCF());
+            totalTresor = totalTresor.add(repartition.getPartTresor());
+            totalProduitNetAyantsDroits = totalProduitNetAyantsDroits.add(repartition.getProduitNetAyantsDroits());
+            totalChefs = totalChefs.add(repartition.getPartChefs());
+            totalSaisissants = totalSaisissants.add(repartition.getPartSaisissants());
+            totalMutuelle = totalMutuelle.add(repartition.getPartMutuelle());
+            totalMasseCommune = totalMasseCommune.add(repartition.getPartMasseCommune());
+            totalInteressement = totalInteressement.add(repartition.getPartInteressement());
+        }
+
+        // Ligne de total
+        html.append("""
+            <tr class='total-row'>
+                <td colspan='2'><strong>TOTAL</strong></td>
+                <td class='montant'><strong>%s</strong></td>
+                <td class='montant'><strong>%s</strong></td>
+                <td class='montant'><strong>%s</strong></td>
+                <td class='montant'><strong>%s</strong></td>
+                <td class='montant'><strong>%s</strong></td>
+                <td class='montant'><strong>%s</strong></td>
+                <td class='montant'><strong>%s</strong></td>
+                <td class='montant'><strong>%s</strong></td>
+                <td class='montant'><strong>%s</strong></td>
+                <td class='montant'><strong>%s</strong></td>
+                <td class='montant'><strong>%s</strong></td>
+                <td class='montant'><strong>%s</strong></td>
+            </tr>
+        """.formatted(
+                CurrencyFormatter.format(totalProduitDisponible),
+                CurrencyFormatter.format(totalDD),
+                CurrencyFormatter.format(totalIndicateur),
+                CurrencyFormatter.format(totalProduitNet),
+                CurrencyFormatter.format(totalFLCF),
+                CurrencyFormatter.format(totalTresor),
+                CurrencyFormatter.format(totalProduitNetAyantsDroits),
+                CurrencyFormatter.format(totalChefs),
+                CurrencyFormatter.format(totalSaisissants),
+                CurrencyFormatter.format(totalMutuelle),
+                CurrencyFormatter.format(totalMasseCommune),
+                CurrencyFormatter.format(totalInteressement)
+        ));
+
+        html.append("</tbody></table>");
+
+        // Pied de page
+        html.append(genererPiedDePageRapport());
+
+        return html.toString();
+    }
+
+    // ==================== TEMPLATE 2: ÉTAT PAR SÉRIES DE MANDATEMENT ====================
+
+    /**
+     * Génère le rapport HTML pour l'état par séries de mandatement (Template 2)
+     */
+    public String genererHtmlEtatMandatement(LocalDate dateDebut, LocalDate dateFin) {
+        logger.info("📊 Génération du rapport État par Séries de Mandatement - {} au {}", dateDebut, dateFin);
+
+        StringBuilder html = new StringBuilder();
+
+        // En-tête
+        html.append(genererEnTeteRapport("ÉTAT PAR SÉRIES DE MANDATEMENT", dateDebut, dateFin));
+
+        // Tableau
+        html.append("""
+            <table class="rapport-table">
+                <thead>
+                    <tr>
+                        <th rowspan="2">N° encaissement<br/>et Date</th>
+                        <th rowspan="2">N° Affaire<br/>et Date</th>
+                        <th rowspan="2">Produit net</th>
+                        <th colspan="5">Part revenant aux</th>
+                        <th rowspan="2">Observations</th>
+                    </tr>
+                    <tr>
+                        <th>Chefs</th>
+                        <th>Saisissants</th>
+                        <th>Mutuelle<br/>nationale</th>
+                        <th>Masse<br/>commune</th>
+                        <th>Intéressement</th>
+                    </tr>
+                </thead>
+                <tbody>
+        """);
+
+        // Données
+        List<Encaissement> encaissements = encaissementDAO.findByPeriode(dateDebut, dateFin);
+
+        for (Encaissement enc : encaissements) {
+            if (enc.getAffaire() == null) continue;
+
+            RepartitionResultat repartition = repartitionService.calculerRepartition(enc);
+
+            html.append("<tr>");
+            html.append("<td>").append(enc.getReference()).append("<br/>")
+                    .append(DateFormatter.format(enc.getDateEncaissement())).append("</td>");
+            html.append("<td>").append(enc.getAffaire().getNumeroAffaire()).append("<br/>")
+                    .append(DateFormatter.format(enc.getAffaire().getDateCreation())).append("</td>");
+            html.append("<td class='montant'>").append(CurrencyFormatter.format(repartition.getProduitNet())).append("</td>");
+            html.append("<td class='montant'>").append(CurrencyFormatter.format(repartition.getPartChefs())).append("</td>");
+            html.append("<td class='montant'>").append(CurrencyFormatter.format(repartition.getPartSaisissants())).append("</td>");
+            html.append("<td class='montant'>").append(CurrencyFormatter.format(repartition.getPartMutuelle())).append("</td>");
+            html.append("<td class='montant'>").append(CurrencyFormatter.format(repartition.getPartMasseCommune())).append("</td>");
+            html.append("<td class='montant'>").append(CurrencyFormatter.format(repartition.getPartInteressement())).append("</td>");
+            html.append("<td>").append(enc.getObservations() != null ? enc.getObservations() : "").append("</td>");
+            html.append("</tr>");
+        }
+
+        html.append("</tbody></table>");
+        html.append(genererPiedDePageRapport());
+
+        return html.toString();
+    }
+
+    // ==================== TEMPLATE 3: ÉTAT CUMULÉ PAR CENTRE DE RÉPARTITION ====================
+
+    /**
+     * Génère le rapport HTML pour l'état cumulé par centre (Template 3)
+     */
+    public String genererHtmlEtatParCentre(LocalDate dateDebut, LocalDate dateFin) {
+        logger.info("📊 Génération du rapport État Cumulé par Centre - {} au {}", dateDebut, dateFin);
+
+        StringBuilder html = new StringBuilder();
+
+        // En-tête
+        html.append(genererEnTeteRapport("ÉTAT CUMULÉ PAR CENTRE DE RÉPARTITION", dateDebut, dateFin));
+
+        // Tableau
+        html.append("""
+            <table class="rapport-table">
+                <thead>
+                    <tr>
+                        <th rowspan="2">Centre de répartition</th>
+                        <th colspan="2">Part revenant au centre au titre de</th>
+                        <th rowspan="2">Part centre</th>
+                    </tr>
+                    <tr>
+                        <th>Répartition de base</th>
+                        <th>Répartition part indic. fictif</th>
+                    </tr>
+                </thead>
+                <tbody>
+        """);
+
+        // Récupérer et calculer par centre
+        List<Centre> centres = centreDAO.findAll();
+        BigDecimal totalBase = BigDecimal.ZERO;
+        BigDecimal totalIndicateur = BigDecimal.ZERO;
+        BigDecimal totalCentre = BigDecimal.ZERO;
+
+        for (Centre centre : centres) {
+            BigDecimal partBase = calculerPartBaseCentre(centre, dateDebut, dateFin);
+            BigDecimal partIndicateur = calculerPartIndicateurCentre(centre, dateDebut, dateFin);
+            BigDecimal partTotale = partBase.add(partIndicateur);
+
+            if (partTotale.compareTo(BigDecimal.ZERO) > 0) {
+                html.append("<tr>");
+                html.append("<td>").append(centre.getNomCentre()).append("</td>");
+                html.append("<td class='montant'>").append(CurrencyFormatter.format(partBase)).append("</td>");
+                html.append("<td class='montant'>").append(CurrencyFormatter.format(partIndicateur)).append("</td>");
+                html.append("<td class='montant'><strong>").append(CurrencyFormatter.format(partTotale)).append("</strong></td>");
+                html.append("</tr>");
+
+                totalBase = totalBase.add(partBase);
+                totalIndicateur = totalIndicateur.add(partIndicateur);
+                totalCentre = totalCentre.add(partTotale);
+            }
+        }
+
+        // Ligne de total
+        html.append("""
+            <tr class='total-row'>
+                <td><strong>TOTAL</strong></td>
+                <td class='montant'><strong>%s</strong></td>
+                <td class='montant'><strong>%s</strong></td>
+                <td class='montant'><strong>%s</strong></td>
+            </tr>
+        """.formatted(
+                CurrencyFormatter.format(totalBase),
+                CurrencyFormatter.format(totalIndicateur),
+                CurrencyFormatter.format(totalCentre)
+        ));
+
+        html.append("</tbody></table>");
+        html.append(genererPiedDePageRapport());
+
+        return html.toString();
+    }
+
+    // ==================== TEMPLATE 4: ÉTAT DE RÉPARTITION DES PARTS DES INDICATEURS RÉELS ====================
+
+    /**
+     * Génère le rapport HTML pour les indicateurs réels (Template 4)
+     */
+    public String genererHtmlIndicateursReels(LocalDate dateDebut, LocalDate dateFin) {
+        logger.info("📊 Génération du rapport Indicateurs Réels - {} au {}", dateDebut, dateFin);
+
+        StringBuilder html = new StringBuilder();
+
+        // En-tête
+        html.append(genererEnTeteRapport("ÉTAT DE RÉPARTITION DES PARTS DES INDICATEURS RÉELS", dateDebut, dateFin));
+
+        // Grouper par service
+        Map<Service, List<Encaissement>> encaissementsParService = grouperEncaissementsParService(dateDebut, dateFin);
+
+        for (Map.Entry<Service, List<Encaissement>> entry : encaissementsParService.entrySet()) {
+            Service service = entry.getKey();
+            List<Encaissement> encaissements = entry.getValue();
+
+            if (encaissements.isEmpty()) continue;
+
+            // En-tête de service
+            html.append("<h3>Service : ").append(service.getNomService()).append("</h3>");
+
+            // Tableau pour ce service
+            html.append("""
+                <table class="rapport-table">
+                    <thead>
+                        <tr>
+                            <th>N° encaissement<br/>et Date</th>
+                            <th>N° Affaire<br/>et Date</th>
+                            <th>Noms des<br/>contrevenants</th>
+                            <th>Contraventions</th>
+                            <th>Montant<br/>encaissement</th>
+                            <th>Part<br/>indicateur</th>
+                            <th>Observations</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            """);
+
+            BigDecimal totalMontant = BigDecimal.ZERO;
+            BigDecimal totalIndicateur = BigDecimal.ZERO;
+
+            for (Encaissement enc : encaissements) {
+                if (enc.getAffaire() == null) continue;
+
+                RepartitionResultat repartition = repartitionService.calculerRepartition(enc);
+
+                html.append("<tr>");
+                html.append("<td>").append(enc.getReference()).append("<br/>")
+                        .append(DateFormatter.format(enc.getDateEncaissement())).append("</td>");
+                html.append("<td>").append(enc.getAffaire().getNumeroAffaire()).append("<br/>")
+                        .append(DateFormatter.format(enc.getAffaire().getDateCreation())).append("</td>");
+                html.append("<td>").append(enc.getAffaire().getContrevenant() != null ?
+                        enc.getAffaire().getContrevenant().getNomComplet() : "").append("</td>");
+                html.append("<td>").append(getContraventionsAffaire(enc.getAffaire())).append("</td>");
+                html.append("<td class='montant'>").append(CurrencyFormatter.format(enc.getMontantEncaisse())).append("</td>");
+                html.append("<td class='montant'>").append(CurrencyFormatter.format(repartition.getPartIndicateur())).append("</td>");
+                html.append("<td>").append(enc.getObservations() != null ? enc.getObservations() : "").append("</td>");
+                html.append("</tr>");
+
+                totalMontant = totalMontant.add(enc.getMontantEncaisse());
+                totalIndicateur = totalIndicateur.add(repartition.getPartIndicateur());
+            }
+
+            // Total pour ce service
+            html.append("""
+                <tr class='total-row'>
+                    <td colspan='4'><strong>TOTAL SERVICE</strong></td>
+                    <td class='montant'><strong>%s</strong></td>
+                    <td class='montant'><strong>%s</strong></td>
+                    <td></td>
+                </tr>
+            """.formatted(
+                    CurrencyFormatter.format(totalMontant),
+                    CurrencyFormatter.format(totalIndicateur)
+            ));
+
+            html.append("</tbody></table><br/>");
+        }
+
+        html.append(genererPiedDePageRapport());
+
+        return html.toString();
+    }
+
+    // ==================== TEMPLATE 5: ÉTAT DE RÉPARTITION DU PRODUIT DES AFFAIRES CONTENTIEUSES ====================
+
+    /**
+     * Génère le rapport HTML pour la répartition du produit (Template 5)
+     */
+    public String genererHtmlRepartitionProduit(LocalDate dateDebut, LocalDate dateFin) {
+        logger.info("📊 Génération du rapport Répartition du Produit - {} au {}", dateDebut, dateFin);
+
+        StringBuilder html = new StringBuilder();
+
+        // En-tête
+        html.append(genererEnTeteRapport("ÉTAT DE RÉPARTITION DU PRODUIT DES AFFAIRES CONTENTIEUSES", dateDebut, dateFin));
+
+        // Tableau
+        html.append("""
+            <table class="rapport-table">
+                <thead>
+                    <tr>
+                        <th>N° encaissement<br/>et Date</th>
+                        <th>N° Affaire<br/>et Date</th>
+                        <th>Noms des<br/>contrevenants</th>
+                        <th>Noms des<br/>contraventions</th>
+                        <th>Produit<br/>disponible</th>
+                        <th>Part<br/>indicateur</th>
+                        <th>Part Direction<br/>contentieux</th>
+                        <th>Part<br/>indicateur</th>
+                        <th>FLCF</th>
+                        <th>Montant<br/>Trésor</th>
+                        <th>Montant Global<br/>ayants droits</th>
+                    </tr>
+                </thead>
+                <tbody>
+        """);
+
+        // Données
+        List<Encaissement> encaissements = encaissementDAO.findByPeriode(dateDebut, dateFin);
+        BigDecimal totalDisponible = BigDecimal.ZERO;
+        BigDecimal totalIndicateur = BigDecimal.ZERO;
+        BigDecimal totalDirection = BigDecimal.ZERO;
+        BigDecimal totalFLCF = BigDecimal.ZERO;
+        BigDecimal totalTresor = BigDecimal.ZERO;
+        BigDecimal totalAyantsDroits = BigDecimal.ZERO;
+
+        for (Encaissement enc : encaissements) {
+            if (enc.getAffaire() == null) continue;
+
+            RepartitionResultat repartition = repartitionService.calculerRepartition(enc);
+            BigDecimal partDirection = repartition.getPartDD().add(repartition.getPartDG());
+
+            html.append("<tr>");
+            html.append("<td>").append(enc.getReference()).append("<br/>")
+                    .append(DateFormatter.format(enc.getDateEncaissement())).append("</td>");
+            html.append("<td>").append(enc.getAffaire().getNumeroAffaire()).append("<br/>")
+                    .append(DateFormatter.format(enc.getAffaire().getDateCreation())).append("</td>");
+            html.append("<td>").append(enc.getAffaire().getContrevenant() != null ?
+                    enc.getAffaire().getContrevenant().getNomComplet() : "").append("</td>");
+            html.append("<td>").append(getContraventionsAffaire(enc.getAffaire())).append("</td>");
+            html.append("<td class='montant'>").append(CurrencyFormatter.format(repartition.getProduitDisponible())).append("</td>");
+            html.append("<td class='montant'>").append(CurrencyFormatter.format(repartition.getPartIndicateur())).append("</td>");
+            html.append("<td class='montant'>").append(CurrencyFormatter.format(partDirection)).append("</td>");
+            html.append("<td class='montant'>").append(CurrencyFormatter.format(repartition.getPartIndicateur())).append("</td>");
+            html.append("<td class='montant'>").append(CurrencyFormatter.format(repartition.getPartFLCF())).append("</td>");
+            html.append("<td class='montant'>").append(CurrencyFormatter.format(repartition.getPartTresor())).append("</td>");
+            html.append("<td class='montant'>").append(CurrencyFormatter.format(repartition.getProduitNetAyantsDroits())).append("</td>");
+            html.append("</tr>");
+
+            totalDisponible = totalDisponible.add(repartition.getProduitDisponible());
+            totalIndicateur = totalIndicateur.add(repartition.getPartIndicateur());
+            totalDirection = totalDirection.add(partDirection);
+            totalFLCF = totalFLCF.add(repartition.getPartFLCF());
+            totalTresor = totalTresor.add(repartition.getPartTresor());
+            totalAyantsDroits = totalAyantsDroits.add(repartition.getProduitNetAyantsDroits());
+        }
+
+        // Ligne de total
+        html.append("""
+            <tr class='total-row'>
+                <td colspan='4'><strong>TOTAL</strong></td>
+                <td class='montant'><strong>%s</strong></td>
+                <td class='montant'><strong>%s</strong></td>
+                <td class='montant'><strong>%s</strong></td>
+                <td class='montant'><strong>%s</strong></td>
+                <td class='montant'><strong>%s</strong></td>
+                <td class='montant'><strong>%s</strong></td>
+                <td class='montant'><strong>%s</strong></td>
+            </tr>
+        """.formatted(
+                CurrencyFormatter.format(totalDisponible),
+                CurrencyFormatter.format(totalIndicateur),
+                CurrencyFormatter.format(totalDirection),
+                CurrencyFormatter.format(totalIndicateur),
+                CurrencyFormatter.format(totalFLCF),
+                CurrencyFormatter.format(totalTresor),
+                CurrencyFormatter.format(totalAyantsDroits)
+        ));
+
+        html.append("</tbody></table>");
+        html.append(genererPiedDePageRapport());
+
+        return html.toString();
+    }
+
+    // ==================== TEMPLATE 6: ÉTAT CUMULÉ PAR AGENT ====================
+
+    /**
+     * Génère le rapport HTML pour l'état cumulé par agent (Template 6)
+     */
+    public String genererHtmlEtatParAgent(LocalDate dateDebut, LocalDate dateFin) {
+        logger.info("📊 Génération du rapport État Cumulé par Agent - {} au {}", dateDebut, dateFin);
+
+        StringBuilder html = new StringBuilder();
+
+        // En-tête
+        html.append(genererEnTeteRapport("ÉTAT CUMULÉ PAR AGENT", dateDebut, dateFin));
+
+        // Tableau
+        html.append("""
+            <table class="rapport-table">
+                <thead>
+                    <tr>
+                        <th rowspan="2">Nom de l'agent</th>
+                        <th colspan="4">Part revenant à l'agent après répartition en tant que</th>
+                        <th rowspan="2">Part agent</th>
+                    </tr>
+                    <tr>
+                        <th>Chef</th>
+                        <th>Saisissant</th>
+                        <th>DG</th>
+                        <th>DD</th>
+                    </tr>
+                </thead>
+                <tbody>
+        """);
+
+        // Calculer les parts par agent
+        Map<Agent, Map<String, BigDecimal>> partsParAgent = calculerPartsParAgent(dateDebut, dateFin);
+        BigDecimal totalChef = BigDecimal.ZERO;
+        BigDecimal totalSaisissant = BigDecimal.ZERO;
+        BigDecimal totalDG = BigDecimal.ZERO;
+        BigDecimal totalDD = BigDecimal.ZERO;
+        BigDecimal totalGlobal = BigDecimal.ZERO;
+
+        for (Map.Entry<Agent, Map<String, BigDecimal>> entry : partsParAgent.entrySet()) {
+            Agent agent = entry.getKey();
+            Map<String, BigDecimal> parts = entry.getValue();
+
+            BigDecimal partChef = parts.getOrDefault("CHEF", BigDecimal.ZERO);
+            BigDecimal partSaisissant = parts.getOrDefault("SAISISSANT", BigDecimal.ZERO);
+            BigDecimal partDG = parts.getOrDefault("DG", BigDecimal.ZERO);
+            BigDecimal partDD = parts.getOrDefault("DD", BigDecimal.ZERO);
+            BigDecimal partTotale = partChef.add(partSaisissant).add(partDG).add(partDD);
+
+            if (partTotale.compareTo(BigDecimal.ZERO) > 0) {
+                html.append("<tr>");
+                html.append("<td>").append(agent.getNomComplet()).append("</td>");
+                html.append("<td class='montant'>").append(CurrencyFormatter.format(partChef)).append("</td>");
+                html.append("<td class='montant'>").append(CurrencyFormatter.format(partSaisissant)).append("</td>");
+                html.append("<td class='montant'>").append(CurrencyFormatter.format(partDG)).append("</td>");
+                html.append("<td class='montant'>").append(CurrencyFormatter.format(partDD)).append("</td>");
+                html.append("<td class='montant'><strong>").append(CurrencyFormatter.format(partTotale)).append("</strong></td>");
+                html.append("</tr>");
+
+                totalChef = totalChef.add(partChef);
+                totalSaisissant = totalSaisissant.add(partSaisissant);
+                totalDG = totalDG.add(partDG);
+                totalDD = totalDD.add(partDD);
+                totalGlobal = totalGlobal.add(partTotale);
+            }
+        }
+
+        // Ligne de total
+        html.append("""
+            <tr class='total-row'>
+                <td><strong>TOTAL</strong></td>
+                <td class='montant'><strong>%s</strong></td>
+                <td class='montant'><strong>%s</strong></td>
+                <td class='montant'><strong>%s</strong></td>
+                <td class='montant'><strong>%s</strong></td>
+                <td class='montant'><strong>%s</strong></td>
+            </tr>
+        """.formatted(
+                CurrencyFormatter.format(totalChef),
+                CurrencyFormatter.format(totalSaisissant),
+                CurrencyFormatter.format(totalDG),
+                CurrencyFormatter.format(totalDD),
+                CurrencyFormatter.format(totalGlobal)
+        ));
+
+        html.append("</tbody></table>");
+        html.append(genererPiedDePageRapport());
+
+        return html.toString();
+    }
+
+    // ==================== TEMPLATE 7: TABLEAU DES AMENDES PAR SERVICES ====================
+
+    /**
+     * Génère le rapport HTML pour le tableau des amendes par service (Template 7)
+     */
+    public String genererHtmlTableauAmendesServices(LocalDate dateDebut, LocalDate dateFin) {
+        logger.info("📊 Génération du Tableau des Amendes par Services - {} au {}", dateDebut, dateFin);
+
+        StringBuilder html = new StringBuilder();
+
+        // En-tête
+        html.append(genererEnTeteRapport("TABLEAU DES AMENDES PAR SERVICES", dateDebut, dateFin));
+
+        // Tableau
+        html.append("""
+            <table class="rapport-table">
+                <thead>
+                    <tr>
+                        <th>Services</th>
+                        <th>Nombre d'affaires</th>
+                        <th>Montant</th>
+                        <th>Observations</th>
+                    </tr>
+                </thead>
+                <tbody>
+        """);
+
+        // Statistiques par service
+        Map<Service, ServiceStats> statsParService = calculerStatsParService(dateDebut, dateFin);
+        int totalAffaires = 0;
+        BigDecimal totalMontant = BigDecimal.ZERO;
+
+        for (Map.Entry<Service, ServiceStats> entry : statsParService.entrySet()) {
+            Service service = entry.getKey();
+            ServiceStats stats = entry.getValue();
+
+            html.append("<tr>");
+            html.append("<td>").append(service.getNomService()).append("</td>");
+            html.append("<td class='text-center'>").append(stats.nombreAffaires).append("</td>");
+            html.append("<td class='montant'>").append(CurrencyFormatter.format(stats.montantTotal)).append("</td>");
+            html.append("<td>").append(stats.observations).append("</td>");
+            html.append("</tr>");
+
+            totalAffaires += stats.nombreAffaires;
+            totalMontant = totalMontant.add(stats.montantTotal);
+        }
+
+        // Ligne de total
+        html.append("""
+            <tr class='total-row'>
+                <td><strong>TOTAL</strong></td>
+                <td class='text-center'><strong>%d</strong></td>
+                <td class='montant'><strong>%s</strong></td>
+                <td></td>
+            </tr>
+        """.formatted(totalAffaires, CurrencyFormatter.format(totalMontant)));
+
+        html.append("</tbody></table>");
+        html.append(genererPiedDePageRapport());
+
+        return html.toString();
+    }
+
+    // ==================== TEMPLATE 8: ÉTAT PAR SÉRIES DE MANDATEMENTS (AGENTS) ====================
+
+    /**
+     * Génère le rapport HTML pour l'état de mandatement agents (Template 8)
+     */
+    public String genererHtmlMandatementAgents(LocalDate dateDebut, LocalDate dateFin) {
+        logger.info("📊 Génération du rapport État de Mandatement Agents - {} au {}", dateDebut, dateFin);
+
+        StringBuilder html = new StringBuilder();
+
+        // En-tête
+        html.append(genererEnTeteRapport("ÉTAT PAR SÉRIES DE MANDATEMENTS", dateDebut, dateFin));
+
+        // Tableau
+        html.append("""
+            <table class="rapport-table">
+                <thead>
+                    <tr>
+                        <th rowspan="2">N° encaissement<br/>et Date</th>
+                        <th rowspan="2">N° Affaire<br/>et Date</th>
+                        <th colspan="5">Part revenant à l'agent après répartition en tant que</th>
+                        <th rowspan="2">Part agent</th>
+                    </tr>
+                    <tr>
+                        <th>Chefs</th>
+                        <th>Saisissants</th>
+                        <th>Mutuelle<br/>nationale</th>
+                        <th>D.G</th>
+                        <th>D.D</th>
+                    </tr>
+                </thead>
+                <tbody>
+        """);
+
+        // Pour chaque agent impliqué
+        Map<Agent, List<EncaissementAgent>> encaissementsParAgent = grouperEncaissementsParAgent(dateDebut, dateFin);
+
+        for (Map.Entry<Agent, List<EncaissementAgent>> entry : encaissementsParAgent.entrySet()) {
+            Agent agent = entry.getKey();
+            List<EncaissementAgent> encaissements = entry.getValue();
+
+            // En-tête de l'agent
+            html.append("<tr class='agent-header'>");
+            html.append("<td colspan='8'><strong>Agent : ").append(agent.getNomComplet())
+                    .append(" (").append(agent.getCodeAgent()).append(")</strong></td>");
+            html.append("</tr>");
+
+            BigDecimal totalAgent = BigDecimal.ZERO;
+
+            for (EncaissementAgent encAgent : encaissements) {
+                Encaissement enc = encAgent.encaissement;
+                RepartitionResultat repartition = encAgent.repartition;
+
+                BigDecimal partChef = getPartAgentRole(agent, repartition, "CHEF");
+                BigDecimal partSaisissant = getPartAgentRole(agent, repartition, "SAISISSANT");
+                BigDecimal partMutuelle = BigDecimal.ZERO; // À calculer selon les règles
+                BigDecimal partDG = agent.equals(getDG()) ? repartition.getPartDG() : BigDecimal.ZERO;
+                BigDecimal partDD = agent.equals(getDD()) ? repartition.getPartDD() : BigDecimal.ZERO;
+                BigDecimal partTotale = partChef.add(partSaisissant).add(partMutuelle).add(partDG).add(partDD);
+
+                html.append("<tr>");
+                html.append("<td>").append(enc.getReference()).append("<br/>")
+                        .append(DateFormatter.format(enc.getDateEncaissement())).append("</td>");
+                html.append("<td>").append(enc.getAffaire().getNumeroAffaire()).append("<br/>")
+                        .append(DateFormatter.format(enc.getAffaire().getDateCreation())).append("</td>");
+                html.append("<td class='montant'>").append(CurrencyFormatter.format(partChef)).append("</td>");
+                html.append("<td class='montant'>").append(CurrencyFormatter.format(partSaisissant)).append("</td>");
+                html.append("<td class='montant'>").append(CurrencyFormatter.format(partMutuelle)).append("</td>");
+                html.append("<td class='montant'>").append(CurrencyFormatter.format(partDG)).append("</td>");
+                html.append("<td class='montant'>").append(CurrencyFormatter.format(partDD)).append("</td>");
+                html.append("<td class='montant'><strong>").append(CurrencyFormatter.format(partTotale)).append("</strong></td>");
+                html.append("</tr>");
+
+                totalAgent = totalAgent.add(partTotale);
+            }
+
+            // Total pour cet agent
+            html.append("<tr class='subtotal-row'>");
+            html.append("<td colspan='7' class='text-right'><strong>Total pour l'agent ").append(agent.getNomComplet()).append(" :</strong></td>");
+            html.append("<td class='montant'><strong>").append(CurrencyFormatter.format(totalAgent)).append("</strong></td>");
+            html.append("</tr>");
+        }
+
+        html.append("</tbody></table>");
+        html.append(genererPiedDePageRapport());
+
+        return html.toString();
+    }
 
     /**
      * Génère un rapport de rétrocession pour une période donnée
@@ -584,6 +1299,220 @@ public class RapportService {
     }
 
     // ==================== MÉTHODES UTILITAIRES ====================
+
+    /**
+     * Génère l'en-tête standard des rapports
+     */
+    private String genererEnTeteRapport(String titre, LocalDate dateDebut, LocalDate dateFin) {
+        return """
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>%s</title>
+                <style>
+                    body { font-family: Arial, sans-serif; margin: 20px; }
+                    h1 { text-align: center; margin-bottom: 5px; }
+                    h2 { text-align: center; font-size: 18px; margin-top: 5px; }
+                    h3 { margin-top: 20px; margin-bottom: 10px; }
+                    .periode { text-align: center; margin-bottom: 20px; }
+                    .rapport-table { width: 100%%; border-collapse: collapse; margin: 20px 0; }
+                    .rapport-table th, .rapport-table td { border: 1px solid #000; padding: 5px; }
+                    .rapport-table th { background-color: #f0f0f0; font-weight: bold; text-align: center; }
+                    .montant { text-align: right; }
+                    .text-center { text-align: center; }
+                    .text-right { text-align: right; }
+                    .total-row { background-color: #e0e0e0; font-weight: bold; }
+                    .subtotal-row { background-color: #f5f5f5; }
+                    .agent-header { background-color: #d0d0d0; }
+                    .footer { margin-top: 30px; font-size: 12px; text-align: center; }
+                    @media print {
+                        body { margin: 10px; }
+                        .rapport-table { font-size: 10px; }
+                    }
+                </style>
+            </head>
+            <body>
+                <h1>RÉPUBLIQUE DU CONGO</h1>
+                <h2>MINISTÈRE DES FINANCES ET DU BUDGET</h2>
+                <h2>DIRECTION GÉNÉRALE DES DOUANES ET DES DROITS INDIRECTS</h2>
+                <h1>%s</h1>
+                <div class="periode">Période du %s au %s</div>
+        """.formatted(
+                titre,
+                titre,
+                DateFormatter.format(dateDebut),
+                DateFormatter.format(dateFin)
+        );
+    }
+
+    /**
+     * Génère le pied de page standard des rapports
+     */
+    private String genererPiedDePageRapport() {
+        return """
+                <div class="footer">
+                    <p>Document généré le %s à %s</p>
+                    <p>Système de Gestion des Affaires Contentieuses - v1.0.0</p>
+                </div>
+            </body>
+            </html>
+        """.formatted(
+                DateFormatter.format(LocalDate.now()),
+                DateFormatter.formatTime(LocalDateTime.now())
+        );
+    }
+
+    /**
+     * Méthodes existantes à conserver
+     */
+
+    // Classes internes pour les DTOs
+    public static class ServiceStats {
+        public int nombreAffaires;
+        public BigDecimal montantTotal;
+        public String observations;
+
+        public ServiceStats() {
+            this.nombreAffaires = 0;
+            this.montantTotal = BigDecimal.ZERO;
+            this.observations = "";
+        }
+    }
+
+    public static class EncaissementAgent {
+        public Encaissement encaissement;
+        public RepartitionResultat repartition;
+
+        public EncaissementAgent(Encaissement e, RepartitionResultat r) {
+            this.encaissement = e;
+            this.repartition = r;
+        }
+    }
+
+    // Méthodes utilitaires privées
+
+    private BigDecimal calculerPartBaseCentre(Centre centre, LocalDate dateDebut, LocalDate dateFin) {
+        // Logique de calcul pour la part de base du centre
+        // À implémenter selon les règles métier
+        return BigDecimal.ZERO;
+    }
+
+    private BigDecimal calculerPartIndicateurCentre(Centre centre, LocalDate dateDebut, LocalDate dateFin) {
+        // Logique de calcul pour la part indicateur du centre
+        // À implémenter selon les règles métier
+        return BigDecimal.ZERO;
+    }
+
+    private Map<Service, List<Encaissement>> grouperEncaissementsParService(LocalDate dateDebut, LocalDate dateFin) {
+        List<Encaissement> encaissements = encaissementDAO.findByPeriode(dateDebut, dateFin);
+        return encaissements.stream()
+                .filter(e -> e.getAffaire() != null && e.getAffaire().getService() != null)
+                .collect(Collectors.groupingBy(e -> e.getAffaire().getService()));
+    }
+
+    private String getContraventionsAffaire(Affaire affaire) {
+        // Récupérer la liste des contraventions de l'affaire
+        if (affaire.getContraventions() != null && !affaire.getContraventions().isEmpty()) {
+            return affaire.getContraventions().stream()
+                    .map(Contravention::getLibelle)
+                    .collect(Collectors.joining(", "));
+        }
+        return "";
+    }
+
+    private Map<Agent, Map<String, BigDecimal>> calculerPartsParAgent(LocalDate dateDebut, LocalDate dateFin) {
+        Map<Agent, Map<String, BigDecimal>> resultat = new HashMap<>();
+
+        List<Encaissement> encaissements = encaissementDAO.findByPeriode(dateDebut, dateFin);
+
+        for (Encaissement enc : encaissements) {
+            if (enc.getAffaire() == null) continue;
+
+            RepartitionResultat repartition = repartitionService.calculerRepartition(enc);
+
+            // Traiter chaque part individuelle
+            for (RepartitionResultat.PartIndividuelle part : repartition.getPartsIndividuelles()) {
+                Agent agent = part.getAgent();
+                resultat.computeIfAbsent(agent, k -> new HashMap<>())
+                        .merge(part.getRole(), part.getMontant(), BigDecimal::add);
+            }
+        }
+
+        return resultat;
+    }
+
+    private Map<Service, ServiceStats> calculerStatsParService(LocalDate dateDebut, LocalDate dateFin) {
+        Map<Service, ServiceStats> stats = new HashMap<>();
+
+        List<Affaire> affaires = affaireDAO.findByPeriode(dateDebut, dateFin);
+
+        for (Affaire affaire : affaires) {
+            if (affaire.getService() != null) {
+                ServiceStats serviceStat = stats.computeIfAbsent(affaire.getService(), k -> new ServiceStats());
+                serviceStat.nombreAffaires++;
+                serviceStat.montantTotal = serviceStat.montantTotal.add(affaire.getMontantAmendeTotal());
+            }
+        }
+
+        return stats;
+    }
+
+    private Map<Agent, List<EncaissementAgent>> grouperEncaissementsParAgent(LocalDate dateDebut, LocalDate dateFin) {
+        Map<Agent, List<EncaissementAgent>> resultat = new HashMap<>();
+
+        List<Encaissement> encaissements = encaissementDAO.findByPeriode(dateDebut, dateFin);
+
+        for (Encaissement enc : encaissements) {
+            if (enc.getAffaire() == null) continue;
+
+            RepartitionResultat repartition = repartitionService.calculerRepartition(enc);
+
+            // Pour chaque agent impliqué
+            Set<Agent> agentsImpliques = new HashSet<>();
+
+            // Récupérer tous les agents de l'affaire
+            if (enc.getAffaire().getActeurs() != null) {
+                for (AffaireActeur acteur : enc.getAffaire().getActeurs()) {
+                    agentsImpliques.add(acteur.getAgent());
+                }
+            }
+
+            // Ajouter DD et DG
+            Agent dd = getDD();
+            Agent dg = getDG();
+            if (dd != null) agentsImpliques.add(dd);
+            if (dg != null) agentsImpliques.add(dg);
+
+            // Grouper
+            for (Agent agent : agentsImpliques) {
+                resultat.computeIfAbsent(agent, k -> new ArrayList<>())
+                        .add(new EncaissementAgent(enc, repartition));
+            }
+        }
+
+        return resultat;
+    }
+
+    private BigDecimal getPartAgentRole(Agent agent, RepartitionResultat repartition, String role) {
+        return repartition.getPartsIndividuelles().stream()
+                .filter(p -> p.getAgent().equals(agent) && p.getRole().equals(role))
+                .map(RepartitionResultat.PartIndividuelle::getMontant)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private Agent getDD() {
+        // Récupérer l'agent avec le rôle DD
+        return agentDAO.findByRoleSpecial("DD").orElse(null);
+    }
+
+    private Agent getDG() {
+        // Récupérer l'agent avec le rôle DG
+        return agentDAO.findByRoleSpecial("DG").orElse(null);
+    }
+
+    // Les méthodes existantes du service original...
+    // [Conserver toutes les méthodes existantes sans les modifier]
 
     /**
      * Calcule les statistiques avancées pour un rapport

@@ -4,6 +4,7 @@ import com.regulation.contentieux.model.enums.TypeRapport;
 import com.regulation.contentieux.service.RapportService;
 import com.regulation.contentieux.service.ExportService;
 import com.regulation.contentieux.service.PrintService;
+import com.regulation.contentieux.service.SituationGeneraleDTO;
 import com.regulation.contentieux.util.AlertUtil;
 import com.regulation.contentieux.util.DateFormatter;
 import javafx.application.Platform;
@@ -70,6 +71,23 @@ public class RapportController implements Initializable {
     @FXML private WebView previewWebView;
     @FXML private ProgressIndicator progressIndicator;
     @FXML private Label statusLabel;
+
+    @FXML
+    private void handleShowStatistics() {
+        // Suppression de la référence à RapportStatistiquesController
+        // Remplacé par une simple boîte de dialogue d'information
+
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Statistiques des rapports");
+        alert.setHeaderText("Fonctionnalité en développement");
+        alert.setContentText("Les statistiques détaillées des rapports seront bientôt disponibles.\n\n" +
+                "Cette fonctionnalité permettra de visualiser :\n" +
+                "- Le nombre de rapports générés par type\n" +
+                "- Les tendances mensuelles\n" +
+                "- Les comparaisons entre périodes\n" +
+                "- Les exports les plus fréquents");
+        alert.showAndWait();
+    }
 
     // Services
     private final RapportService rapportService = new RapportService();
@@ -280,7 +298,7 @@ public class RapportController implements Initializable {
 
                     case SITUATION_GENERALE:
                         // Générer d'abord les données puis créer le HTML
-                        RapportService.SituationGeneraleDTO situationData =
+                        SituationGeneraleDTO situationData =
                                 rapportService.genererSituationGenerale(dateDebut, dateFin);
                         dernierRapportData = situationData;
                         // Créer le HTML manuellement
@@ -344,10 +362,38 @@ public class RapportController implements Initializable {
         new Thread(generateTask).start();
     }
 
+    // Méthode alternative si besoin d'afficher des statistiques simples
+    private void afficherStatistiquesSimples() {
+        StringBuilder stats = new StringBuilder();
+        stats.append("Statistiques du jour\n");
+        stats.append("===================\n\n");
+
+        if (dernierRapportData != null) {
+            stats.append("Dernier rapport généré : ").append(typeRapportComboBox.getValue().getLibelle()).append("\n");
+            stats.append("Période : ").append(dateDebutPicker.getValue()).append(" au ").append(dateFinPicker.getValue()).append("\n");
+
+            if (dernierRapportData instanceof RapportService.RapportRepartitionDTO rapport) {
+                stats.append("Nombre d'affaires : ").append(rapport.getNombreAffaires()).append("\n");
+                stats.append("Total encaissé : ").append(rapport.getTotalEncaisse()).append(" FCFA\n");
+            } else if (dernierRapportData instanceof SituationGeneraleDTO situation) {
+                stats.append("Total des affaires : ").append(situation.getTotalAffaires()).append("\n");
+                stats.append("Taux de recouvrement : ").append(situation.getTauxRecouvrement()).append("%\n");
+            }
+        } else {
+            stats.append("Aucun rapport généré dans cette session.");
+        }
+
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Statistiques");
+        alert.setHeaderText("Statistiques de la session");
+        alert.setContentText(stats.toString());
+        alert.showAndWait();
+    }
+
     /**
      * Génère le HTML pour la situation générale
      */
-    private String genererHtmlSituationGenerale(RapportService.SituationGeneraleDTO situation) {
+    private String genererHtmlSituationGenerale(SituationGeneraleDTO situation) {
         StringBuilder html = new StringBuilder();
 
         html.append("<!DOCTYPE html>");
@@ -430,7 +476,7 @@ public class RapportController implements Initializable {
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("Exporter en PDF");
         fileChooser.setInitialFileName("rapport_" +
-                LocalDate.now().toString() + ".pdf");
+                LocalDate.now() + ".pdf");
         fileChooser.getExtensionFilters().add(
                 new FileChooser.ExtensionFilter("PDF Files", "*.pdf")
         );
@@ -456,7 +502,7 @@ public class RapportController implements Initializable {
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("Exporter en Excel");
         fileChooser.setInitialFileName("rapport_" +
-                LocalDate.now().toString() + ".xlsx");
+                LocalDate.now() + ".xlsx");
         fileChooser.getExtensionFilters().add(
                 new FileChooser.ExtensionFilter("Excel Files", "*.xlsx")
         );
@@ -474,9 +520,9 @@ public class RapportController implements Initializable {
                         file.getAbsolutePath()
                 );
             } else if (type == TypeRapport.SITUATION_GENERALE &&
-                    dernierRapportData instanceof RapportService.SituationGeneraleDTO) {
+                    dernierRapportData instanceof SituationGeneraleDTO) {
                 success = exportService.exportSituationToExcel(
-                        (RapportService.SituationGeneraleDTO) dernierRapportData,
+                        (SituationGeneraleDTO) dernierRapportData,
                         file.getAbsolutePath()
                 );
             } else if (type == TypeRapport.TABLEAU_AMENDES_SERVICE &&

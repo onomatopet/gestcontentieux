@@ -8,6 +8,7 @@ import java.util.Map;
 /**
  * DTO pour la situation générale des affaires contentieuses
  * Utilisé pour le rapport de situation générale
+ * ENRICHI avec les méthodes manquantes pour corriger les bugs
  */
 public class SituationGeneraleDTO {
 
@@ -56,7 +57,7 @@ public class SituationGeneraleDTO {
         this.tauxRecouvrement = BigDecimal.ZERO;
     }
 
-    // Getters et Setters
+    // Getters et Setters existants
     public LocalDate getDateDebut() {
         return dateDebut;
     }
@@ -161,6 +162,41 @@ public class SituationGeneraleDTO {
         this.tauxRecouvrement = tauxRecouvrement;
     }
 
+    // NOUVELLES MÉTHODES ALIASES pour corriger les bugs dans ExportService
+    public BigDecimal getTotalAmendes() {
+        return montantTotalAmendes;
+    }
+
+    public BigDecimal getTotalEncaisse() {
+        return montantTotalEncaisse;
+    }
+
+    public BigDecimal getTotalRestant() {
+        return montantRestantDu;
+    }
+
+    public BigDecimal getTauxEncaissement() {
+        return tauxRecouvrement;
+    }
+
+    // Setters supplémentaires pour les méthodes aliases
+    public void setTotalAmendes(BigDecimal totalAmendes) {
+        this.montantTotalAmendes = totalAmendes;
+    }
+
+    public void setTotalEncaisse(BigDecimal totalEncaisse) {
+        this.montantTotalEncaisse = totalEncaisse;
+    }
+
+    public void setTotalRestant(BigDecimal totalRestant) {
+        this.montantRestantDu = totalRestant;
+    }
+
+    public void setTauxEncaissement(BigDecimal tauxEncaissement) {
+        this.tauxRecouvrement = tauxEncaissement;
+    }
+
+    // Reste des getters et setters existants
     public Map<String, Integer> getRepartitionParStatut() {
         return repartitionParStatut;
     }
@@ -277,34 +313,25 @@ public class SituationGeneraleDTO {
      * DTO pour les top contrevenants
      */
     public static class TopContrevenantDTO {
-        private String contrevenantNom;
-        private String contrevenantCode;
+        private String nomContrevenant;
         private int nombreAffaires;
         private BigDecimal montantTotal;
-        private BigDecimal montantEncaisse;
+        private BigDecimal montantPaye;
         private BigDecimal montantRestant;
 
         public TopContrevenantDTO() {
             this.montantTotal = BigDecimal.ZERO;
-            this.montantEncaisse = BigDecimal.ZERO;
+            this.montantPaye = BigDecimal.ZERO;
             this.montantRestant = BigDecimal.ZERO;
         }
 
         // Getters et Setters
-        public String getContrevenantNom() {
-            return contrevenantNom;
+        public String getNomContrevenant() {
+            return nomContrevenant;
         }
 
-        public void setContrevenantNom(String contrevenantNom) {
-            this.contrevenantNom = contrevenantNom;
-        }
-
-        public String getContrevenantCode() {
-            return contrevenantCode;
-        }
-
-        public void setContrevenantCode(String contrevenantCode) {
-            this.contrevenantCode = contrevenantCode;
+        public void setNomContrevenant(String nomContrevenant) {
+            this.nomContrevenant = nomContrevenant;
         }
 
         public int getNombreAffaires() {
@@ -323,12 +350,12 @@ public class SituationGeneraleDTO {
             this.montantTotal = montantTotal;
         }
 
-        public BigDecimal getMontantEncaisse() {
-            return montantEncaisse;
+        public BigDecimal getMontantPaye() {
+            return montantPaye;
         }
 
-        public void setMontantEncaisse(BigDecimal montantEncaisse) {
-            this.montantEncaisse = montantEncaisse;
+        public void setMontantPaye(BigDecimal montantPaye) {
+            this.montantPaye = montantPaye;
         }
 
         public BigDecimal getMontantRestant() {

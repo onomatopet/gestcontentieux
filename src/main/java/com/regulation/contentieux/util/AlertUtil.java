@@ -205,4 +205,36 @@ public class AlertUtil {
 
         return alert;
     }
+
+    // ================= MÉTHODES SIMPLIFIÉES AJOUTÉES =================
+    // Ces méthodes sont ajoutées pour compatibilité avec MandatController
+
+    /**
+     * Version simplifiée de showWarningAlert pour MandatController
+     */
+    public static void showWarning(String title, String content) {
+        showWarningAlert(title, title, content);
+    }
+
+    /**
+     * Version simplifiée de showSuccessAlert pour MandatController
+     */
+    public static void showSuccess(String title, String content) {
+        showSuccessAlert(title, title, content);
+    }
+
+    /**
+     * Version simplifiée de showErrorAlert pour MandatController
+     * avec 3 paramètres
+     */
+    public static void showError(String title, String header, String content) {
+        showErrorAlert(title, header, content);
+    }
+
+    /**
+     * Version simplifiée de showInfoAlert pour MandatController
+     */
+    public static void showInfo(String title, String content) {
+        showInfoAlert(title, title, content);
+    }
 }

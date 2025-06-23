@@ -40,6 +40,7 @@ module com.regulation.contentieux {
     requires org.kordamp.ikonli.material2;
     requires org.kordamp.ikonli.feather;
     requires bcrypt;
+    requires jdk.jdi;
 
     // Exports pour FXML
     exports com.regulation.contentieux;

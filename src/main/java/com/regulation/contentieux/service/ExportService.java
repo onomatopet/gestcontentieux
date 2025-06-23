@@ -9,59 +9,32 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.FileOutputStream;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 /**
- * Service d'export pour les rapports et documents
- * Version temporaire sans dépendance iTextPDF
+ * Service d'export des rapports en différents formats
+ * Gère l'export Excel et PDF des rapports de rétrocession
  */
 public class ExportService {
 
     private static final Logger logger = LoggerFactory.getLogger(ExportService.class);
 
     /**
-     * Exporte un contenu HTML en fichier PDF
-     * Version temporaire : génère un HTML au lieu de PDF
+     * Convertit du HTML en contenu avec mise en page
      */
-    public boolean exportToPdf(String htmlContent, String outputPath) {
-        try {
-            // Pour l'instant, on génère un HTML au lieu d'un PDF
-            String htmlPath = outputPath.replace(".pdf", ".html");
-
-            // Ajouter un wrapper HTML complet si nécessaire
-            if (!htmlContent.contains("<html>")) {
-                htmlContent = wrapInHtmlDocument(htmlContent);
-            }
-
-            try (FileWriter writer = new FileWriter(htmlPath)) {
-                writer.write(htmlContent);
-                logger.info("Export HTML temporaire créé: {}", htmlPath);
-                return true;
-            }
-        } catch (IOException e) {
-            logger.error("Erreur lors de l'export", e);
-            return false;
-        }
-    }
-
-    /**
-     * Enveloppe le contenu dans un document HTML complet
-     */
-    private String wrapInHtmlDocument(String content) {
+    private String wrapHtmlContent(String content) {
         return """
             <!DOCTYPE html>
             <html>
             <head>
                 <meta charset="UTF-8">
-                <title>Rapport</title>
                 <style>
                     body { font-family: Arial, sans-serif; margin: 20px; }
-                    table { border-collapse: collapse; width: 100%; }
-                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                    th { background-color: #f2f2f2; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                    th, td { border: 1px solid black; padding: 8px; text-align: left; }
+                    th { background-color: #f0f0f0; font-weight: bold; }
                     .text-right { text-align: right; }
                     .text-center { text-align: center; }
                     .font-weight-bold { font-weight: bold; }
@@ -94,9 +67,10 @@ public class ExportService {
             titleCell.setCellValue("État de Répartition et de Rétrocession");
             titleCell.setCellStyle(headerStyle);
 
-            // Période
+            // Période - Utiliser directement les dates si getPeriodeLibelle() n'existe pas
             Row periodRow = sheet.createRow(rowNum++);
-            periodRow.createCell(0).setCellValue("Période: " + rapport.getPeriodeLibelle());
+            String periode = DateFormatter.format(rapport.getDateDebut()) + " au " + DateFormatter.format(rapport.getDateFin());
+            periodRow.createCell(0).setCellValue("Période: " + periode);
 
             rowNum++; // Ligne vide
 
@@ -116,7 +90,7 @@ public class ExportService {
                 Row row = sheet.createRow(rowNum++);
 
                 row.createCell(0).setCellValue(affaire.getNumeroAffaire());
-                row.createCell(1).setCellValue(affaire.getContrevenant());
+                row.createCell(1).setCellValue(affaire.getContrevenant() != null ? affaire.getContrevenant() : affaire.getContrevenantNom());
 
                 createMontantCell(row, 2, affaire.getMontantTotal(), montantStyle);
                 createMontantCell(row, 3, affaire.getMontantEncaisse(), montantStyle);
@@ -130,10 +104,16 @@ public class ExportService {
             totalRow.createCell(1).setCellValue("TOTAUX");
             totalRow.getCell(1).setCellStyle(totalStyle);
 
-            createMontantCell(totalRow, 2, rapport.getTotalMontant(), totalStyle);
-            createMontantCell(totalRow, 3, rapport.getTotalEncaisse(), totalStyle);
-            createMontantCell(totalRow, 4, rapport.getTotalPartEtat(), totalStyle);
-            createMontantCell(totalRow, 5, rapport.getTotalPartCollectivite(), totalStyle);
+            // Utiliser les méthodes disponibles ou calculer les totaux
+            BigDecimal totalMontant = rapport.getTotalEncaisse(); // Utiliser getTotalEncaisse() qui existe
+            BigDecimal totalEncaisse = rapport.getTotalEncaisse();
+            BigDecimal totalPartEtat = rapport.getTotalEtat(); // Utiliser getTotalEtat() qui existe
+            BigDecimal totalPartCollectivite = rapport.getTotalCollectivite(); // Utiliser getTotalCollectivite() qui existe
+
+            createMontantCell(totalRow, 2, totalMontant, totalStyle);
+            createMontantCell(totalRow, 3, totalEncaisse, totalStyle);
+            createMontantCell(totalRow, 4, totalPartEtat, totalStyle);
+            createMontantCell(totalRow, 5, totalPartCollectivite, totalStyle);
 
             // Auto-dimensionner les colonnes
             for (int i = 0; i < headers.length; i++) {
@@ -169,50 +149,60 @@ public class ExportService {
             // Titre
             Row titleRow = sheet.createRow(rowNum++);
             Cell titleCell = titleRow.createCell(0);
-            titleCell.setCellValue("Situation Générale des Affaires Contentieuses");
+            titleCell.setCellValue("Situation Générale des Affaires");
             titleCell.setCellStyle(headerStyle);
 
             // Période
             Row periodRow = sheet.createRow(rowNum++);
-            periodRow.createCell(0).setCellValue("Période: " + situation.getPeriodeLibelle());
+            String periode = situation.getPeriodeLibelle() != null ? situation.getPeriodeLibelle() :
+                    DateFormatter.format(situation.getDateDebut()) + " au " + DateFormatter.format(situation.getDateFin());
+            periodRow.createCell(0).setCellValue("Période: " + periode);
 
             rowNum++; // Ligne vide
 
-            // Statistiques globales
-            sheet.createRow(rowNum++).createCell(0).setCellValue("STATISTIQUES GLOBALES");
+            // Statistiques
+            Row statRow1 = sheet.createRow(rowNum++);
+            statRow1.createCell(0).setCellValue("Total des affaires:");
+            statRow1.createCell(1).setCellValue(situation.getTotalAffaires());
 
-            Row statsRow1 = sheet.createRow(rowNum++);
-            statsRow1.createCell(0).setCellValue("Total des affaires:");
-            statsRow1.createCell(1).setCellValue(situation.getTotalAffaires());
+            Row statRow2 = sheet.createRow(rowNum++);
+            statRow2.createCell(0).setCellValue("Affaires ouvertes:");
+            statRow2.createCell(1).setCellValue(situation.getAffairesOuvertes());
 
-            Row statsRow2 = sheet.createRow(rowNum++);
-            statsRow2.createCell(0).setCellValue("Affaires ouvertes:");
-            statsRow2.createCell(1).setCellValue(situation.getAffairesOuvertes());
+            Row statRow3 = sheet.createRow(rowNum++);
+            statRow3.createCell(0).setCellValue("Affaires en cours:");
+            statRow3.createCell(1).setCellValue(situation.getAffairesEnCours());
 
-            Row statsRow3 = sheet.createRow(rowNum++);
-            statsRow3.createCell(0).setCellValue("Affaires soldées:");
-            statsRow3.createCell(1).setCellValue(situation.getAffairesSoldees());
+            Row statRow4 = sheet.createRow(rowNum++);
+            statRow4.createCell(0).setCellValue("Affaires soldées:");
+            statRow4.createCell(1).setCellValue(situation.getAffairesSoldees());
 
             rowNum++; // Ligne vide
 
             // Montants
-            sheet.createRow(rowNum++).createCell(0).setCellValue("MONTANTS");
-
             Row montantRow1 = sheet.createRow(rowNum++);
-            montantRow1.createCell(0).setCellValue("Montant total des amendes:");
-            createMontantCell(montantRow1, 1, situation.getMontantTotalAmendes(), montantStyle);
+            montantRow1.createCell(0).setCellValue("Total des amendes:");
+            createMontantCell(montantRow1, 1, situation.getTotalAmendes(), montantStyle);
 
             Row montantRow2 = sheet.createRow(rowNum++);
-            montantRow2.createCell(0).setCellValue("Montant encaissé:");
-            createMontantCell(montantRow2, 1, situation.getMontantTotalEncaisse(), montantStyle);
+            montantRow2.createCell(0).setCellValue("Total encaissé:");
+            createMontantCell(montantRow2, 1, situation.getTotalEncaisse(), montantStyle);
 
             Row montantRow3 = sheet.createRow(rowNum++);
-            montantRow3.createCell(0).setCellValue("Montant restant dû:");
-            createMontantCell(montantRow3, 1, situation.getMontantRestantDu(), montantStyle);
+            montantRow3.createCell(0).setCellValue("Total restant:");
+            createMontantCell(montantRow3, 1, situation.getTotalRestant(), montantStyle);
 
-            // Auto-dimensionner les colonnes
-            sheet.autoSizeColumn(0);
-            sheet.autoSizeColumn(1);
+            // Taux d'encaissement
+            if (situation.getTauxEncaissement() != null) {
+                Row tauxRow = sheet.createRow(rowNum++);
+                tauxRow.createCell(0).setCellValue("Taux d'encaissement:");
+                tauxRow.createCell(1).setCellValue(String.format("%.2f%%", situation.getTauxEncaissement()));
+            }
+
+            // Auto-dimensionner
+            for (int i = 0; i < 3; i++) {
+                sheet.autoSizeColumn(i);
+            }
 
             // Écrire le fichier
             try (FileOutputStream outputStream = new FileOutputStream(outputPath)) {
@@ -232,9 +222,72 @@ public class ExportService {
      * Exporte le tableau des amendes en Excel
      */
     public boolean exportTableauAmendesToExcel(TableauAmendesParServicesDTO tableau, String outputPath) {
-        // TODO: Implémenter l'export du tableau des amendes
-        logger.warn("Export du tableau des amendes non encore implémenté");
-        return false;
+        try (Workbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet("Amendes par Service");
+
+            CellStyle headerStyle = createHeaderStyle(workbook);
+            CellStyle montantStyle = createMontantStyle(workbook);
+            CellStyle totalStyle = createTotalStyle(workbook);
+
+            int rowNum = 0;
+
+            // En-tête
+            Row titleRow = sheet.createRow(rowNum++);
+            Cell titleCell = titleRow.createCell(0);
+            titleCell.setCellValue("TABLEAU DES AMENDES PAR SERVICE");
+            titleCell.setCellStyle(headerStyle);
+
+            // Période
+            Row periodRow = sheet.createRow(rowNum++);
+            String periode = tableau.getPeriodeLibelle() != null ? tableau.getPeriodeLibelle() :
+                    DateFormatter.format(tableau.getDateDebut()) + " au " + DateFormatter.format(tableau.getDateFin());
+            periodRow.createCell(0).setCellValue("Période: " + periode);
+
+            rowNum++; // Ligne vide
+
+            // En-têtes de colonnes
+            Row headerRow = sheet.createRow(rowNum++);
+            createHeaderCell(headerRow, 0, "Service", headerStyle);
+            createHeaderCell(headerRow, 1, "Nombre d'affaires", headerStyle);
+            createHeaderCell(headerRow, 2, "Montant total", headerStyle);
+            createHeaderCell(headerRow, 3, "Observations", headerStyle);
+
+            // Données
+            for (ServiceAmendeDTO service : tableau.getServices()) {
+                Row row = sheet.createRow(rowNum++);
+                row.createCell(0).setCellValue(service.getNomService());
+                row.createCell(1).setCellValue(service.getNombreAffaires());
+                createMontantCell(row, 2, service.getMontantTotal(), montantStyle);
+                row.createCell(3).setCellValue(service.getObservations() != null ?
+                        service.getObservations() : "");
+            }
+
+            // Total
+            rowNum++; // Ligne vide
+            Row totalRow = sheet.createRow(rowNum);
+            totalRow.createCell(0).setCellValue("TOTAL");
+            totalRow.getCell(0).setCellStyle(totalStyle);
+            totalRow.createCell(1).setCellValue(tableau.getTotalAffaires());
+            totalRow.getCell(1).setCellStyle(totalStyle);
+            createMontantCell(totalRow, 2, tableau.getTotalMontant(), totalStyle);
+
+            // Auto-dimensionner les colonnes
+            for (int i = 0; i < 4; i++) {
+                sheet.autoSizeColumn(i);
+            }
+
+            // Écrire le fichier
+            try (FileOutputStream outputStream = new FileOutputStream(outputPath)) {
+                workbook.write(outputStream);
+            }
+
+            logger.info("Excel du tableau des amendes exporté: {}", outputPath);
+            return true;
+
+        } catch (Exception e) {
+            logger.error("Erreur lors de l'export Excel du tableau des amendes", e);
+            return false;
+        }
     }
 
     /**
@@ -280,6 +333,12 @@ public class ExportService {
         } else {
             cell.setCellValue(0);
         }
+        cell.setCellStyle(style);
+    }
+
+    private void createHeaderCell(Row row, int column, String value, CellStyle style) {
+        Cell cell = row.createCell(column);
+        cell.setCellValue(value);
         cell.setCellStyle(style);
     }
 }

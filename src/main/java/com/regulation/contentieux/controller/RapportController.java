@@ -326,6 +326,75 @@ public class RapportController implements Initializable {
         serviceFilterComboBox.getSelectionModel().selectFirst();
     }
 
+    /**
+     * Configuration des gestionnaires d'événements des boutons
+     */
+    private void setupEventHandlers() {
+        // Bouton Générer le Rapport
+        if (genererButton != null) {
+            genererButton.setOnAction(e -> handleGenererRapport());
+        }
+
+        // Bouton Aperçu (utilise la méthode existante handlePreview)
+        if (previewButton != null) {
+            previewButton.setOnAction(e -> handlePreview());
+        }
+
+        // Bouton Imprimer (utilise la méthode existante)
+        if (imprimerButton != null) {
+            imprimerButton.setOnAction(e -> handleImprimer());
+        }
+
+        // Bouton Export PDF (utilise la méthode existante)
+        if (exportPdfButton != null) {
+            exportPdfButton.setOnAction(e -> handleExportPdf());
+        }
+
+        // Bouton Export Excel (utilise la méthode existante)
+        if (exportExcelButton != null) {
+            exportExcelButton.setOnAction(e -> handleExportExcel());
+        }
+
+        // Configuration du ComboBox type de rapport
+        if (typeRapportComboBox != null) {
+            typeRapportComboBox.setOnAction(e -> {
+                TypeRapport selected = typeRapportComboBox.getSelectionModel().getSelectedItem();
+                if (selected != null && descriptionLabel != null) {
+                    descriptionLabel.setText(selected.getDescription());
+                }
+            });
+        }
+
+        // Configuration des pickers de dates
+        if (dateDebutPicker != null) {
+            dateDebutPicker.setOnAction(e -> {
+                LocalDate debut = dateDebutPicker.getValue();
+                LocalDate fin = dateFinPicker.getValue();
+
+                if (debut != null && fin != null && debut.isAfter(fin)) {
+                    AlertUtil.showWarningAlert("Dates invalides",
+                            "Période incorrecte",
+                            "La date de début doit être antérieure à la date de fin.");
+                    dateFinPicker.setValue(null);
+                }
+            });
+        }
+
+        if (dateFinPicker != null) {
+            dateFinPicker.setOnAction(e -> {
+                LocalDate debut = dateDebutPicker.getValue();
+                LocalDate fin = dateFinPicker.getValue();
+
+                if (debut != null && fin != null && debut.isAfter(fin)) {
+                    AlertUtil.showWarningAlert("Dates invalides",
+                            "Période incorrecte",
+                            "La date de début doit être antérieure à la date de fin.");
+                    dateFinPicker.setValue(null);
+                }
+            });
+        }
+    }
+
     private void configurerFiltresSelonType(TypeRapport type) {
         // Afficher/masquer les filtres selon le type
         boolean showBureauFilter = type == TypeRapport.REPARTITION_RETROCESSION ||
@@ -1415,21 +1484,6 @@ public class RapportController implements Initializable {
         alert.showAndWait();
     }
 
-    /**
-     * Gestionnaires d'événements des boutons
-     */
-    @FXML
-    private void handleApercu() {
-        if (dernierRapportGenere != null && webEngine != null) {
-            // Afficher l'aperçu dans une nouvelle fenêtre ou maximiser la vue
-            logger.info("Affichage de l'aperçu du rapport");
-        } else {
-            AlertUtil.showWarningAlert("Aucun rapport",
-                    "Aperçu indisponible",
-                    "Veuillez d'abord générer un rapport.");
-        }
-    }
-
     @FXML
     private void handleImprimer() {
         if (dernierRapportGenere != null) {
@@ -1446,75 +1500,6 @@ public class RapportController implements Initializable {
             AlertUtil.showWarningAlert("Aucun rapport",
                     "Impression impossible",
                     "Veuillez d'abord générer un rapport.");
-        }
-    }
-
-    @FXML
-    private void handleExportPdf() {
-        if (dernierRapportGenere != null) {
-            try {
-                FileChooser fileChooser = new FileChooser();
-                fileChooser.setTitle("Exporter en PDF");
-                fileChooser.getExtensionFilters().add(
-                        new FileChooser.ExtensionFilter("Fichiers PDF", "*.pdf")
-                );
-
-                File file = fileChooser.showSaveDialog(exportPdfButton.getScene().getWindow());
-                if (file != null) {
-                    exportService.exporterEnPdf(dernierRapportGenere, file.getAbsolutePath());
-                    AlertUtil.showSuccess("Export réussi",
-                            "Le rapport a été exporté en PDF avec succès.");
-                }
-            } catch (Exception e) {
-                logger.error("Erreur lors de l'export PDF", e);
-                AlertUtil.showErrorAlert("Erreur d'export",
-                        "Impossible d'exporter en PDF",
-                        e.getMessage());
-            }
-        }
-    }
-
-    @FXML
-    private void handleExportExcel() {
-        if (dernierRapportData != null) {
-            try {
-                FileChooser fileChooser = new FileChooser();
-                fileChooser.setTitle("Exporter en Excel");
-                fileChooser.getExtensionFilters().add(
-                        new FileChooser.ExtensionFilter("Fichiers Excel", "*.xlsx")
-                );
-
-                File file = fileChooser.showSaveDialog(exportExcelButton.getScene().getWindow());
-                if (file != null) {
-                    exportService.exporterEnExcel(dernierRapportData, file.getAbsolutePath());
-                    AlertUtil.showSuccess("Export réussi",
-                            "Le rapport a été exporté en Excel avec succès.");
-                }
-            } catch (Exception e) {
-                logger.error("Erreur lors de l'export Excel", e);
-                AlertUtil.showErrorAlert("Erreur d'export",
-                        "Impossible d'exporter en Excel",
-                        e.getMessage());
-            }
-        }
-    }
-
-    private void updateDescription() {
-        TypeRapport selected = typeRapportComboBox.getSelectionModel().getSelectedItem();
-        if (selected != null && descriptionLabel != null) {
-            descriptionLabel.setText(selected.getDescription());
-        }
-    }
-
-    private void validateDateRange() {
-        LocalDate debut = dateDebutPicker.getValue();
-        LocalDate fin = dateFinPicker.getValue();
-
-        if (debut != null && fin != null && debut.isAfter(fin)) {
-            AlertUtil.showWarningAlert("Dates invalides",
-                    "Période incorrecte",
-                    "La date de début doit être antérieure à la date de fin.");
-            dateFinPicker.setValue(null);
         }
     }
 }

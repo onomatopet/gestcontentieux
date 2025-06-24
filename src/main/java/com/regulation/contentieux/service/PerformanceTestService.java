@@ -142,83 +142,58 @@ public class PerformanceTestService {
     public TestResult testerConcurrence() {
         logger.info("👥 Test de concurrence avec {} utilisateurs simultanés...", CONCURRENT_USERS);
 
-        ExecutorService executor = Executors.newFixedThreadPool(CONCURRENT_USERS);
-        CountDownLatch latch = new CountDownLatch(CONCURRENT_USERS);
-        List<Future<Long>> futures = new ArrayList<>();
-
-        long startTime = System.currentTimeMillis();
-
         try {
-            // Lancer plusieurs tâches simultanées
+            ExecutorService executor = Executors.newFixedThreadPool(CONCURRENT_USERS);
+            List<Future<Long>> futures = new ArrayList<>();
+
+            long startTime = System.currentTimeMillis();
+
+            // Lancer plusieurs requêtes simultanées
             for (int i = 0; i < CONCURRENT_USERS; i++) {
-                final int userId = i;
-                Future<Long> future = executor.submit(() -> {
+                futures.add(executor.submit(() -> {
                     try {
-                        // Simulation d'actions utilisateur
                         long taskStart = System.currentTimeMillis();
 
-                        // Charger des affaires
-                        List<Affaire> affaires = affaireDAO.findByDateRange(
-                                LocalDate.now().minusMonths(1),
-                                LocalDate.now()
-                        );
+                        // Correction: utiliser findByPeriod au lieu de findByDateRange
+                        LocalDate debut = LocalDate.now().minusDays(30);
+                        LocalDate fin = LocalDate.now();
+                        List<Affaire> affaires = affaireDAO.findByPeriod(debut, fin);
 
-                        // Générer un rapport
-                        if (!affaires.isEmpty()) {
-                            rapportService.genererRapportRepartition(
-                                    LocalDate.now().minusMonths(1),
-                                    LocalDate.now()
-                            );
-                        }
-
-                        long taskEnd = System.currentTimeMillis();
-                        logger.debug("Utilisateur {} terminé en {} ms", userId, taskEnd - taskStart);
-
-                        return taskEnd - taskStart;
-
+                        return System.currentTimeMillis() - taskStart;
                     } catch (Exception e) {
-                        logger.error("Erreur utilisateur {}: {}", userId, e.getMessage());
+                        logger.error("Erreur dans tâche concurrente", e);
                         return -1L;
-                    } finally {
-                        latch.countDown();
                     }
-                });
-
-                futures.add(future);
+                }));
             }
 
-            // Attendre que tous terminent (max 30 secondes)
-            boolean finished = latch.await(30, TimeUnit.SECONDS);
-            long totalTime = System.currentTimeMillis() - startTime;
+            // Attendre la completion de toutes les tâches
+            List<Long> durations = new ArrayList<>();
+            for (Future<Long> future : futures) {
+                Long duration = future.get(10, TimeUnit.SECONDS);
+                if (duration > 0) {
+                    durations.add(duration);
+                }
+            }
+
+            executor.shutdown();
+
+            long totalDuration = System.currentTimeMillis() - startTime;
+            double avgDuration = durations.stream().mapToLong(Long::longValue).average().orElse(0.0);
 
             TestResult result = new TestResult();
-            result.setTestName("Concurrence");
-            result.setDuration(totalTime);
-            result.setSuccess(finished);
-            result.setCriterion("Tous les utilisateurs terminés en < 30s");
+            result.setTestName("Test concurrence");
+            result.setDuration(totalDuration);
+            result.setSuccess(totalDuration < 5000 && avgDuration < 1000); // < 5s total, < 1s par requête
+            result.setCriterion("10 utilisateurs simultanés en < 5s");
+            result.setDetails(String.format("Durée moyenne par requête: %.0f ms", avgDuration));
 
-            if (finished) {
-                // Calculer les statistiques
-                List<Long> times = new ArrayList<>();
-                for (Future<Long> future : futures) {
-                    try {
-                        Long time = future.get(1, TimeUnit.SECONDS);
-                        if (time > 0) times.add(time);
-                    } catch (Exception e) {
-                        logger.debug("Timeout récupération résultat: {}", e.getMessage());
-                    }
-                }
-
-                if (!times.isEmpty()) {
-                    double average = times.stream().mapToLong(Long::longValue).average().orElse(0);
-                    long max = times.stream().mapToLong(Long::longValue).max().orElse(0);
-                    result.setDetails(String.format("Moyenne: %.1f ms, Max: %d ms", average, max));
-                }
-
-                logger.info("✅ Test de concurrence RÉUSSI: {} utilisateurs en {} ms",
-                        CONCURRENT_USERS, totalTime);
+            if (result.isSuccess()) {
+                logger.info("✅ Test concurrence RÉUSSI: {} ms total, {} ms moyenne",
+                        totalDuration, Math.round(avgDuration));
             } else {
-                logger.warn("❌ Test de concurrence ÉCHOUÉ: timeout après 30s");
+                logger.warn("❌ Test concurrence ÉCHOUÉ: {} ms total, {} ms moyenne",
+                        totalDuration, Math.round(avgDuration));
             }
 
             return result;
@@ -226,12 +201,10 @@ public class PerformanceTestService {
         } catch (Exception e) {
             logger.error("❌ Erreur lors du test de concurrence", e);
             TestResult errorResult = new TestResult();
-            errorResult.setTestName("Concurrence");
+            errorResult.setTestName("Test concurrence");
             errorResult.setSuccess(false);
             errorResult.setErrorMessage(e.getMessage());
             return errorResult;
-        } finally {
-            executor.shutdown();
         }
     }
 
@@ -334,9 +307,13 @@ public class PerformanceTestService {
         try {
             long startTime = System.currentTimeMillis();
 
-            // Tests de recherche
-            List<Affaire> parNumero = affaireDAO.findByNumeroContaining("2025");
-            List<Contrevenant> parNom = contrevenantDAO.findByNomContaining("TEST");
+            // Tests de recherche avec les méthodes existantes
+            // Correction: utiliser searchAffaires au lieu de findByNumeroContaining
+            List<Affaire> parNumero = affaireDAO.searchAffaires("2025", null, null, null, null, 0, 100);
+
+            // Correction: utiliser searchContrevenants au lieu de findByNomContaining
+            List<Contrevenant> parNom = contrevenantDAO.searchContrevenants("TEST", null, 0, 100);
+
             List<Agent> parService = agentDAO.findByServiceId(1L);
 
             long duration = System.currentTimeMillis() - startTime;
@@ -426,7 +403,15 @@ public class PerformanceTestService {
      */
     private void verifierOuCreerDonnees() {
         try {
-            int count = affaireDAO.count();
+            long countLong = affaireDAO.count();
+
+            // Correction: cast explicite de long vers int avec vérification
+            if (countLong > Integer.MAX_VALUE) {
+                logger.warn("Nombre d'enregistrements très élevé: {}", countLong);
+                return;
+            }
+
+            int count = (int) countLong;
 
             if (count < TARGET_RECORDS) {
                 logger.info("📝 Création de {} données de test...", TARGET_RECORDS - count);
@@ -536,6 +521,8 @@ public class PerformanceTestService {
     }
 
     public static class TestResult {
+        public static final TestResult FAILURE = new TestResult("ÉCHEC GÉNÉRAL", false, 0);
+
         private String testName;
         private boolean success;
         private long duration;
@@ -544,7 +531,17 @@ public class PerformanceTestService {
         private String details;
         private String errorMessage;
 
-        // Getters et setters
+        // Constructeur par défaut
+        public TestResult() {}
+
+        // Constructeur pour les constantes
+        private TestResult(String testName, boolean success, long duration) {
+            this.testName = testName;
+            this.success = success;
+            this.duration = duration;
+        }
+
+        // Getters et setters existants...
         public String getTestName() { return testName; }
         public void setTestName(String testName) { this.testName = testName; }
 

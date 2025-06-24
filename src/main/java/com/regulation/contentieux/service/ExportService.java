@@ -537,20 +537,18 @@ public class ExportService {
             Cell titleCell = titleRow.createCell(0);
             titleCell.setCellValue("ÉTAT DE RÉPARTITION DU PRODUIT DES AFFAIRES CONTENTIEUSES");
             titleCell.setCellStyle(headerStyle);
-            sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 10));
+            sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 5));
 
             Row periodeRow = sheet.createRow(rowNum++);
-            periodeRow.createCell(0).setCellValue("Période: " + rapport.getPeriodeDebut() + " au " + rapport.getPeriodeFin());
-            sheet.addMergedRegion(new CellRangeAddress(1, 1, 0, 10));
+            periodeRow.createCell(0).setCellValue("Période: " + rapport.getPeriodeLibelle());
+            sheet.addMergedRegion(new CellRangeAddress(1, 1, 0, 5));
 
             rowNum++; // Ligne vide
 
-            // En-têtes (11 colonnes selon le gabarit)
+            // En-têtes
             String[] headers = {
-                    "N° encaissement et Date", "N° Affaire et Date", "Noms des contrevenants",
-                    "Noms des contraventions", "Produit disponible", "Part indicateur",
-                    "Part Direction contentieux", "Part indicateur", "FLCF", "Montant Trésor",
-                    "Montant Global ayants droits"
+                    "N° Encaissement", "N° Affaire", "Produit Disponible",
+                    "Part FLCF", "Part Trésor", "Part Ayants Droits"
             };
 
             Row headerRow = sheet.createRow(rowNum++);
@@ -561,20 +559,15 @@ public class ExportService {
             }
 
             // Données
-            for (RapportService.ProduitItemDTO item : rapport.getItems()) {
+            for (RapportService.LigneRepartitionDTO ligne : rapport.getLignes()) {
                 Row row = sheet.createRow(rowNum++);
 
-                row.createCell(0).setCellValue(item.getNumeroEncaissement() + "\n" + item.getDateEncaissement());
-                row.createCell(1).setCellValue(item.getNumeroAffaire() + "\n" + item.getDateAffaire());
-                row.createCell(2).setCellValue(item.getNomContrevenant());
-                row.createCell(3).setCellValue(item.getContraventions());
-                createMontantCell(row, 4, item.getProduitDisponible(), montantStyle);
-                createMontantCell(row, 5, item.getPartIndicateur(), montantStyle);
-                createMontantCell(row, 6, item.getPartDirection(), montantStyle);
-                createMontantCell(row, 7, item.getPartIndicateur2(), montantStyle);
-                createMontantCell(row, 8, item.getFLCF(), montantStyle);
-                createMontantCell(row, 9, item.getMontantTresor(), montantStyle);
-                createMontantCell(row, 10, item.getMontantAyantsDroits(), montantStyle);
+                row.createCell(0).setCellValue(ligne.getNumeroEncaissement());
+                row.createCell(1).setCellValue(ligne.getNumeroAffaire());
+                createMontantCell(row, 2, ligne.getProduitDisponible(), montantStyle);
+                createMontantCell(row, 3, ligne.getPartFLCF(), montantStyle);
+                createMontantCell(row, 4, ligne.getPartTresor(), montantStyle);
+                createMontantCell(row, 5, ligne.getPartAyantsDroits(), montantStyle);
             }
 
             // Totaux
@@ -583,13 +576,10 @@ public class ExportService {
             totalRow.createCell(0).setCellValue("TOTAUX");
             totalRow.getCell(0).setCellStyle(totalStyle);
 
-            createMontantCell(totalRow, 4, rapport.getTotalProduitDisponible(), totalStyle);
-            createMontantCell(totalRow, 5, rapport.getTotalPartIndicateur(), totalStyle);
-            createMontantCell(totalRow, 6, rapport.getTotalPartDirection(), totalStyle);
-            createMontantCell(totalRow, 7, rapport.getTotalPartIndicateur2(), totalStyle);
-            createMontantCell(totalRow, 8, rapport.getTotalFLCF(), totalStyle);
-            createMontantCell(totalRow, 9, rapport.getTotalMontantTresor(), totalStyle);
-            createMontantCell(totalRow, 10, rapport.getTotalMontantAyantsDroits(), totalStyle);
+            createMontantCell(totalRow, 2, rapport.getTotalProduitDisponible(), totalStyle);
+            createMontantCell(totalRow, 3, rapport.getTotalFLCF(), totalStyle);
+            createMontantCell(totalRow, 4, rapport.getTotalTresor(), totalStyle);
+            createMontantCell(totalRow, 5, rapport.getTotalAyantsDroits(), totalStyle);
 
             // Auto-dimensionner
             for (int i = 0; i < headers.length; i++) {
@@ -613,6 +603,9 @@ public class ExportService {
     /**
      * Exporte l'état cumulé par agent en Excel
      */
+    /**
+     * Exporte l'état cumulé par agent en Excel
+     */
     public boolean exportEtatCumuleAgentToExcel(RapportService.EtatCumuleAgentDTO rapport, String outputPath) {
         try (Workbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet("État Cumulé Agents");
@@ -632,7 +625,7 @@ public class ExportService {
             sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 5));
 
             Row periodeRow = sheet.createRow(rowNum++);
-            periodeRow.createCell(0).setCellValue("Période: " + rapport.getPeriodeDebut() + " au " + rapport.getPeriodeFin());
+            periodeRow.createCell(0).setCellValue("Période: " + rapport.getPeriodeLibelle());
             sheet.addMergedRegion(new CellRangeAddress(1, 1, 0, 5));
 
             rowNum++; // Ligne vide
@@ -664,28 +657,42 @@ public class ExportService {
             }
 
             // Données
-            for (RapportService.AgentCumuleDTO agent : rapport.getAgents()) {
+            for (RapportService.AgentStatsDTO agent : rapport.getAgents()) {
                 Row row = sheet.createRow(rowNum++);
 
-                row.createCell(0).setCellValue(agent.getNomAgent());
-                createMontantCell(row, 1, agent.getPartChef(), montantStyle);
-                createMontantCell(row, 2, agent.getPartSaisissant(), montantStyle);
-                createMontantCell(row, 3, agent.getPartDG(), montantStyle);
-                createMontantCell(row, 4, agent.getPartDD(), montantStyle);
-                createMontantCell(row, 5, agent.getPartTotale(), montantStyle);
+                row.createCell(0).setCellValue(agent.getAgent() != null ? agent.getAgent().getNomComplet() : "");
+                createMontantCell(row, 1, agent.getPartEnTantQueChef(), montantStyle);
+                createMontantCell(row, 2, agent.getPartEnTantQueSaisissant(), montantStyle);
+                createMontantCell(row, 3, agent.getPartEnTantQueDG(), montantStyle);
+                createMontantCell(row, 4, agent.getPartEnTantQueDD(), montantStyle);
+                createMontantCell(row, 5, agent.getPartTotaleAgent(), montantStyle);
             }
 
             // Totaux
             rowNum++; // Ligne vide
             Row totalRow = sheet.createRow(rowNum);
-            totalRow.createCell(0).setCellValue("TOTAL");
+            totalRow.createCell(0).setCellValue("TOTAUX");
             totalRow.getCell(0).setCellStyle(totalStyle);
 
-            createMontantCell(totalRow, 1, rapport.getTotalPartChef(), totalStyle);
-            createMontantCell(totalRow, 2, rapport.getTotalPartSaisissant(), totalStyle);
-            createMontantCell(totalRow, 3, rapport.getTotalPartDG(), totalStyle);
-            createMontantCell(totalRow, 4, rapport.getTotalPartDD(), totalStyle);
-            createMontantCell(totalRow, 5, rapport.getTotalPartAgent(), totalStyle);
+            // Calculer les totaux à partir des agents
+            BigDecimal totalPartChef = rapport.getAgents().stream()
+                    .map(RapportService.AgentStatsDTO::getPartEnTantQueChef)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal totalPartSaisissant = rapport.getAgents().stream()
+                    .map(RapportService.AgentStatsDTO::getPartEnTantQueSaisissant)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal totalPartDG = rapport.getAgents().stream()
+                    .map(RapportService.AgentStatsDTO::getPartEnTantQueDG)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal totalPartDD = rapport.getAgents().stream()
+                    .map(RapportService.AgentStatsDTO::getPartEnTantQueDD)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            createMontantCell(totalRow, 1, totalPartChef, totalStyle);
+            createMontantCell(totalRow, 2, totalPartSaisissant, totalStyle);
+            createMontantCell(totalRow, 3, totalPartDG, totalStyle);
+            createMontantCell(totalRow, 4, totalPartDD, totalStyle);
+            createMontantCell(totalRow, 5, rapport.getTotalGeneral(), totalStyle);
 
             // Auto-dimensionner
             for (int i = 0; i < 6; i++) {
@@ -705,7 +712,6 @@ public class ExportService {
             return false;
         }
     }
-
 
     /**
      * Exporte le tableau des amendes en Excel

@@ -1,5 +1,21 @@
 package com.regulation.contentieux.service;
 
+import org.apache.poi.ss.usermodel.FillPatternType;
+import org.apache.poi.ss.usermodel.IndexedColors;
+import org.apache.poi.ss.usermodel.BorderStyle;
+
+// Imports iText 7 pour la génération PDF
+import com.itextpdf.kernel.pdf.PdfDocument;
+import com.itextpdf.kernel.pdf.PdfWriter;
+import com.itextpdf.kernel.geom.PageSize;
+import com.itextpdf.layout.Document;
+import com.itextpdf.layout.element.Paragraph;
+import com.itextpdf.layout.element.Table;
+import com.itextpdf.layout.element.Cell;
+import com.itextpdf.kernel.font.PdfFont;
+import com.itextpdf.kernel.font.PdfFontFactory;
+import com.itextpdf.io.font.constants.StandardFonts;
+
 import com.regulation.contentieux.service.RapportService.*;
 import com.regulation.contentieux.util.CurrencyFormatter;
 import com.regulation.contentieux.util.DateFormatter;
@@ -795,6 +811,24 @@ public class ExportService {
         Font font = workbook.createFont();
         font.setBold(true);
         style.setFont(font);
+        return style;
+    }
+
+    /**
+     * Crée un style pour les sections (en-têtes de groupes)
+     */
+    private CellStyle createSectionStyle(Workbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        Font font = workbook.createFont();
+        font.setBold(true);
+        font.setFontHeightInPoints((short) 11);
+        style.setFont(font);
+        style.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        style.setBorderBottom(BorderStyle.THIN);
+        style.setBorderTop(BorderStyle.THIN);
+        style.setBorderLeft(BorderStyle.THIN);
+        style.setBorderRight(BorderStyle.THIN);
         return style;
     }
 

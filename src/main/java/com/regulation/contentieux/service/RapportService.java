@@ -7,6 +7,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Date;
 
+import java.util.stream.Collectors;
 import com.regulation.contentieux.config.DatabaseConfig;
 import com.regulation.contentieux.dao.*;
 import com.regulation.contentieux.model.*;
@@ -1086,6 +1087,20 @@ public class RapportService {
         public LocalDate getDateFin() { return dateFin; }
         public void setDateFin(LocalDate dateFin) { this.dateFin = dateFin; }
 
+        /**
+         * Méthode alias pour getDateDebut() - pour compatibilité avec ExportService
+         */
+        public LocalDate getPeriodeDebut() {
+            return dateDebut;
+        }
+
+        /**
+         * Méthode alias pour getDateFin() - pour compatibilité avec ExportService
+         */
+        public LocalDate getPeriodeFin() {
+            return dateFin;
+        }
+
         public LocalDate getDateGeneration() { return dateGeneration; }
         public void setDateGeneration(LocalDate dateGeneration) { this.dateGeneration = dateGeneration; }
 
@@ -1678,6 +1693,81 @@ public class RapportService {
 
         public int getNombreIndicateurs() { return nombreIndicateurs; }
         public void setNombreIndicateurs(int nombreIndicateurs) { this.nombreIndicateurs = nombreIndicateurs; }
+
+        /**
+         * Méthode alias pour getDateDebut() - pour compatibilité avec ExportService
+         */
+        public LocalDate getPeriodeDebut() {
+            return dateDebut;
+        }
+
+        /**
+         * Méthode alias pour getDateFin() - pour compatibilité avec ExportService
+         */
+        public LocalDate getPeriodeFin() {
+            return dateFin;
+        }
+
+        /**
+         * Méthode alias pour getTotalEncaissement() - pour compatibilité avec ExportService
+         */
+        public BigDecimal getTotalMontant() {
+            return totalEncaissement;
+        }
+
+        /**
+         * Méthode pour obtenir les données par service - pour compatibilité avec ExportService
+         */
+        public List<ServiceIndicateursDTO> getServicesData() {
+            // Grouper les indicateurs par service
+            Map<String, List<IndicateurReelDTO>> indicateursParService = indicateurs.stream()
+                    .filter(ind -> ind.getIndicateur() != null && ind.getIndicateur().getService() != null)
+                    .collect(Collectors.groupingBy(ind -> ind.getIndicateur().getService().getNomService()));
+
+            List<ServiceIndicateursDTO> servicesData = new ArrayList<>();
+
+            for (Map.Entry<String, List<IndicateurReelDTO>> entry : indicateursParService.entrySet()) {
+                ServiceIndicateursDTO serviceDTO = new ServiceIndicateursDTO();
+                serviceDTO.setNomService(entry.getKey());
+
+                // Convertir IndicateurReelDTO en IndicateurItemDTO
+                List<IndicateurItemDTO> items = entry.getValue().stream()
+                        .map(this::convertToIndicateurItem)
+                        .collect(Collectors.toList());
+                serviceDTO.setIndicateurs(items);
+
+                // Calculer les totaux
+                serviceDTO.setTotalMontant(
+                        items.stream()
+                                .map(IndicateurItemDTO::getMontantEncaisse)
+                                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                );
+
+                servicesData.add(serviceDTO);
+            }
+
+            return servicesData;
+        }
+
+        /**
+         * Convertit un IndicateurReelDTO en IndicateurItemDTO
+         */
+        private IndicateurItemDTO convertToIndicateurItem(IndicateurReelDTO indicateur) {
+            IndicateurItemDTO item = new IndicateurItemDTO();
+            item.setNumeroEncaissement(indicateur.getNumeroEncaissement());
+            item.setNumeroAffaire(indicateur.getNumeroAffaire());
+            item.setDateEncaissement(indicateur.getDateEncaissement());
+            item.setDateAffaire(indicateur.getDateEncaissement()); // Même date
+            item.setMontantEncaisse(indicateur.getMontantEncaisse());
+            item.setMontantEncaissement(indicateur.getMontantEncaisse()); // Alias
+            item.setPartIndicateur(indicateur.getPartIndicateur());
+            item.setNomIndicateur(indicateur.getIndicateur() != null ?
+                    indicateur.getIndicateur().getNomComplet() : "");
+            item.setNomContrevenant(indicateur.getNomContrevenant());
+            item.setContraventions(indicateur.getContraventions());
+            item.setObservations(indicateur.getObservations());
+            return item;
+        }
     }
 
     /**
@@ -2817,4 +2907,105 @@ public class RapportService {
         public void setNomContrevenant(String nomContrevenant) { this.nomContrevenant = nomContrevenant; }
     }
 
+    /**
+     * DTO pour les indicateurs par service
+     */
+    public static class ServiceIndicateursDTO {
+        private String nomService;
+        private List<IndicateurItemDTO> indicateurs = new ArrayList<>();
+        private BigDecimal totalMontant = BigDecimal.ZERO;
+        private int nombreIndicateurs = 0;
+
+        // Getters et setters
+        public String getNomService() { return nomService; }
+        public void setNomService(String nomService) { this.nomService = nomService; }
+
+        public List<IndicateurItemDTO> getIndicateurs() { return indicateurs; }
+        public void setIndicateurs(List<IndicateurItemDTO> indicateurs) {
+            this.indicateurs = indicateurs;
+            this.nombreIndicateurs = indicateurs.size();
+        }
+
+        public BigDecimal getTotalMontant() { return totalMontant; }
+        public void setTotalMontant(BigDecimal totalMontant) { this.totalMontant = totalMontant; }
+
+        public int getNombreIndicateurs() { return nombreIndicateurs; }
+        public void setNombreIndicateurs(int nombreIndicateurs) { this.nombreIndicateurs = nombreIndicateurs; }
+
+        /**
+         * Méthode alias pour getIndicateurs() - pour compatibilité avec ExportService
+         */
+        public List<IndicateurItemDTO> getItems() {
+            return indicateurs;
+        }
+
+        /**
+         * Total des parts indicateurs pour ce service
+         */
+        public BigDecimal getTotalPartIndicateur() {
+            return indicateurs.stream()
+                    .map(IndicateurItemDTO::getPartIndicateur)
+                    .filter(Objects::nonNull)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+        }
+
+
+    }
+
+    /**
+     * DTO pour un item d'indicateur
+     */
+    public static class IndicateurItemDTO {
+        private String numeroEncaissement;
+        private String numeroAffaire;
+        private LocalDate dateEncaissement;
+        private LocalDate dateAffaire;
+        private BigDecimal montantEncaisse;
+        private BigDecimal montantEncaissement; // Alias pour compatibilité
+        private BigDecimal partIndicateur;
+        private String nomIndicateur;
+        private String nomContrevenant;
+        private String contraventions;
+        private String observations;
+
+        // Getters et setters complets
+        public String getNumeroEncaissement() { return numeroEncaissement; }
+        public void setNumeroEncaissement(String numeroEncaissement) { this.numeroEncaissement = numeroEncaissement; }
+
+        public String getNumeroAffaire() { return numeroAffaire; }
+        public void setNumeroAffaire(String numeroAffaire) { this.numeroAffaire = numeroAffaire; }
+
+        public LocalDate getDateEncaissement() { return dateEncaissement; }
+        public void setDateEncaissement(LocalDate dateEncaissement) {
+            this.dateEncaissement = dateEncaissement;
+            this.dateAffaire = dateEncaissement; // Synchroniser
+        }
+
+        public LocalDate getDateAffaire() { return dateAffaire; }
+        public void setDateAffaire(LocalDate dateAffaire) { this.dateAffaire = dateAffaire; }
+
+        public BigDecimal getMontantEncaisse() { return montantEncaisse; }
+        public void setMontantEncaisse(BigDecimal montantEncaisse) {
+            this.montantEncaisse = montantEncaisse;
+            this.montantEncaissement = montantEncaisse; // Synchroniser
+        }
+
+        public BigDecimal getMontantEncaissement() { return montantEncaissement; }
+        public void setMontantEncaissement(BigDecimal montantEncaissement) { this.montantEncaissement = montantEncaissement; }
+
+        public BigDecimal getPartIndicateur() { return partIndicateur; }
+        public void setPartIndicateur(BigDecimal partIndicateur) { this.partIndicateur = partIndicateur; }
+
+        public String getNomIndicateur() { return nomIndicateur; }
+        public void setNomIndicateur(String nomIndicateur) { this.nomIndicateur = nomIndicateur; }
+
+        public String getNomContrevenant() { return nomContrevenant; }
+        public void setNomContrevenant(String nomContrevenant) { this.nomContrevenant = nomContrevenant; }
+
+        public String getContraventions() { return contraventions; }
+        public void setContraventions(String contraventions) { this.contraventions = contraventions; }
+
+        public String getObservations() { return observations; }
+        public void setObservations(String observations) { this.observations = observations; }
+    }
 }

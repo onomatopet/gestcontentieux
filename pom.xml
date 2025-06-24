@@ -35,8 +35,11 @@
         <bcrypt.version>0.10.2</bcrypt.version>
 
         <!-- PDF - Versions correctes -->
-        <itext7.version>7.2.5</itext7.version>
-        <html2pdf.version>4.0.5</html2pdf.version>
+        <dependency>
+            <groupId>com.itextpdf</groupId>
+            <artifactId>itext7-core</artifactId>
+            <version>7.2.5</version>
+        </dependency>
 
         <!-- Contrôles étendus -->
         <controlsfx.version>11.2.1</controlsfx.version>

@@ -1,35 +1,34 @@
 package com.regulation.contentieux.service;
 
+import com.itextpdf.io.font.constants.StandardFonts;
+import com.itextpdf.kernel.font.PdfFont;
+import com.itextpdf.kernel.font.PdfFontFactory;
+import com.itextpdf.kernel.pdf.PdfDocument;
+import com.itextpdf.layout.Document;
 import org.apache.poi.ss.usermodel.FillPatternType;
 import org.apache.poi.ss.usermodel.IndexedColors;
 import org.apache.poi.ss.usermodel.BorderStyle;
 
-// Imports iText 7 pour la génération PDF
-import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfWriter;
 import com.itextpdf.kernel.geom.PageSize;
-import com.itextpdf.layout.Document;
 import com.itextpdf.layout.element.Paragraph;
-import com.itextpdf.layout.element.Table;
-import com.itextpdf.layout.element.Cell;
-import com.itextpdf.kernel.font.PdfFont;
-import com.itextpdf.kernel.font.PdfFontFactory;
-import com.itextpdf.io.font.constants.StandardFonts;
 
-import com.regulation.contentieux.service.RapportService.*;
-import com.regulation.contentieux.util.CurrencyFormatter;
+import com.regulation.contentieux.model.*;
 import com.regulation.contentieux.util.DateFormatter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+// 2. Imports Apache POI (pour Excel uniquement)
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import com.regulation.contentieux.service.RapportService.*;
+import org.apache.poi.ss.usermodel.*;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.util.List;
 
 /**
  * Service d'export des rapports en différents formats
@@ -81,9 +80,9 @@ public class ExportService {
 
             // Titre
             Row titleRow = sheet.createRow(rowNum++);
-            Cell titleCell = titleRow.createCell(0);
-            titleCell.setCellValue("État de Répartition et de Rétrocession");
-            titleCell.setCellStyle(headerStyle);
+            org.apache.poi.ss.usermodel.Cell titleCell = titleRow.createCell(0); // Type explicite POI
+            titleCell.setCellValue("TITRE"); // Méthode POI
+            titleCell.setCellStyle(headerStyle); // Méthode POI
 
             // Période - Utiliser directement les dates si getPeriodeLibelle() n'existe pas
             Row periodRow = sheet.createRow(rowNum++);
@@ -445,26 +444,28 @@ public class ExportService {
 
             File pdfFile = new File(exportDir, fileName);
 
-            // Créer le document PDF
-            Document document = new Document(PageSize.A4);
-            PdfWriter writer = PdfWriter.getInstance(document, new FileOutputStream(pdfFile));
-
-            document.open();
+            // Créer le document PDF avec iText 7
+            PdfWriter writer = new PdfWriter(new FileOutputStream(pdfFile));
+            PdfDocument pdfDoc = new PdfDocument(writer);
+            Document document = new Document(pdfDoc, PageSize.A4);
 
             // Ajouter le titre
             if (titre != null && !titre.trim().isEmpty()) {
-                Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 16);
-                Paragraph titleParagraph = new Paragraph(titre, titleFont);
-                titleParagraph.setAlignment(Element.ALIGN_CENTER);
+                PdfFont titleFont = PdfFontFactory.createFont(StandardFonts.HELVETICA_BOLD);
+                Paragraph titleParagraph = new Paragraph(titre)
+                        .setFont(titleFont)
+                        .setFontSize(16)
+                        .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.CENTER);
                 document.add(titleParagraph);
-                document.add(Chunk.NEWLINE);
+                document.add(new Paragraph(""));
             }
 
             // Convertir le HTML vers PDF (version simplifiée)
-            // Pour une conversion HTML avancée, utiliser iText HTMLWorker ou Flying Saucer
             String textContent = convertirHTMLVersTexte(htmlContent);
-            Font normalFont = FontFactory.getFont(FontFactory.HELVETICA, 10);
-            Paragraph content = new Paragraph(textContent, normalFont);
+            PdfFont normalFont = PdfFontFactory.createFont(StandardFonts.HELVETICA);
+            Paragraph content = new Paragraph(textContent)
+                    .setFont(normalFont)
+                    .setFontSize(10);
             document.add(content);
 
             document.close();

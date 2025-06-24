@@ -1468,6 +1468,13 @@ public class RapportService {
         public LocalDate getDateFin() { return dateFin; }
         public void setDateFin(LocalDate dateFin) { this.dateFin = dateFin; }
 
+        public LocalDate getPeriodeDebut() {
+            return dateDebut;
+        }
+        public LocalDate getPeriodeFin() {
+            return dateFin;
+        }
+
         public LocalDate getDateGeneration() { return dateGeneration; }
         public void setDateGeneration(LocalDate dateGeneration) { this.dateGeneration = dateGeneration; }
 
@@ -1569,6 +1576,13 @@ public class RapportService {
 
         public LocalDate getDateFin() { return dateFin; }
         public void setDateFin(LocalDate dateFin) { this.dateFin = dateFin; }
+
+        public LocalDate getPeriodeDebut() {
+            return dateDebut;
+        }
+        public LocalDate getPeriodeFin() {
+            return dateFin;
+        }
 
         public LocalDate getDateGeneration() { return dateGeneration; }
         public void setDateGeneration(LocalDate dateGeneration) { this.dateGeneration = dateGeneration; }

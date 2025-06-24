@@ -145,18 +145,18 @@ public enum TypeRapport {
      */
     public String getNomMethodeService() {
         switch (this) {
-            case ETAT_REPARTITION_AFFAIRES: return "genererEtatRepartitionAffaires";
+            case ETAT_REPARTITION_AFFAIRES: return "genererDonneesEtatRepartitionAffaires"; // CORRIGÉ
             case REPARTITION_RETROCESSION: return "genererRapportRepartition";
             case SITUATION_GENERALE: return "genererSituationGenerale";
             case TABLEAU_AMENDES_SERVICE: return "genererTableauAmendesParServices";
             case ENCAISSEMENTS_PERIODE: return "genererRapportEncaissements";
             case AFFAIRES_NON_SOLDEES: return "genererRapportAffairesNonSoldees";
-            case ETAT_MANDATEMENT: return "genererEtatMandatement";
-            case CENTRE_REPARTITION: return "genererEtatCentreRepartition";
-            case INDICATEURS_REELS: return "genererEtatIndicateursReels";
-            case REPARTITION_PRODUIT: return "genererEtatRepartitionProduit";
-            case ETAT_CUMULE_AGENT: return "genererEtatCumuleParAgent";
-            case MANDATEMENT_AGENTS: return "genererEtatMandatementAgents";
+            case ETAT_MANDATEMENT: return "genererDonneesEtatMandatement";
+            case CENTRE_REPARTITION: return "genererDonneesCentreRepartition";
+            case INDICATEURS_REELS: return "genererDonneesIndicateursReels";
+            case REPARTITION_PRODUIT: return "genererDonneesRepartitionProduit";
+            case ETAT_CUMULE_AGENT: return "genererDonneesCumuleParAgent";
+            case MANDATEMENT_AGENTS: return "genererDonneesMandatementAgents";
             default: return "genererRapportRepartition"; // Par défaut
         }
     }

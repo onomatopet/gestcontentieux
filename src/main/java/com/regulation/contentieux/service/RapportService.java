@@ -489,22 +489,35 @@ public class RapportService {
             Affaire affaire = enc.getAffaire();
             RepartitionResultat repartition = repartitionService.calculerRepartition(enc, affaire);
 
-            // Créer le DTO pour cette affaire
+            // Créer le DTO pour cette affaire avec TOUS les champs Template 1
             AffaireRepartitionDTO affaireDTO = new AffaireRepartitionDTO();
+
+            // Données de base
             affaireDTO.setNumeroAffaire(affaire.getNumeroAffaire());
             affaireDTO.setDateCreation(affaire.getDateCreation());
+            affaireDTO.setDateEncaissement(enc.getDateEncaissement());
             affaireDTO.setContrevenantNom(affaire.getContrevenant() != null ?
-                    affaire.getContrevenant().getNomComplet() : "");
-            affaireDTO.setContrevenant(affaire.getContrevenant() != null ?
-                    affaire.getContrevenant().getNomComplet() : "");
-            affaireDTO.setContraventionType(getContraventionLibelle(affaire));
-            affaireDTO.setMontantAmende(affaire.getMontantAmendeTotal());
+                    affaire.getContrevenant().getNom() + " " +
+                            (affaire.getContrevenant().getPrenom() != null ? affaire.getContrevenant().getPrenom() : "") :
+                    "N/A");
+
+            // CORRECTION: Ajouter tous les champs manquants pour Template 1
+            affaireDTO.setNumeroEncaissement(enc.getReference());
+            affaireDTO.setProduitDisponible(enc.getMontantEncaisse());
+            affaireDTO.setPartDD(BigDecimal.ZERO); // Case vide avec zéros selon instruction
+            affaireDTO.setPartIndicateur(repartition.getPartIndicateur());
+            affaireDTO.setProduitNet(repartition.getProduitNet());
+            affaireDTO.setPartFlcf(repartition.getPartFLCF());
+            affaireDTO.setPartTresor(repartition.getPartTresor());
+            affaireDTO.setPartAyantsDroits(repartition.getProduitNetAyantsDroits());
+            affaireDTO.setPartChefs(repartition.getPartChefs());
+            affaireDTO.setPartSaisissants(repartition.getPartSaisissants());
+            affaireDTO.setPartMutuelle(repartition.getPartMutuelle());
+            affaireDTO.setPartMasseCommune(repartition.getPartMasseCommune());
+            affaireDTO.setPartInteressement(repartition.getPartInteressement());
+
+            // Données existantes (ne pas modifier)
             affaireDTO.setMontantEncaisse(enc.getMontantEncaisse());
-            affaireDTO.setPartEtat(repartition.getPartTresor());
-            affaireDTO.setPartCollectivite(repartition.getPartFLCF());
-            affaireDTO.setChefDossier(getChefDossier(affaire));
-            affaireDTO.setBureau(affaire.getBureau() != null ? affaire.getBureau().getNomBureau() : "");
-            affaireDTO.setStatut(affaire.getStatut().name());
 
             rapport.getAffaires().add(affaireDTO);
         }
@@ -637,26 +650,50 @@ public class RapportService {
         rapport.setDateDebut(dateDebut);
         rapport.setDateFin(dateFin);
         rapport.setDateGeneration(LocalDate.now());
-        rapport.setPeriodeLibelle(String.format("Du %s au %s",
-                DateFormatter.format(dateDebut), DateFormatter.format(dateFin)));
+        rapport.setPeriodeLibelle(DateFormatter.format(dateDebut) + " au " + DateFormatter.format(dateFin));
 
-        // Récupérer tous les encaissements de la période
+        // Récupérer les encaissements validés de la période
         List<Encaissement> encaissements = encaissementDAO.findByPeriod(dateDebut, dateFin);
 
         for (Encaissement enc : encaissements) {
-            if (enc.getStatut() == StatutEncaissement.VALIDE && enc.getAffaire() != null) {
-                AffaireRepartitionDTO affaireDTO = new AffaireRepartitionDTO();
-                affaireDTO.setNumeroAffaire(enc.getAffaire().getNumeroAffaire());
-                affaireDTO.setDateEncaissement(enc.getDateEncaissement());
-                affaireDTO.setMontantEncaisse(enc.getMontantEncaisse());
-
-                // Calculer la répartition
-                RepartitionResultat repartition = repartitionService.calculerRepartition(enc, enc.getAffaire());
-                affaireDTO.setPartEtat(repartition.getPartTresor());
-                affaireDTO.setPartCollectivite(repartition.getProduitNetAyantsDroits());
-
-                rapport.getAffaires().add(affaireDTO);
+            if (enc.getStatut() != StatutEncaissement.VALIDE || enc.getAffaire() == null) {
+                continue;
             }
+
+            Affaire affaire = enc.getAffaire();
+            RepartitionResultat repartition = repartitionService.calculerRepartition(enc, affaire);
+
+            // Créer le DTO pour cette affaire avec TOUS les champs Template 1
+            AffaireRepartitionDTO affaireDTO = new AffaireRepartitionDTO();
+
+            // Données de base
+            affaireDTO.setNumeroAffaire(affaire.getNumeroAffaire());
+            affaireDTO.setDateCreation(affaire.getDateCreation());
+            affaireDTO.setDateEncaissement(enc.getDateEncaissement());
+            affaireDTO.setContrevenantNom(affaire.getContrevenant() != null ?
+                    affaire.getContrevenant().getNom() + " " +
+                            (affaire.getContrevenant().getPrenom() != null ? affaire.getContrevenant().getPrenom() : "") :
+                    "N/A");
+
+            // CORRECTION: Utiliser les bonnes données du RepartitionResultat
+            affaireDTO.setNumeroEncaissement(enc.getReference());
+            affaireDTO.setProduitDisponible(repartition.getProduitDisponible());
+            affaireDTO.setPartDD(BigDecimal.ZERO); // Case vide avec zéros selon instruction
+            affaireDTO.setPartIndicateur(repartition.getPartIndicateur());
+            affaireDTO.setProduitNet(repartition.getProduitNet());
+            affaireDTO.setPartFlcf(repartition.getPartFLCF());
+            affaireDTO.setPartTresor(repartition.getPartTresor());
+            affaireDTO.setPartAyantsDroits(repartition.getProduitNetAyantsDroits());
+            affaireDTO.setPartChefs(repartition.getPartChefs());
+            affaireDTO.setPartSaisissants(repartition.getPartSaisissants());
+            affaireDTO.setPartMutuelle(repartition.getPartMutuelle());
+            affaireDTO.setPartMasseCommune(repartition.getPartMasseCommune());
+            affaireDTO.setPartInteressement(repartition.getPartInteressement());
+
+            // Données existantes (ne pas modifier)
+            affaireDTO.setMontantEncaisse(enc.getMontantEncaisse());
+
+            rapport.getAffaires().add(affaireDTO);
         }
 
         rapport.calculateTotaux();
@@ -2670,6 +2707,21 @@ public class RapportService {
         private String adresseContrevenant;
         private String observations;
 
+        // ========== CHAMPS AJOUTÉS POUR TEMPLATE 1 ==========
+        private String numeroEncaissement;
+        private BigDecimal produitDisponible;
+        private BigDecimal partDD;
+        private BigDecimal partIndicateur;
+        private BigDecimal produitNet;
+        private BigDecimal partFlcf;
+        private BigDecimal partTresor;
+        private BigDecimal partAyantsDroits;
+        private BigDecimal partChefs;
+        private BigDecimal partSaisissants;
+        private BigDecimal partMutuelle;
+        private BigDecimal partMasseCommune;
+        private BigDecimal partInteressement;
+
         // Getters et setters
         public BigDecimal getMontantTotal() {
             return montantEncaisse;
@@ -2706,6 +2758,46 @@ public class RapportService {
 
         public String getChefDossier() { return chefDossier; }
         public void setChefDossier(String chefDossier) { this.chefDossier = chefDossier; }
+
+        // ========== NOUVEAUX GETTERS/SETTERS POUR TEMPLATE 1 ==========
+        public String getNumeroEncaissement() { return numeroEncaissement; }
+        public void setNumeroEncaissement(String numeroEncaissement) { this.numeroEncaissement = numeroEncaissement; }
+
+        public BigDecimal getProduitDisponible() { return produitDisponible; }
+        public void setProduitDisponible(BigDecimal produitDisponible) { this.produitDisponible = produitDisponible; }
+
+        public BigDecimal getPartDD() { return partDD; }
+        public void setPartDD(BigDecimal partDD) { this.partDD = partDD; }
+
+        public BigDecimal getPartIndicateur() { return partIndicateur; }
+        public void setPartIndicateur(BigDecimal partIndicateur) { this.partIndicateur = partIndicateur; }
+
+        public BigDecimal getProduitNet() { return produitNet; }
+        public void setProduitNet(BigDecimal produitNet) { this.produitNet = produitNet; }
+
+        public BigDecimal getPartFlcf() { return partFlcf; }
+        public void setPartFlcf(BigDecimal partFlcf) { this.partFlcf = partFlcf; }
+
+        public BigDecimal getPartTresor() { return partTresor; }
+        public void setPartTresor(BigDecimal partTresor) { this.partTresor = partTresor; }
+
+        public BigDecimal getPartAyantsDroits() { return partAyantsDroits; }
+        public void setPartAyantsDroits(BigDecimal partAyantsDroits) { this.partAyantsDroits = partAyantsDroits; }
+
+        public BigDecimal getPartChefs() { return partChefs; }
+        public void setPartChefs(BigDecimal partChefs) { this.partChefs = partChefs; }
+
+        public BigDecimal getPartSaisissants() { return partSaisissants; }
+        public void setPartSaisissants(BigDecimal partSaisissants) { this.partSaisissants = partSaisissants; }
+
+        public BigDecimal getPartMutuelle() { return partMutuelle; }
+        public void setPartMutuelle(BigDecimal partMutuelle) { this.partMutuelle = partMutuelle; }
+
+        public BigDecimal getPartMasseCommune() { return partMasseCommune; }
+        public void setPartMasseCommune(BigDecimal partMasseCommune) { this.partMasseCommune = partMasseCommune; }
+
+        public BigDecimal getPartInteressement() { return partInteressement; }
+        public void setPartInteressement(BigDecimal partInteressement) { this.partInteressement = partInteressement; }
 
         public String getBureau() { return bureau; }
         public void setBureau(String bureau) { this.bureau = bureau; }

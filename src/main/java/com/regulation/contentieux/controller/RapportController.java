@@ -523,7 +523,7 @@ public class RapportController implements Initializable {
         }
 
         try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/rapport-preview.fxml"));
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/rapport-preview-dialog.fxml"));
             Parent root = loader.load();
 
             RapportPreviewController controller = loader.getController();
@@ -1662,92 +1662,110 @@ public class RapportController implements Initializable {
      * AMÉLIORÉ: Support natif des AffaireRepartitionDTO
      */
     private void configureColumnsRepartitionAffaires() {
-        // Colonne N° Affaire
-        TableColumn<Object, String> numeroCol = new TableColumn<>("N° Affaire");
-        numeroCol.setCellValueFactory(data ->
+        // 1. N° encaissement et Date
+        TableColumn<Object, String> numeroEncCol = new TableColumn<>("N° encaissement et Date");
+        numeroEncCol.setCellValueFactory(data ->
+                new SimpleStringProperty(extractValue(data.getValue(), "numeroEncaissement")));
+        numeroEncCol.setPrefWidth(140);
+
+        // 2. N° Affaire et Date
+        TableColumn<Object, String> numeroAffCol = new TableColumn<>("N° Affaire et Date");
+        numeroAffCol.setCellValueFactory(data ->
                 new SimpleStringProperty(extractValue(data.getValue(), "numeroAffaire")));
-        numeroCol.setPrefWidth(120);
+        numeroAffCol.setPrefWidth(130);
 
-        // Colonne Contrevenant
-        TableColumn<Object, String> contrevenantCol = new TableColumn<>("Contrevenant");
-        contrevenantCol.setCellValueFactory(data ->
-                new SimpleStringProperty(extractValue(data.getValue(), "contrevenant")));
-        contrevenantCol.setPrefWidth(200);
+        // 3. Produit disponible
+        TableColumn<Object, String> produitDispCol = new TableColumn<>("Produit disponible");
+        produitDispCol.setCellValueFactory(data ->
+                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "produitDisponible"))));
+        produitDispCol.setPrefWidth(120);
+        produitDispCol.getStyleClass().add("montant-column");
 
-        // Colonne Date
-        TableColumn<Object, String> dateCol = new TableColumn<>("Date");
-        dateCol.setCellValueFactory(data ->
-                new SimpleStringProperty(extractValue(data.getValue(), "dateCreation")));
-        dateCol.setPrefWidth(100);
+        // 4. Direction Départementale
+        TableColumn<Object, String> directionDDCol = new TableColumn<>("Direction Départementale");
+        directionDDCol.setCellValueFactory(data ->
+                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "partDD"))));
+        directionDDCol.setPrefWidth(140);
+        directionDDCol.getStyleClass().add("montant-column");
 
-        // Colonne Montant Total
-        TableColumn<Object, String> montantTotalCol = new TableColumn<>("Montant Total");
-        montantTotalCol.setCellValueFactory(data ->
-                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "montantTotal"))));
-        montantTotalCol.setPrefWidth(120);
-        montantTotalCol.getStyleClass().add("montant-column");
+        // 5. Indicateur
+        TableColumn<Object, String> indicateurCol = new TableColumn<>("Indicateur");
+        indicateurCol.setCellValueFactory(data ->
+                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "partIndicateur"))));
+        indicateurCol.setPrefWidth(100);
+        indicateurCol.getStyleClass().add("montant-column");
 
-        // Colonne Montant Encaissé
-        montantTotalCol.setCellFactory(col -> new TableCell<Object, String>() {
-            @Override
-            protected void updateItem(String montant, boolean empty) {
-                super.updateItem(montant, empty);
-                if (empty || montant == null) {
-                    setText(null);
-                    setStyle("");
-                } else {
-                    setText(montant);
-                    setStyle("-fx-text-fill: #2E7D32; -fx-font-weight: bold;");
-                }
-            }
-        });
+        // 6. Produit net
+        TableColumn<Object, String> produitNetCol = new TableColumn<>("Produit net");
+        produitNetCol.setCellValueFactory(data ->
+                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "produitNet"))));
+        produitNetCol.setPrefWidth(100);
+        produitNetCol.getStyleClass().add("montant-column");
 
-        // Colonne Part État (60%)
-        TableColumn<Object, String> partEtatCol = new TableColumn<>("Part État (60%)");
-        partEtatCol.setCellValueFactory(data ->
-                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "partEtat"))));
-        partEtatCol.setPrefWidth(120);
+        // 7. FLCF
+        TableColumn<Object, String> flcfCol = new TableColumn<>("FLCF");
+        flcfCol.setCellValueFactory(data ->
+                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "partFlcf"))));
+        flcfCol.setPrefWidth(80);
+        flcfCol.getStyleClass().add("montant-column");
 
-        // Colonne Part Collectivité (40%)
-        TableColumn<Object, String> partCollectiviteCol = new TableColumn<>("Part Collectivité (40%)");
-        partCollectiviteCol.setCellValueFactory(data ->
-                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "partCollectivite"))));
-        partCollectiviteCol.setPrefWidth(140);
+        // 8. Trésor
+        TableColumn<Object, String> tresorCol = new TableColumn<>("Trésor");
+        tresorCol.setCellValueFactory(data ->
+                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "partTresor"))));
+        tresorCol.setPrefWidth(80);
+        tresorCol.getStyleClass().add("montant-column");
 
-        // Colonne Actions
-        TableColumn<Object, Void> actionsCol = new TableColumn<>("Actions");
-        actionsCol.setCellFactory(col -> new TableCell<Object, Void>() {
-            private final Button previewBtn = new Button("👁");
-            private final Button printBtn = new Button("🖨");
+        // 9. Produit net ayants droits
+        TableColumn<Object, String> produitNetDroitsCol = new TableColumn<>("Produit net ayants droits");
+        produitNetDroitsCol.setCellValueFactory(data ->
+                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "produitNetDroits"))));
+        produitNetDroitsCol.setPrefWidth(160);
+        produitNetDroitsCol.getStyleClass().add("montant-column");
 
-            {
-                previewBtn.getStyleClass().add("button-info");
-                printBtn.getStyleClass().add("button-secondary");
-                previewBtn.setOnAction(e -> handlePreviewRow(getTableRow().getItem()));
-                printBtn.setOnAction(e -> handlePrintRow(getTableRow().getItem()));
+        // 10. Chefs
+        TableColumn<Object, String> chefsCol = new TableColumn<>("Chefs");
+        chefsCol.setCellValueFactory(data ->
+                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "partChefs"))));
+        chefsCol.setPrefWidth(80);
+        chefsCol.getStyleClass().add("montant-column");
 
-                // Tooltips
-                previewBtn.setTooltip(new Tooltip("Aperçu de cette ligne"));
-                printBtn.setTooltip(new Tooltip("Imprimer cette ligne"));
-            }
+        // 11. Saisissants
+        TableColumn<Object, String> saisissantsCol = new TableColumn<>("Saisissants");
+        saisissantsCol.setCellValueFactory(data ->
+                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "partSaisissants"))));
+        saisissantsCol.setPrefWidth(100);
+        saisissantsCol.getStyleClass().add("montant-column");
 
-            @Override
-            protected void updateItem(Void item, boolean empty) {
-                super.updateItem(item, empty);
-                if (empty) {
-                    setGraphic(null);
-                } else {
-                    HBox buttons = new HBox(5, previewBtn, printBtn);
-                    buttons.setAlignment(Pos.CENTER);
-                    setGraphic(buttons);
-                }
-            }
-        });
-        actionsCol.setPrefWidth(80);
-        actionsCol.setSortable(false);
+        // 12. Mutuelle nationale
+        TableColumn<Object, String> mutuelleCol = new TableColumn<>("Mutuelle nationale");
+        mutuelleCol.setCellValueFactory(data ->
+                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "partMutuelle"))));
+        mutuelleCol.setPrefWidth(120);
+        mutuelleCol.getStyleClass().add("montant-column");
 
-        resultatsTableView.getColumns().addAll(numeroCol, contrevenantCol, dateCol,
-                montantTotalCol, partEtatCol, partCollectiviteCol, actionsCol);
+        // 13. Masse commune
+        TableColumn<Object, String> masseCommuneCol = new TableColumn<>("Masse commune");
+        masseCommuneCol.setCellValueFactory(data ->
+                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "partMasseCommune"))));
+        masseCommuneCol.setPrefWidth(110);
+        masseCommuneCol.getStyleClass().add("montant-column");
+
+        // 14. Intéressement
+        TableColumn<Object, String> interessementCol = new TableColumn<>("Intéressement");
+        interessementCol.setCellValueFactory(data ->
+                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "partInteressement"))));
+        interessementCol.setPrefWidth(110);
+        interessementCol.getStyleClass().add("montant-column");
+
+        // Ajouter toutes les colonnes dans l'ordre exact du template
+        resultatsTableView.getColumns().addAll(
+                numeroEncCol, numeroAffCol, produitDispCol, directionDDCol, indicateurCol,
+                produitNetCol, flcfCol, tresorCol, produitNetDroitsCol, chefsCol,
+                saisissantsCol, mutuelleCol, masseCommuneCol, interessementCol
+        );
+
+        logger.debug("✅ Colonnes Template 1 configurées : 14 colonnes exactes");
     }
 
     /**

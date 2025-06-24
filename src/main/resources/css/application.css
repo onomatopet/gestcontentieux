@@ -1,0 +1,134 @@
+/* Application CSS - Gestion des Affaires Contentieuses */
+
+/* Styles de base - sans variables CSS car JavaFX ne les supporte pas toujours */
+.root {
+    -fx-font-family: "Segoe UI", Arial, sans-serif;
+    -fx-font-size: 14px;
+}
+
+/* Boutons */
+.button {
+    -fx-padding: 8 16 8 16;
+    -fx-font-size: 14px;
+    -fx-cursor: hand;
+}
+
+.button-primary {
+    -fx-background-color: #2196F3;
+    -fx-text-fill: white;
+    -fx-background-radius: 4px;
+}
+
+.button-primary:hover {
+    -fx-background-color: #1976D2;
+}
+
+.button-success {
+    -fx-background-color: #4CAF50;
+    -fx-text-fill: white;
+    -fx-background-radius: 4px;
+}
+
+.button-warning {
+    -fx-background-color: #FF9800;
+    -fx-text-fill: white;
+    -fx-background-radius: 4px;
+}
+
+.button-danger {
+    -fx-background-color: #F44336;
+    -fx-text-fill: white;
+    -fx-background-radius: 4px;
+}
+
+/* Champs de formulaire */
+.text-field {
+    -fx-padding: 8;
+    -fx-font-size: 14px;
+    -fx-border-color: #BDBDBD;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
+}
+
+.text-field:focused {
+    -fx-border-color: #2196F3;
+    -fx-border-width: 2px;
+}
+
+.text-field.error {
+    -fx-border-color: #F44336;
+    -fx-border-width: 2px;
+}
+
+/* Sections */
+.content-section {
+    -fx-padding: 10;
+    -fx-spacing: 10;
+}
+
+.section-title {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #212121;
+}
+
+.footer-section {
+    -fx-background-color: #f5f5f5;
+    -fx-border-color: #BDBDBD;
+    -fx-border-width: 1 0 0 0;
+    -fx-padding: 10;
+}
+
+.footer-text {
+    -fx-text-fill: #757575;
+    -fx-font-size: 12px;
+}
+
+.status-info {
+    -fx-text-fill: #757575;
+    -fx-font-size: 12px;
+}
+
+.status-connected {
+    -fx-text-fill: #4CAF50;
+    -fx-font-size: 12px;
+}
+
+/* ComboBox */
+.combo-box {
+    -fx-background-color: white;
+    -fx-border-color: #BDBDBD;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
+}
+
+/* DatePicker */
+.date-picker {
+    -fx-background-color: white;
+    -fx-border-color: #BDBDBD;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
+}
+
+/* TableView */
+.table-view {
+    -fx-background-color: white;
+    -fx-border-color: #BDBDBD;
+}
+
+.table-view .column-header {
+    -fx-background-color: #f0f0f0;
+    -fx-border-color: #BDBDBD;
+    -fx-font-weight: bold;
+}
+
+/* WebView container */
+.web-view {
+    -fx-border-color: #BDBDBD;
+    -fx-border-width: 1px;
+}
+
+/* ProgressIndicator */
+.progress-indicator {
+    -fx-progress-color: #2196F3;
+}

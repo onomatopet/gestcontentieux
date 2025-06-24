@@ -41,6 +41,7 @@ module com.regulation.contentieux {
     requires org.kordamp.ikonli.feather;
     requires bcrypt;
     requires jdk.jdi;
+    requires html2pdf;
 
     // Exports pour FXML
     exports com.regulation.contentieux;

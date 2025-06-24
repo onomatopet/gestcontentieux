@@ -1,5 +1,9 @@
 package com.regulation.contentieux.service;
 
+import com.itextpdf.html2pdf.HtmlConverter;
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
+
 import com.itextpdf.io.font.constants.StandardFonts;
 import com.itextpdf.kernel.font.PdfFont;
 import com.itextpdf.kernel.font.PdfFontFactory;
@@ -62,6 +66,79 @@ public class ExportService {
             </body>
             </html>
             """;
+    }
+
+    /**
+     * Exporte du HTML en PDF - méthode manquante utilisée par RapportController
+     */
+    public boolean exportToPdf(String htmlContent, String outputPath) {
+        try {
+            // Ajouter les styles CSS pour le PDF
+            String styledHtml = wrapHtmlWithStyles(htmlContent);
+
+            // Convertir en PDF
+            HtmlConverter.convertToPdf(
+                    new ByteArrayInputStream(styledHtml.getBytes(StandardCharsets.UTF_8)),
+                    new FileOutputStream(outputPath)
+            );
+
+            logger.info("PDF exporté avec succès: {}", outputPath);
+            return true;
+
+        } catch (Exception e) {
+            logger.error("Erreur lors de l'export PDF", e);
+            return false;
+        }
+    }
+
+    /**
+     * Enveloppe le HTML avec les styles nécessaires
+     */
+    private String wrapHtmlWithStyles(String htmlContent) {
+        if (htmlContent.contains("<html>")) {
+            return htmlContent; // Déjà complet
+        }
+
+        return """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                @page { size: A4; margin: 2cm; }
+                body { 
+                    font-family: Arial, sans-serif; 
+                    font-size: 10pt;
+                    line-height: 1.5;
+                }
+                table { 
+                    width: 100%; 
+                    border-collapse: collapse; 
+                    margin: 10px 0;
+                }
+                th, td { 
+                    border: 1px solid #ddd; 
+                    padding: 8px; 
+                    text-align: left; 
+                }
+                th { 
+                    background-color: #f2f2f2; 
+                    font-weight: bold; 
+                }
+                .montant { 
+                    text-align: right; 
+                }
+                .total { 
+                    font-weight: bold; 
+                    background-color: #f8f8f8; 
+                }
+            </style>
+        </head>
+        <body>
+        """ + htmlContent + """
+        </body>
+        </html>
+        """;
     }
 
     /**

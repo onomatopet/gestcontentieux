@@ -327,6 +327,42 @@ public class RapportController implements Initializable {
     }
 
     /**
+     * ENRICHISSEMENT : Export PDF avec support de tous les types
+     */
+    @FXML
+    private void handleExportPDF() {
+        if (dernierRapportGenere == null || dernierRapportGenere.isEmpty()) {
+            AlertUtil.showWarningAlert("Aucun rapport", "Export impossible",
+                    "Veuillez d'abord générer un rapport.");
+            return;
+        }
+
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Exporter en PDF");
+        fileChooser.setInitialFileName("rapport_" + LocalDate.now() + ".pdf");
+        fileChooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter("PDF Files", "*.pdf")
+        );
+
+        File file = fileChooser.showSaveDialog(exportPdfButton.getScene().getWindow());
+        if (file != null) {
+            try {
+                // Utiliser la méthode existante avec signature (String, String, String)
+                File result = exportService.exportReportToPDF(dernierRapportGenere, "Rapport", file.getName());
+                if (result != null) {
+                    AlertUtil.showSuccess("Export réussi", "Le rapport a été exporté en PDF avec succès.");
+                } else {
+                    AlertUtil.showErrorAlert("Export échoué", "Erreur d'export",
+                            "Impossible d'exporter le rapport en PDF.");
+                }
+            } catch (Exception e) {
+                logger.error("Erreur lors de l'export PDF", e);
+                AlertUtil.showErrorAlert("Erreur d'export", "Impossible d'exporter en PDF", e.getMessage());
+            }
+        }
+    }
+
+    /**
      * Configuration des gestionnaires d'événements des boutons
      */
     private void setupEventHandlers() {
@@ -347,7 +383,7 @@ public class RapportController implements Initializable {
 
         // Bouton Export PDF (utilise la méthode existante)
         if (exportPdfButton != null) {
-            exportPdfButton.setOnAction(e -> handleExportPdf());
+            exportPdfButton.setOnAction(e -> handleExportPDF());
         }
 
         // Bouton Export Excel (utilise la méthode existante)
@@ -524,22 +560,25 @@ public class RapportController implements Initializable {
                 Object rapportData = generationTask.getValue();
 
                 if (rapportData != null) {
+                    // CORRECTION: Mettre à jour les variables d'état
                     dernierRapportData = rapportData;
                     dernierTypeRapport = type;
 
                     // Générer et afficher le HTML
                     String htmlContent = genererHtmlParType(type, debut, fin, rapportData);
-                    afficherRapportDansWebView(htmlContent);
+                    dernierRapportGenere = htmlContent; // CORRECTION: Stocker le HTML généré
 
-                    // Activer les boutons d'export
-                    activerBoutonsExport(true);
+                    if (webEngine != null) {
+                        webEngine.loadContent(htmlContent);
+                    }
 
-                    AlertUtil.showSuccess("Rapport généré",
-                            "Le rapport a été généré avec succès.");
+                    // CORRECTION: Activer les boutons d'export
+                    updateButtonStates(true);
+
+                    AlertUtil.showSuccess("Rapport généré", "Le rapport a été généré avec succès.");
 
                 } else {
-                    AlertUtil.showWarningAlert("Génération échouée",
-                            "Aucune donnée",
+                    AlertUtil.showWarningAlert("Génération échouée", "Aucune donnée",
                             "Aucune donnée trouvée pour la période sélectionnée.");
                 }
 
@@ -858,33 +897,12 @@ public class RapportController implements Initializable {
     @FXML
     private void handlePreview() {
         if (dernierRapportGenere != null && !dernierRapportGenere.isEmpty()) {
-            webEngine.loadContent(dernierRapportGenere);
-        }
-    }
-
-    @FXML
-    private void handleExportPdf() {
-        if (dernierRapportGenere == null || dernierRapportGenere.isEmpty()) {
-            AlertUtil.showWarningAlert("Aucun rapport",
-                    "Export impossible",
+            if (webEngine != null) {
+                webEngine.loadContent(dernierRapportGenere);
+            }
+        } else {
+            AlertUtil.showWarningAlert("Aucun rapport", "Aperçu impossible",
                     "Veuillez d'abord générer un rapport.");
-            return;
-        }
-
-        FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("Exporter en PDF");
-        fileChooser.setInitialFileName("rapport_" +
-                LocalDate.now() + ".pdf");
-        fileChooser.getExtensionFilters().add(
-                new FileChooser.ExtensionFilter("PDF Files", "*.pdf")
-        );
-
-        File file = fileChooser.showSaveDialog(exportPdfButton.getScene().getWindow());
-        if (file != null) {
-            // TODO: Implémenter l'export PDF
-            AlertUtil.showInfoAlert("Export PDF",
-                    "Fonctionnalité en développement",
-                    "L'export PDF sera bientôt disponible.");
         }
     }
 
@@ -893,7 +911,7 @@ public class RapportController implements Initializable {
      */
     @FXML
     private void handleExportExcel() {
-        if (dernierRapportData == null || dernierTypeRapport == null) {
+        if (dernierRapportData == null) {
             AlertUtil.showWarningAlert("Aucun rapport", "Export impossible",
                     "Veuillez d'abord générer un rapport.");
             return;
@@ -901,67 +919,28 @@ public class RapportController implements Initializable {
 
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("Exporter en Excel");
-        fileChooser.setInitialFileName(genererNomFichier(dernierTypeRapport, "xlsx"));
+        fileChooser.setInitialFileName("rapport_" + LocalDate.now() + ".xlsx");
         fileChooser.getExtensionFilters().add(
                 new FileChooser.ExtensionFilter("Excel Files", "*.xlsx")
         );
 
         File file = fileChooser.showSaveDialog(exportExcelButton.getScene().getWindow());
         if (file != null) {
-
-            // Indicateur de progression
-            showProgressIndicator(true, "Export Excel en cours...");
-            exportExcelButton.setDisable(true);
-
-            Task<Boolean> exportTask = new Task<>() {
-                @Override
-                protected Boolean call() throws Exception {
-                    return exporterSelonType(dernierTypeRapport, dernierRapportData, file.getAbsolutePath(), "excel");
+            try {
+                boolean success = exportService.exportGenericToExcel(dernierRapportData, file.getAbsolutePath());
+                if (success) {
+                    AlertUtil.showSuccess("Export réussi", "Le rapport a été exporté en Excel avec succès.");
+                } else {
+                    AlertUtil.showErrorAlert("Export échoué", "Erreur d'export",
+                            "Impossible d'exporter le rapport en Excel.");
                 }
-            };
-
-            exportTask.setOnSucceeded(e -> {
-                Platform.runLater(() -> {
-                    boolean success = exportTask.getValue();
-
-                    if (success) {
-                        AlertUtil.showSuccess("Export réussi",
-                                "Le rapport a été exporté en Excel avec succès.");
-
-                        // Proposer d'ouvrir le fichier
-                        if (AlertUtil.showConfirmation("Ouvrir le fichier",
-                                "Voulez-vous ouvrir le fichier Excel ?")) {
-                            ouvrirFichier(file);
-                        }
-                    } else {
-                        AlertUtil.showErrorAlert("Export échoué", "Erreur d'export",
-                                "Impossible d'exporter le rapport en Excel.");
-                    }
-
-                    showProgressIndicator(false, "");
-                    exportExcelButton.setDisable(false);
-                });
-            });
-
-            exportTask.setOnFailed(e -> {
-                Platform.runLater(() -> {
-                    Throwable exception = exportTask.getException();
-                    logger.error("Erreur lors de l'export Excel", exception);
-
-                    AlertUtil.showErrorAlert("Erreur d'export",
-                            "Impossible d'exporter en Excel",
-                            exception.getMessage());
-
-                    showProgressIndicator(false, "");
-                    exportExcelButton.setDisable(false);
-                });
-            });
-
-            Thread exportThread = new Thread(exportTask);
-            exportThread.setDaemon(true);
-            exportThread.start();
+            } catch (Exception e) {
+                logger.error("Erreur lors de l'export Excel", e);
+                AlertUtil.showErrorAlert("Erreur d'export", "Impossible d'exporter en Excel", e.getMessage());
+            }
         }
     }
+
 
     /**
      * ENRICHISSEMENT : Export selon le type de rapport
@@ -999,87 +978,6 @@ public class RapportController implements Initializable {
         }
 
         return String.format("rapport-%s%s_%s.%s", typeNom, periodeSuffix, dateSuffix, extension);
-    }
-
-    /**
-     * ENRICHISSEMENT : Export PDF avec support de tous les types
-     */
-    @FXML
-    private void handleExportPDF() {
-        if (dernierRapportData == null || dernierTypeRapport == null) {
-            AlertUtil.showWarningAlert("Aucun rapport", "Export impossible",
-                    "Veuillez d'abord générer un rapport.");
-            return;
-        }
-
-        FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("Exporter en PDF");
-        fileChooser.setInitialFileName(genererNomFichier(dernierTypeRapport, "pdf"));
-        fileChooser.getExtensionFilters().add(
-                new FileChooser.ExtensionFilter("PDF Files", "*.pdf")
-        );
-
-        File file = fileChooser.showSaveDialog(exportPDFButton.getScene().getWindow());
-        if (file != null) {
-
-            showProgressIndicator(true, "Export PDF en cours...");
-            exportPDFButton.setDisable(true);
-
-            Task<Boolean> exportTask = new Task<>() {
-                @Override
-                protected Boolean call() throws Exception {
-                    // Obtenir le contenu HTML actuel
-                    String htmlContent = dernierHtmlContent != null ?
-                            dernierHtmlContent :
-                            genererHtmlParType(dernierTypeRapport, getDateDebut(), getDateFin(), dernierRapportData);
-
-                    // CORRECTION LIGNE 978 : Convertir File en Boolean
-                    File result = exportService.exportReportToPDF(htmlContent, file.getAbsolutePath(),
-                            dernierTypeRapport.getLibelle());
-                    return result != null;
-                }
-            };
-
-            exportTask.setOnSucceeded(e -> {
-                Platform.runLater(() -> {
-                    boolean success = exportTask.getValue();
-
-                    if (success) {
-                        AlertUtil.showSuccess("Export réussi",
-                                "Le rapport a été exporté en PDF avec succès.");
-
-                        if (AlertUtil.showConfirmation("Ouvrir le fichier",
-                                "Voulez-vous ouvrir le fichier PDF ?")) {
-                            ouvrirFichier(file);
-                        }
-                    } else {
-                        AlertUtil.showErrorAlert("Export échoué", "Erreur d'export",
-                                "Impossible d'exporter le rapport en PDF.");
-                    }
-
-                    showProgressIndicator(false, "");
-                    exportPDFButton.setDisable(false);
-                });
-            });
-
-            exportTask.setOnFailed(e -> {
-                Platform.runLater(() -> {
-                    Throwable exception = exportTask.getException();
-                    logger.error("Erreur lors de l'export PDF", exception);
-
-                    AlertUtil.showErrorAlert("Erreur d'export",
-                            "Impossible d'exporter en PDF",
-                            exception.getMessage());
-
-                    showProgressIndicator(false, "");
-                    exportPDFButton.setDisable(false);
-                });
-            });
-
-            Thread exportThread = new Thread(exportTask);
-            exportThread.setDaemon(true);
-            exportThread.start();
-        }
     }
 
     /**
@@ -1420,11 +1318,19 @@ public class RapportController implements Initializable {
     /**
      * Met à jour l'état des boutons selon la disponibilité d'un rapport
      */
-    private void updateButtonStates(boolean enabled) {
-        previewButton.setDisable(!enabled);
-        imprimerButton.setDisable(!enabled);
-        exportPdfButton.setDisable(!enabled);
-        exportExcelButton.setDisable(!enabled);
+    private void updateButtonStates(boolean hasReport) {
+        if (previewButton != null) {
+            previewButton.setDisable(!hasReport);
+        }
+        if (imprimerButton != null) {
+            imprimerButton.setDisable(!hasReport);
+        }
+        if (exportPdfButton != null) {
+            exportPdfButton.setDisable(!hasReport);
+        }
+        if (exportExcelButton != null) {
+            exportExcelButton.setDisable(!hasReport);
+        }
     }
 
     /**
@@ -1444,12 +1350,16 @@ public class RapportController implements Initializable {
         includeDetailsCheckBox.setSelected(false);
 
         // Effacer l'aperçu
-        webEngine.loadContent("");
+        if (webEngine != null) {
+            webEngine.loadContent("");
+        }
         dernierRapportGenere = null;
         dernierRapportData = null;
 
         // Réinitialiser l'état
-        statusLabel.setText("Prêt");
+        if (statusLabel != null) {
+            statusLabel.setText("Prêt");
+        }
         updateButtonStates(false);
     }
 
@@ -1474,19 +1384,20 @@ public class RapportController implements Initializable {
 
     @FXML
     private void handleImprimer() {
-        if (dernierRapportGenere != null) {
+        if (dernierRapportGenere != null && !dernierRapportGenere.isEmpty()) {
             try {
                 boolean success = printService.printHtml(dernierRapportGenere);
-                logger.info("Impression du rapport lancée");
+                if (success) {
+                    AlertUtil.showSuccess("Impression", "Le rapport a été envoyé à l'imprimante.");
+                } else {
+                    AlertUtil.showWarningAlert("Impression impossible", "Aucune imprimante disponible", "Aucune imprimante disponible ou impression annulée.");
+                }
             } catch (Exception e) {
                 logger.error("Erreur lors de l'impression", e);
-                AlertUtil.showErrorAlert("Erreur d'impression",
-                        "Impossible d'imprimer",
-                        e.getMessage());
+                AlertUtil.showErrorAlert("Erreur d'impression", "Impossible d'imprimer", e.getMessage());
             }
         } else {
-            AlertUtil.showWarningAlert("Aucun rapport",
-                    "Impression impossible",
+            AlertUtil.showWarningAlert("Aucun rapport", "Impression impossible",
                     "Veuillez d'abord générer un rapport.");
         }
     }

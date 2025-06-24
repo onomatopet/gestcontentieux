@@ -782,7 +782,8 @@ public class RapportController implements Initializable {
                 if (rapportData != null) {
                     updateTableViewData(rapportData);
                     dernierRapportData = rapportData;
-                    dernierTypeRapport = typeSelectionne; // Utiliser dernierTypeRapport au lieu de dernierRapportGenere
+                    dernierTypeRapport = typeSelectionne;
+                    dernierRapportGenere = genererHtmlParType(typeSelectionne, dateDebut, dateFin, rapportData);
 
                     updateStatus("Rapport généré avec succès");
                     updateButtonStates(true);

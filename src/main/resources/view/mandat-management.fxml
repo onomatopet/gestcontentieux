@@ -58,7 +58,7 @@
                 <TitledPane text="Créer un nouveau mandat" expanded="true">
                     <VBox fx:id="creationSection" spacing="10">
                         <padding>
-                            <Insets all="10" />
+                            <Insets top="10" right="10" bottom="10" left="10"/>
                         </padding>
 
                         <GridPane hgap="10" vgap="10">
@@ -189,7 +189,7 @@
     <bottom>
         <HBox alignment="CENTER_RIGHT" spacing="10" styleClass="footer-section">
             <padding>
-                <Insets all="10" />
+                <Insets top="10" right="10" bottom="10" left="10"/>
             </padding>
 
             <Button text="Aide" styleClass="button-help">

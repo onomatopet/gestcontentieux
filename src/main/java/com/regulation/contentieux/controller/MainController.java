@@ -137,13 +137,16 @@ public class MainController implements Initializable {
         setupMandatMenuItem();
 
         // Raccourci clavier global pour ouvrir la gestion des mandats
-        Scene scene = mainMenuBar.getScene();
-        if (scene != null) {
-            scene.getAccelerators().put(
-                    KeyCombination.keyCombination("Ctrl+M"),
-                    () -> openMandatManagement()
-            );
-        }
+        // Utilisation de Platform.runLater pour attendre que la scène soit prête
+        Platform.runLater(() -> {
+            Scene scene = getCurrentScene();
+            if (scene != null) {
+                scene.getAccelerators().put(
+                        KeyCombination.keyCombination("Ctrl+M"),
+                        () -> openMandatManagement()
+                );
+            }
+        });
 
         // Mettre à jour l'affichage du mandat actif
         updateMandatActif();
@@ -155,12 +158,17 @@ public class MainController implements Initializable {
     }
 
     private void setupWindowFocusListener() {
-        // Quand la fenêtre principale redevient active, rafraîchir le mandat
-        Stage primaryStage = (Stage) mainMenuBar.getScene().getWindow();
-        primaryStage.focusedProperty().addListener((obs, wasFocused, isFocused) -> {
-            if (isFocused && !wasFocused) {
-                // La fenêtre vient de reprendre le focus
-                updateMandatActif();
+        // Attendre que la scène soit prête
+        Platform.runLater(() -> {
+            Scene scene = getCurrentScene();
+            if (scene != null && scene.getWindow() instanceof Stage) {
+                Stage primaryStage = (Stage) scene.getWindow();
+                primaryStage.focusedProperty().addListener((obs, wasFocused, isFocused) -> {
+                    if (isFocused && !wasFocused) {
+                        // La fenêtre vient de reprendre le focus
+                        updateMandatActif();
+                    }
+                });
             }
         });
     }
@@ -500,6 +508,21 @@ public class MainController implements Initializable {
         if (currentStage != null) {
             return currentStage.getScene();
         }
+
+        // Essayer de récupérer la scène depuis un composant FXML disponible
+        if (contentPane != null) {
+            return contentPane.getScene();
+        }
+        if (mainContentArea != null) {
+            return mainContentArea.getScene();
+        }
+        if (menuBar != null) {
+            return menuBar.getScene();
+        }
+        if (mainMenuBar != null) {
+            return mainMenuBar.getScene();
+        }
+
         return null;
     }
 
@@ -1709,7 +1732,12 @@ public class MainController implements Initializable {
             Stage mandatStage = new Stage();
             mandatStage.setTitle("Gestion des Mandats");
             mandatStage.initModality(Modality.APPLICATION_MODAL);
-            mandatStage.initOwner(mainMenuBar.getScene().getWindow());
+
+            // Récupérer le stage parent de manière sécurisée
+            Scene currentScene = getCurrentScene();
+            if (currentScene != null && currentScene.getWindow() instanceof Stage) {
+                mandatStage.initOwner(currentScene.getWindow());
+            }
 
             // Créer la scène
             Scene scene = new Scene(root);

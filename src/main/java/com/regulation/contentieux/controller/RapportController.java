@@ -186,12 +186,20 @@ public class RapportController implements Initializable {
         typeRapportComboBox.setConverter(new StringConverter<TypeRapport>() {
             @Override
             public String toString(TypeRapport type) {
-                return type != null ? type.getLibelle() : "";
+                return type != null ? type.getLibelle() : ""; // CORRECTION: utiliser getLibelle()
             }
 
             @Override
             public TypeRapport fromString(String string) {
-                return null;
+                if (string == null || string.trim().isEmpty()) {
+                    return null;
+                }
+                try {
+                    return TypeRapport.fromLibelle(string);
+                } catch (IllegalArgumentException e) {
+                    logger.warn("Type de rapport inconnu: {}", string);
+                    return null;
+                }
             }
         });
 
@@ -205,6 +213,81 @@ public class RapportController implements Initializable {
 
         // Sélection par défaut
         typeRapportComboBox.getSelectionModel().selectFirst();
+    }
+
+    /**
+     * Configuration des gestionnaires d'événements
+     */
+    private void setupEventHandlers() {
+        // Gestionnaire pour le changement de type de rapport
+        if (typeRapportComboBox != null) {
+            typeRapportComboBox.setOnAction(e -> handleTypeRapportChanged());
+        }
+
+        // Gestionnaires pour les dates
+        if (dateDebutPicker != null) {
+            dateDebutPicker.setOnAction(e -> validateDateRange());
+        }
+        if (dateFinPicker != null) {
+            dateFinPicker.setOnAction(e -> validateDateRange());
+        }
+
+        // Gestionnaires pour les boutons d'action
+        if (genererButton != null) {
+            genererButton.setOnAction(e -> handleGenererRapport());
+        }
+        if (previewButton != null) {
+            previewButton.setOnAction(e -> handlePreviewRapport());
+        }
+        if (imprimerButton != null) {
+            imprimerButton.setOnAction(e -> handleImprimer());
+        }
+        if (exportPdfButton != null) {
+            exportPdfButton.setOnAction(e -> handleExportPdf());
+        }
+        if (exportExcelButton != null) {
+            exportExcelButton.setOnAction(e -> handleExportExcel());
+        }
+
+        logger.debug("Gestionnaires d'événements configurés");
+    }
+
+    /**
+     * Gestionnaire pour le changement de type de rapport
+     */
+    private void handleTypeRapportChanged() {
+        TypeRapport typeSelectionne = typeRapportComboBox.getValue();
+
+        if (typeSelectionne != null) {
+            // Mettre à jour la description
+            if (descriptionLabel != null) {
+                descriptionLabel.setText(typeSelectionne.getDescription());
+            }
+
+            // Configurer la TableView selon le type
+            configureTableViewForReport(typeSelectionne);
+
+            logger.debug("Type de rapport changé: {}", typeSelectionne.getLibelle());
+        }
+    }
+
+    /**
+     * Validation de la plage de dates
+     */
+    private void validateDateRange() {
+        LocalDate debut = dateDebutPicker.getValue();
+        LocalDate fin = dateFinPicker.getValue();
+
+        if (debut != null && fin != null) {
+            if (debut.isAfter(fin)) {
+                AlertUtil.showWarningAlert("Dates invalides",
+                        "Date de début postérieure à la date de fin",
+                        "Veuillez corriger les dates sélectionnées");
+
+                // Réinitialiser la date de fin
+                dateFinPicker.setValue(debut);
+            }
+        }
     }
 
     /**
@@ -387,6 +470,37 @@ public class RapportController implements Initializable {
                 logger.error("Erreur lors de l'export PDF", e);
                 AlertUtil.showErrorAlert("Erreur d'export", "Impossible d'exporter en PDF", e.getMessage());
             }
+        }
+    }
+
+    /**
+     * Gestionnaire pour l'aperçu du rapport
+     */
+    @FXML
+    private void handlePreviewRapport() {
+        if (dernierRapportGenere == null) {
+            AlertUtil.showWarningAlert("Aucun rapport",
+                    "Aperçu impossible",
+                    "Veuillez d'abord générer un rapport");
+            return;
+        }
+
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/rapport-preview.fxml"));
+            Parent root = loader.load();
+
+            RapportPreviewController controller = loader.getController();
+            controller.setRapportContent(dernierRapportGenere);
+
+            Stage previewStage = new Stage();
+            previewStage.setTitle("Aperçu du rapport");
+            previewStage.initModality(Modality.APPLICATION_MODAL);
+            previewStage.setScene(new Scene(root));
+            previewStage.show();
+
+        } catch (IOException e) {
+            logger.error("Erreur lors de l'ouverture de l'aperçu", e);
+            AlertUtil.showErrorAlert("Erreur", "Impossible d'ouvrir l'aperçu", e.getMessage());
         }
     }
 
@@ -583,6 +697,20 @@ public class RapportController implements Initializable {
         Platform.runLater(() -> {
             if (genererButton != null) genererButton.setDisable(!enabled);
             if (exporterButton != null) exporterButton.setDisable(!enabled);
+            if (imprimerButton != null) imprimerButton.setDisable(!enabled);
+        });
+    }
+
+    private void setButtonsEnabled(boolean enabled) {
+        Platform.runLater(() -> {
+            if (genererButton != null) genererButton.setDisable(!enabled);
+            // REMPLACER cette ligne buggée :
+            // if (exporterButton != null) exporterButton.setDisable(!enabled);
+
+            // PAR ces corrections :
+            if (exportPdfButton != null) exportPdfButton.setDisable(!enabled);
+            if (exportExcelButton != null) exportExcelButton.setDisable(!enabled);
+
             if (imprimerButton != null) imprimerButton.setDisable(!enabled);
         });
     }

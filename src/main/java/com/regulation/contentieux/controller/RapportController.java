@@ -106,10 +106,6 @@ public class RapportController implements Initializable {
     // CORRECTION : Variable webView manquante
     @FXML private WebView webView;
 
-    // CORRECTION : Variables d'état manquantes
-    private TypeRapport dernierTypeRapport;
-    @FXML private Button exportPDFButton;
-
     @FXML
     private void handleShowStatistics() {
         // Suppression de la référence à RapportStatistiquesController
@@ -140,6 +136,8 @@ public class RapportController implements Initializable {
     private final PrintService printService = new PrintService();
 
     // État
+    private TypeRapport dernierTypeRapport;
+    @FXML private Button exportPDFButton;
     private WebEngine webEngine;
     private String dernierRapportGenere;
     private Object dernierRapportData;
@@ -296,7 +294,7 @@ public class RapportController implements Initializable {
 
         if (file != null) {
             try {
-                boolean success = exportService.exportToPdf(dernierRapportData, file.getAbsolutePath());
+                boolean success = exportService.exportToPdf(dernierRapportGenere, file.getAbsolutePath());
                 if (success) {
                     AlertUtil.showSuccess("Export réussi", "Le rapport a été exporté en PDF avec succès.");
                 } else {
@@ -541,123 +539,6 @@ public class RapportController implements Initializable {
             logger.error("Erreur lors de l'ouverture de l'aperçu", e);
             AlertUtil.showErrorAlert("Erreur", "Impossible d'ouvrir l'aperçu", e.getMessage());
         }
-    }
-
-    /**
-     * Configuration des gestionnaires d'événements des boutons
-     */
-    @FXML
-    private void handleGenererRapport() {
-        logger.debug("🎯 === DÉBUT GÉNÉRATION RAPPORT ===");
-
-        // Validation des paramètres
-        TypeRapport typeSelectionne = typeRapportComboBox.getValue();
-        if (typeSelectionne == null) {
-            AlertUtil.showWarningAlert("Paramètres manquants",
-                    "Type de rapport requis",
-                    "Veuillez sélectionner un type de rapport");
-            return;
-        }
-
-        LocalDate dateDebut = dateDebutPicker.getValue();
-        LocalDate dateFin = dateFinPicker.getValue();
-
-        if (dateDebut == null || dateFin == null) {
-            AlertUtil.showWarningAlert("Paramètres manquants",
-                    "Période requise",
-                    "Veuillez sélectionner une période");
-            return;
-        }
-
-        logger.debug("📊 Génération rapport: {}", typeSelectionne);
-        logger.debug("📅 Période: {} - {}", dateDebut, dateFin);
-
-        // Désactiver les boutons pendant la génération
-        setButtonsEnabled(false);
-        updateStatus("Génération en cours...");
-
-        // CORRECTION : Configurer les colonnes AVANT la génération
-        configureTableViewForReport(typeSelectionne);
-
-        // Génération asynchrone
-        Task<Object> task = new Task<Object>() {
-            @Override
-            protected Object call() throws Exception {
-                logger.debug("🔄 Début génération asynchrone...");
-                Object resultData = genererRapportParType(typeSelectionne, dateDebut, dateFin);
-                logger.debug("✅ Données générées: {}", resultData != null ? resultData.getClass().getSimpleName() : "NULL");
-                return resultData;
-            }
-        };
-
-        task.setOnSucceeded(event -> {
-            logger.debug("🎉 Génération réussie");
-
-            try {
-                Object rapportData = task.getValue();
-                logger.debug("📦 Données récupérées: {}", rapportData != null ? rapportData.getClass().getSimpleName() : "NULL");
-
-                // CORRECTION PRINCIPALE : Appel explicite et forcé de updateTableViewData
-                if (rapportData != null) {
-                    logger.debug("🔧 Appel explicite de updateTableViewData...");
-                    updateTableViewData(rapportData);
-
-                    // Sauvegarder pour utilisation ultérieure
-                    dernierRapportData = rapportData;
-                    dernierRapportGenere = typeSelectionne;
-
-                    // CORRECTION : Forcer un second appel après délai pour s'assurer
-                    Platform.runLater(() -> {
-                        try {
-                            Thread.sleep(100); // Petit délai
-                            logger.debug("🔧 Second appel de updateTableViewData (sécurité)...");
-                            updateTableViewData(rapportData);
-                        } catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
-                        }
-                    });
-
-                    updateStatus("Rapport généré avec succès");
-                    updateButtonStates(true);
-
-                    AlertUtil.showSuccess("Rapport généré", "Le rapport a été généré avec succès.");
-
-                } else {
-                    logger.warn("⚠️ Données de rapport nulles");
-                    updateStatus("Aucune donnée trouvée");
-                    updateTableViewData(null); // Vider la table
-                    AlertUtil.showWarningAlert("Données", "Aucune donnée",
-                            "Aucune donnée trouvée pour la période sélectionnée");
-                }
-
-            } catch (Exception e) {
-                logger.error("❌ Erreur lors du traitement des données", e);
-                updateStatus("Erreur lors du traitement");
-                AlertUtil.showErrorAlert("Erreur", "Erreur de traitement",
-                        "Erreur lors du traitement des données: " + e.getMessage());
-            } finally {
-                setButtonsEnabled(true);
-            }
-        });
-
-        task.setOnFailed(event -> {
-            logger.error("❌ Échec génération rapport", task.getException());
-
-            setButtonsEnabled(true);
-            updateStatus("Erreur lors de la génération");
-
-            Throwable exception = task.getException();
-            AlertUtil.showErrorAlert("Erreur", "Erreur de génération",
-                    "Erreur lors de la génération du rapport: " +
-                            (exception != null ? exception.getMessage() : "Erreur inconnue"));
-        });
-
-        // Lancer la tâche
-        Thread thread = new Thread(task);
-        thread.setDaemon(true);
-        thread.start();
-
-        logger.debug("🚀 Tâche de génération lancée");
     }
 
     private void diagnosticTableView() {

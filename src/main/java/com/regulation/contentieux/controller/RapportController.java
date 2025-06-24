@@ -863,18 +863,6 @@ public class RapportController implements Initializable {
     }
 
     @FXML
-    private void handleImprimer() {
-        if (dernierRapportGenere == null || dernierRapportGenere.isEmpty()) {
-            AlertUtil.showWarningAlert("Aucun rapport",
-                    "Impression impossible",
-                    "Veuillez d'abord générer un rapport.");
-            return;
-        }
-
-        printService.printHtml(dernierRapportGenere);
-    }
-
-    @FXML
     private void handleExportPdf() {
         if (dernierRapportGenere == null || dernierRapportGenere.isEmpty()) {
             AlertUtil.showWarningAlert("Aucun rapport",
@@ -1488,7 +1476,7 @@ public class RapportController implements Initializable {
     private void handleImprimer() {
         if (dernierRapportGenere != null) {
             try {
-                printService.imprimerRapport(dernierRapportGenere);
+                boolean success = printService.printHtml(dernierRapportGenere);
                 logger.info("Impression du rapport lancée");
             } catch (Exception e) {
                 logger.error("Erreur lors de l'impression", e);

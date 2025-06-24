@@ -881,13 +881,6 @@ public class RapportController implements Initializable {
                 case TABLEAU_AMENDES_SERVICE:
                     return rapportService.genererTableauAmendesParServices(debut, fin);
 
-                // Templates avec conversion de données
-                case REPARTITION_RETROCESSION:
-                    return convertirRepartitionVersHTML((RapportService.RapportRepartitionDTO) rapportData, debut, fin);
-
-                case SITUATION_GENERALE:
-                    return convertirSituationVersHTML((SituationGeneraleDTO) rapportData, debut, fin);
-
                 default:
                     return genererHtmlGenerique(type, rapportData, debut, fin);
             }
@@ -1640,11 +1633,19 @@ public class RapportController implements Initializable {
                 case ETAT_REPARTITION_AFFAIRES:
                     configureColumnsRepartitionAffaires();
                     break;
+                case ETAT_MANDATEMENT:
+                    configureColumnsEtatMandatement();
+                    break;
                 case TABLEAU_AMENDES_SERVICE:
                     configureColumnsAmendesServices();
                     break;
-                case REPARTITION_RETROCESSION:
-                    configureColumnsRepartitionRetrocession();
+                case CENTRE_REPARTITION:
+                case INDICATEURS_REELS:
+                case REPARTITION_PRODUIT:
+                case ETAT_CUMULE_AGENT:
+                case MANDATEMENT_AGENTS:
+                    // Pour l'instant, colonnes génériques en attendant l'implémentation
+                    configureColumnsGeneric();
                     break;
                 default:
                     configureColumnsGeneric();

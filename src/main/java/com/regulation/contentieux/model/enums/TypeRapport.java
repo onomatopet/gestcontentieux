@@ -92,6 +92,23 @@ public enum TypeRapport {
         }
     }
 
+    /**
+     * Obtient le type de rapport à partir du libellé
+     */
+    public static TypeRapport fromLibelle(String libelle) {
+        if (libelle == null) {
+            return null;
+        }
+
+        for (TypeRapport type : values()) {
+            if (type.libelle.equalsIgnoreCase(libelle)) {
+                return type;
+            }
+        }
+
+        throw new IllegalArgumentException("Type de rapport inconnu: " + libelle);
+    }
+
     @Override
     public String toString() {
         return libelle;

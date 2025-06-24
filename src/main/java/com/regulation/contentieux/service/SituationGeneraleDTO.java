@@ -179,6 +179,14 @@ public class SituationGeneraleDTO {
         return tauxRecouvrement;
     }
 
+    public BigDecimal getTotalEncaissements() {
+        return montantTotalEncaisse;
+    }
+
+    public int getNombreAffaires() {
+        return totalAffaires;
+    }
+
     // Setters supplémentaires pour les méthodes aliases
     public void setTotalAmendes(BigDecimal totalAmendes) {
         this.montantTotalAmendes = totalAmendes;

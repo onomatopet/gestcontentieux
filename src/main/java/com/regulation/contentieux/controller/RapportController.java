@@ -914,7 +914,8 @@ public class RapportController implements Initializable {
                 return exportService.exportGenericToExcel(rapportData, outputPath);
             } else if ("pdf".equalsIgnoreCase(format)) {
                 String htmlContent = genererHtmlParType(type, getDateDebut(), getDateFin(), rapportData);
-                return exportService.exportReportToPDF(htmlContent, outputPath, type.getLibelle());
+                File result = exportService.exportReportToPDF(htmlContent, outputPath, type.getLibelle());
+                return result != null;
             }
 
             return false;
@@ -974,8 +975,10 @@ public class RapportController implements Initializable {
                             dernierHtmlContent :
                             genererHtmlParType(dernierTypeRapport, getDateDebut(), getDateFin(), dernierRapportData);
 
-                    return exportService.exportReportToPDF(htmlContent, file.getAbsolutePath(),
+                    // CORRECTION LIGNE 978 : Convertir File en Boolean
+                    File result = exportService.exportReportToPDF(htmlContent, file.getAbsolutePath(),
                             dernierTypeRapport.getLibelle());
+                    return result != null;
                 }
             };
 
@@ -1056,6 +1059,7 @@ public class RapportController implements Initializable {
     }
 
 // ==================== MÉTHODES DE FORMATAGE ====================
+
 
     /**
      * CORRECTION BUG : Méthode manquante formatMontant()

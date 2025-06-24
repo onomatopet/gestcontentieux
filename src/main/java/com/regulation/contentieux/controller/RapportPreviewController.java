@@ -249,6 +249,10 @@ public class RapportPreviewController implements Initializable {
         this.dialogStage = dialogStage;
     }
 
+    public void setRapportContent(String htmlContent) {
+        loadContent(htmlContent, "Aperçu du rapport", null);
+    }
+
     // === GESTIONNAIRES D'ÉVÉNEMENTS ===
 
     private void handleImprimer() {

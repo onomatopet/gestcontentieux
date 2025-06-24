@@ -183,10 +183,12 @@ public class RapportController implements Initializable {
     private void initializeTypeRapport() {
         typeRapportComboBox.getItems().addAll(TypeRapport.values());
 
+        typeRapportComboBox.getItems().addAll(TypeRapport.values());
+
         typeRapportComboBox.setConverter(new StringConverter<TypeRapport>() {
             @Override
             public String toString(TypeRapport type) {
-                return type != null ? type.getLibelle() : ""; // CORRECTION: utiliser getLibelle()
+                return type != null ? type.getLibelle() : ""; // CORRECTION
             }
 
             @Override
@@ -203,11 +205,11 @@ public class RapportController implements Initializable {
             }
         });
 
-        // Listener pour afficher la description
-        typeRapportComboBox.valueProperty().addListener((obs, oldVal, newVal) -> {
-            if (newVal != null) {
-                descriptionLabel.setText(newVal.getDescription());
-                configurerFiltresSelonType(newVal);
+        // Gestionnaire de changement
+        typeRapportComboBox.setOnAction(e -> {
+            TypeRapport selected = typeRapportComboBox.getValue();
+            if (selected != null && descriptionLabel != null) {
+                descriptionLabel.setText(selected.getDescription());
             }
         });
 
@@ -268,6 +270,43 @@ public class RapportController implements Initializable {
             configureTableViewForReport(typeSelectionne);
 
             logger.debug("Type de rapport changé: {}", typeSelectionne.getLibelle());
+        }
+    }
+
+    /**
+     * Gestionnaire pour l'export PDF
+     */
+    @FXML
+    private void handleExportPdf() {
+        if (dernierRapportData == null) {
+            AlertUtil.showWarningAlert("Aucun rapport", "Export impossible",
+                    "Veuillez d'abord générer un rapport.");
+            return;
+        }
+
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Exporter en PDF");
+        fileChooser.setInitialFileName("rapport_" + LocalDate.now() + ".pdf");
+        fileChooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter("PDF Files", "*.pdf")
+        );
+
+        Stage stage = (Stage) exportPdfButton.getScene().getWindow();
+        File file = fileChooser.showSaveDialog(stage);
+
+        if (file != null) {
+            try {
+                boolean success = exportService.exportToPdf(dernierRapportData, file.getAbsolutePath());
+                if (success) {
+                    AlertUtil.showSuccess("Export réussi", "Le rapport a été exporté en PDF avec succès.");
+                } else {
+                    AlertUtil.showErrorAlert("Export échoué", "Erreur d'export",
+                            "Impossible d'exporter le rapport en PDF.");
+                }
+            } catch (Exception e) {
+                logger.error("Erreur lors de l'export PDF", e);
+                AlertUtil.showErrorAlert("Erreur d'export", "Impossible d'exporter en PDF", e.getMessage());
+            }
         }
     }
 
@@ -696,22 +735,11 @@ public class RapportController implements Initializable {
     private void setButtonsEnabled(boolean enabled) {
         Platform.runLater(() -> {
             if (genererButton != null) genererButton.setDisable(!enabled);
-            if (exporterButton != null) exporterButton.setDisable(!enabled);
-            if (imprimerButton != null) imprimerButton.setDisable(!enabled);
-        });
-    }
-
-    private void setButtonsEnabled(boolean enabled) {
-        Platform.runLater(() -> {
-            if (genererButton != null) genererButton.setDisable(!enabled);
-            // REMPLACER cette ligne buggée :
-            // if (exporterButton != null) exporterButton.setDisable(!enabled);
-
-            // PAR ces corrections :
+            // BUG 7 FIX : Remplacer exporterButton par les bonnes variables
             if (exportPdfButton != null) exportPdfButton.setDisable(!enabled);
             if (exportExcelButton != null) exportExcelButton.setDisable(!enabled);
-
             if (imprimerButton != null) imprimerButton.setDisable(!enabled);
+            if (previewButton != null) previewButton.setDisable(!enabled);
         });
     }
 
@@ -842,14 +870,14 @@ public class RapportController implements Initializable {
             return;
         }
 
-        logger.debug("📊 Génération rapport: {}", typeSelectionne);
+        logger.debug("📊 Génération rapport: {}", typeSelectionne.getLibelle()); // BUG 5 FIX
         logger.debug("📅 Période: {} - {}", dateDebut, dateFin);
 
         // Désactiver les boutons pendant la génération
         setButtonsEnabled(false);
         updateStatus("Génération en cours...");
 
-        // CORRECTION : Configurer les colonnes AVANT la génération
+        // Configuration des colonnes AVANT la génération
         configureTableViewForReport(typeSelectionne);
 
         // Génération asynchrone
@@ -870,35 +898,18 @@ public class RapportController implements Initializable {
                 Object rapportData = task.getValue();
                 logger.debug("📦 Données récupérées: {}", rapportData != null ? rapportData.getClass().getSimpleName() : "NULL");
 
-                // CORRECTION PRINCIPALE : Appel explicite et forcé de updateTableViewData
                 if (rapportData != null) {
-                    logger.debug("🔧 Appel explicite de updateTableViewData...");
                     updateTableViewData(rapportData);
-
-                    // Sauvegarder pour utilisation ultérieure
                     dernierRapportData = rapportData;
-                    dernierRapportGenere = typeSelectionne;
-
-                    // CORRECTION : Forcer un second appel après délai pour s'assurer
-                    Platform.runLater(() -> {
-                        try {
-                            Thread.sleep(100); // Petit délai
-                            logger.debug("🔧 Second appel de updateTableViewData (sécurité)...");
-                            updateTableViewData(rapportData);
-                        } catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
-                        }
-                    });
+                    dernierTypeRapport = typeSelectionne; // Utiliser dernierTypeRapport au lieu de dernierRapportGenere
 
                     updateStatus("Rapport généré avec succès");
                     updateButtonStates(true);
-
                     AlertUtil.showSuccess("Rapport généré", "Le rapport a été généré avec succès.");
-
                 } else {
                     logger.warn("⚠️ Données de rapport nulles");
                     updateStatus("Aucune donnée trouvée");
-                    updateTableViewData(null); // Vider la table
+                    updateTableViewData(null);
                     AlertUtil.showWarningAlert("Données", "Aucune donnée",
                             "Aucune donnée trouvée pour la période sélectionnée");
                 }
@@ -915,22 +926,18 @@ public class RapportController implements Initializable {
 
         task.setOnFailed(event -> {
             logger.error("❌ Échec génération rapport", task.getException());
-
             setButtonsEnabled(true);
             updateStatus("Erreur lors de la génération");
 
             Throwable exception = task.getException();
             AlertUtil.showErrorAlert("Erreur", "Erreur de génération",
                     "Erreur lors de la génération du rapport: " +
-                            (exception != null ? exception.getMessage() : "Erreur inconnue"));
+                            (exception != null ? exception.getMessage() : ""));
         });
 
-        // Lancer la tâche
         Thread thread = new Thread(task);
         thread.setDaemon(true);
         thread.start();
-
-        logger.debug("🚀 Tâche de génération lancée");
     }
 
     // Méthode alternative si besoin d'afficher des statistiques simples

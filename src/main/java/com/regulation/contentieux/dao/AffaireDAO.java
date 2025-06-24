@@ -379,7 +379,7 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
 
         return affaires;
     }
-    
+
     /**
      * Génère le prochain numéro d'affaire selon le format YYMMNNNNN
      * ENRICHISSEMENT : Ajout de validations et diagnostics sans changer la signature
@@ -902,6 +902,18 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
 
         return 0;
     }
+
+    /**
+     * Trouve les affaires par statut
+     */
+    public List<Affaire> findByStatut(StatutAffaire statut) {
+        String sql = getSelectAllQuery().replace(
+                "WHERE a.deleted = false",
+                "WHERE a.deleted = false AND a.statut = ?");
+
+        return executeQuery(sql, statut.name());
+    }
+
 
     /**
      * Compte les affaires créées dans une année

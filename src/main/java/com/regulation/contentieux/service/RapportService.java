@@ -809,6 +809,66 @@ public class RapportService {
         return rapport;
     }
 
+    /**
+     * Génère les données pour le tableau des amendes par services
+     */
+    public TableauAmendesParServicesDTO genererDonneesTableauAmendesParServices(LocalDate dateDebut, LocalDate dateFin) {
+        logger.info("📋 Génération du tableau des amendes par services - {} au {}", dateDebut, dateFin);
+
+        TableauAmendesParServicesDTO rapport = new TableauAmendesParServicesDTO();
+        rapport.setDateDebut(dateDebut);
+        rapport.setDateFin(dateFin);
+        rapport.setDateGeneration(LocalDate.now());
+        rapport.setPeriodeLibelle(formatPeriode(dateDebut, dateFin));
+
+        // Récupérer tous les services
+        List<Service> services = serviceDAO.findAll();
+
+        BigDecimal totalGeneral = BigDecimal.ZERO;
+        int totalAffairesGeneral = 0;
+
+        for (Service service : services) {
+            // Récupérer les affaires du service pour la période
+            List<Affaire> affairesService = affaireDAO.findByServiceAndPeriod(service.getId(), dateDebut, dateFin);
+
+            if (!affairesService.isEmpty()) {
+                ServiceAmendeDTO serviceDTO = new ServiceAmendeDTO();
+                serviceDTO.setNomService(service.getNomService());
+                serviceDTO.setNombreAffaires(affairesService.size());
+
+                // Calculer le montant total des amendes pour ce service
+                BigDecimal montantService = affairesService.stream()
+                        .map(Affaire::getMontantAmendeTotal)
+                        .filter(Objects::nonNull)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+                serviceDTO.setMontantTotal(montantService);
+
+                // Ajouter des observations si nécessaire
+                if (affairesService.size() == 0) {
+                    serviceDTO.setObservations("Aucune activité");
+                } else {
+                    serviceDTO.setObservations("");
+                }
+
+                rapport.getServices().add(serviceDTO);
+                totalGeneral = totalGeneral.add(montantService);
+                totalAffairesGeneral += affairesService.size();
+            }
+        }
+
+        // Définir les totaux
+        rapport.setTotalGeneral(totalGeneral);
+        rapport.setNombreTotalAffaires(totalAffairesGeneral);
+        rapport.setTotalAffaires(totalAffairesGeneral);
+        rapport.setMontantTotalEncaisse(totalGeneral);
+
+        logger.info("✅ Tableau généré - {} services, {} affaires, total: {}",
+                rapport.getServices().size(), totalAffairesGeneral, totalGeneral);
+
+        return rapport;
+    }
+
     // ==================== MÉTHODES UTILITAIRES ====================
 
     /**
@@ -976,6 +1036,11 @@ public class RapportService {
         private BigDecimal totalGeneral = BigDecimal.ZERO;
         private int nombreTotalAffaires = 0;
 
+        // CORRECTION : Ajout des champs manquants
+        private BigDecimal montantTotalEncaisse = BigDecimal.ZERO;
+        private BigDecimal montantRestantDu = BigDecimal.ZERO;
+        private int totalAffaires = 0;
+
         // Getters et setters
         public void setMontantEncaisse(BigDecimal montantEncaisse) {
             this.montantTotalEncaisse = montantEncaisse;
@@ -989,6 +1054,32 @@ public class RapportService {
         public int getNombreAffaires() {
             return totalAffaires;
         }
+
+        // CORRECTION : Ajout des getters/setters manquants
+        public BigDecimal getMontantTotalEncaisse() {
+            return montantTotalEncaisse;
+        }
+
+        public void setMontantTotalEncaisse(BigDecimal montantTotalEncaisse) {
+            this.montantTotalEncaisse = montantTotalEncaisse;
+        }
+
+        public BigDecimal getMontantRestantDu() {
+            return montantRestantDu;
+        }
+
+        public void setMontantRestantDu(BigDecimal montantRestantDu) {
+            this.montantRestantDu = montantRestantDu;
+        }
+
+        public int getTotalAffaires() {
+            return totalAffaires;
+        }
+
+        public void setTotalAffaires(int totalAffaires) {
+            this.totalAffaires = totalAffaires;
+        }
+
         public LocalDate getDateDebut() { return dateDebut; }
         public void setDateDebut(LocalDate dateDebut) { this.dateDebut = dateDebut; }
 
@@ -1011,21 +1102,12 @@ public class RapportService {
         public void setNombreTotalAffaires(int nombreTotalAffaires) { this.nombreTotalAffaires = nombreTotalAffaires; }
 
         /**
-         * Alias pour getNombreTotalAffaires()
-         */
-        public int getTotalAffaires() {
-            return nombreTotalAffaires;
-        }
-
-        /**
          * Alias pour getTotalGeneral()
          */
         public BigDecimal getTotalMontant() {
             return totalGeneral;
         }
     }
-
-
 
     /**
      * DTO pour les statistiques d'un service
@@ -1298,6 +1380,20 @@ public class RapportService {
 
         public BigDecimal getRepartitionBase() { return repartitionBase; }
         public void setRepartitionBase(BigDecimal repartitionBase) { this.repartitionBase = repartitionBase; }
+
+        /**
+         * Méthode d'accès direct au nom du centre - pour compatibilité avec ExportService
+         */
+        public String getNomCentre() {
+            return centre != null ? centre.getNomCentre() : "";
+        }
+
+        /**
+         * Méthode d'accès direct au code du centre - pour complétude
+         */
+        public String getCodeCentre() {
+            return centre != null ? centre.getCodeCentre() : "";
+        }
 
         public BigDecimal getRepartitionIndicateur() { return repartitionIndicateur; }
         public void setRepartitionIndicateur(BigDecimal repartitionIndicateur) { this.repartitionIndicateur = repartitionIndicateur; }
@@ -2211,6 +2307,20 @@ public class RapportService {
 
         public LocalDate getDateFin() { return dateFin; }
         public void setDateFin(LocalDate dateFin) { this.dateFin = dateFin; }
+
+        /**
+         * Méthode alias pour getDateDebut() - pour compatibilité avec ExportService
+         */
+        public LocalDate getPeriodeDebut() {
+            return dateDebut;
+        }
+
+        /**
+         * Méthode alias pour getDateFin() - pour compatibilité avec ExportService
+         */
+        public LocalDate getPeriodeFin() {
+            return dateFin;
+        }
 
         public LocalDate getDateGeneration() { return dateGeneration; }
         public void setDateGeneration(LocalDate dateGeneration) { this.dateGeneration = dateGeneration; }

@@ -163,10 +163,12 @@ public class RapportController implements Initializable {
             webEngine = previewWebView.getEngine();
         }
 
-        initializeTypeRapport();
+        initializeTypeRapport();     // DOIT être AVANT configureTableViewInitial
         initializePeriode();
         initializeFiltres();
         setupEventHandlers();
+
+        // Configuration de la TableView (APRÈS initializeTypeRapport)
         configureTableViewInitial();
         setupNewEventHandlers();
 
@@ -175,10 +177,6 @@ public class RapportController implements Initializable {
             progressIndicator.setVisible(false);
         }
         updateButtonStates(false);
-        // NOUVEAU: Configurer et remplir la TableView
-        configureTableViewForReport(dernierTypeRapport);
-        updateTableViewData(dernierRapportData);
-        updateDerniereMaj();
     }
 
     private void initializeTypeRapport() {
@@ -1401,6 +1399,14 @@ public class RapportController implements Initializable {
         if (resultatsTableView != null) {
             resultatsTableView.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
             resultatsTableView.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
+
+            // Configuration par défaut sans TypeRapport
+            configureColumnsGeneric();
+
+            // Placeholder par défaut
+            if (tableauTitreLabel != null) {
+                tableauTitreLabel.setText("Sélectionnez un type de rapport");
+            }
         }
     }
 
@@ -1426,27 +1432,41 @@ public class RapportController implements Initializable {
      * Configure la TableView selon le type de rapport sélectionné
      */
     private void configureTableViewForReport(TypeRapport typeRapport) {
-        if (resultatsTableView == null) return;
+        if (resultatsTableView == null) {
+            logger.debug("resultatsTableView est null, skip configuration");
+            return;
+        }
+
+        if (typeRapport == null) {
+            logger.debug("typeRapport est null, configuration par défaut");
+            configureColumnsGeneric();
+            updateTableauTitre(null);
+            return;
+        }
 
         // Effacer les colonnes existantes
         resultatsTableView.getColumns().clear();
 
-        switch (typeRapport) {
-            case ETAT_REPARTITION_AFFAIRES:
-                configureColumnsRepartitionAffaires();
-                break;
-            case TABLEAU_AMENDES_SERVICE:
-                configureColumnsAmendesServices();
-                break;
-            case REPARTITION_RETROCESSION:
-                configureColumnsRepartitionRetrocession();
-                break;
-            default:
-                configureColumnsGeneric();
-                break;
+        try {
+            switch (typeRapport) {
+                case ETAT_REPARTITION_AFFAIRES:
+                    configureColumnsRepartitionAffaires();
+                    break;
+                case TABLEAU_AMENDES_SERVICE:
+                    configureColumnsAmendesServices();
+                    break;
+                case REPARTITION_RETROCESSION:
+                    configureColumnsRepartitionRetrocession();
+                    break;
+                default:
+                    configureColumnsGeneric();
+                    break;
+            }
+            updateTableauTitre(typeRapport);
+        } catch (Exception e) {
+            logger.error("Erreur lors de la configuration des colonnes", e);
+            configureColumnsGeneric();
         }
-
-        updateTableauTitre(typeRapport);
     }
 
     /**
@@ -1758,7 +1778,8 @@ public class RapportController implements Initializable {
      */
     private void updateTableauTitre(TypeRapport typeRapport) {
         if (tableauTitreLabel != null) {
-            tableauTitreLabel.setText(typeRapport.getLibelle());
+            String titre = typeRapport != null ? typeRapport.getLibelle() : "Sélectionnez un type de rapport";
+            tableauTitreLabel.setText(titre);
         }
     }
 

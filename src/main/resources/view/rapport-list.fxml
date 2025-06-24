@@ -1,139 +1,173 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.geometry.*?>
+<?import javafx.geometry.Insets?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
-<?import javafx.scene.web.*?>
-<?import org.kordamp.ikonli.javafx.*?>
-
+<?import javafx.scene.web.WebView?>
 <?import java.net.URL?>
-<BorderPane xmlns="http://javafx.com/javafx/17.0.2-ea" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.regulation.contentieux.controller.RapportController">
+
+<BorderPane xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.regulation.contentieux.controller.RapportController">
+
+    <!-- TOOLBAR PRINCIPALE EN HAUT -->
     <top>
-        <VBox spacing="15.0" styleClass="header-section">
+        <VBox spacing="5">
             <padding>
-                <Insets bottom="15.0" left="20.0" right="20.0" top="20.0" />
+                <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
             </padding>
 
-            <!-- Titre principal -->
-            <HBox alignment="CENTER_LEFT" spacing="10.0">
-                <Label styleClass="title-large" text="📊 Génération des Rapports" />
+            <!-- Section 1: Type de rapport et description -->
+            <HBox alignment="CENTER_LEFT" spacing="15" styleClass="toolbar-section">
+                <Label text="Type de rapport:" styleClass="toolbar-label" />
+                <ComboBox fx:id="typeRapportComboBox" prefWidth="300" promptText="Sélectionnez un type de rapport" />
+                <Region HBox.hgrow="ALWAYS" />
+                <Button fx:id="helpButton" text="?" styleClass="button-info" prefWidth="30" prefHeight="30" />
             </HBox>
 
             <!-- Description du rapport sélectionné -->
-            <Label fx:id="descriptionLabel" styleClass="subtitle-text" wrapText="true"
-                   text="Sélectionnez un type de rapport pour commencer" />
+            <Label fx:id="descriptionLabel" text="Sélectionnez un type de rapport pour voir sa description"
+                   styleClass="description-text" wrapText="true" />
 
-            <!-- Configuration du rapport -->
-            <VBox spacing="15">
-                <!-- Type de rapport -->
-                <VBox spacing="5">
-                    <Label text="Type de rapport:" styleClass="field-label" />
-                    <ComboBox fx:id="typeRapportComboBox" prefWidth="400" promptText="Sélectionnez un type de rapport" />
-                </VBox>
+            <Separator />
 
-                <!-- Configuration de la période -->
-                <VBox spacing="10">
-                    <Label text="Période du rapport:" styleClass="section-title" />
+            <!-- Section 2: Période et filtres -->
+            <HBox alignment="CENTER_LEFT" spacing="15" styleClass="toolbar-section">
+                <!-- Période -->
+                <Label text="Période:" styleClass="toolbar-label" />
+                <ComboBox fx:id="periodeTypeComboBox" prefWidth="150" />
 
-                    <HBox spacing="15" alignment="CENTER_LEFT">
-                        <ComboBox fx:id="periodeTypeComboBox" prefWidth="200" />
+                <!-- Dates personnalisées -->
+                <HBox fx:id="periodePersonnaliseeBox" spacing="10" alignment="CENTER_LEFT">
+                    <Label text="Du:" />
+                    <DatePicker fx:id="dateDebutPicker" prefWidth="130" />
+                    <Label text="Au:" />
+                    <DatePicker fx:id="dateFinPicker" prefWidth="130" />
+                </HBox>
 
-                        <!-- Période personnalisée -->
-                        <HBox fx:id="periodePersonnaliseeBox" spacing="10" alignment="CENTER_LEFT">
-                            <Label text="Du:" />
-                            <DatePicker fx:id="dateDebutPicker" prefWidth="150" />
-                            <Label text="Au:" />
-                            <DatePicker fx:id="dateFinPicker" prefWidth="150" />
-                        </HBox>
+                <!-- Période mensuelle -->
+                <HBox fx:id="periodeMensuelleBox" spacing="10" alignment="CENTER_LEFT" visible="false" managed="false">
+                    <ComboBox fx:id="moisComboBox" prefWidth="120" />
+                    <ComboBox fx:id="anneeComboBox" prefWidth="80" />
+                </HBox>
 
-                        <!-- Période mensuelle (pour future utilisation) -->
-                        <HBox fx:id="periodeMensuelleBox" spacing="10" alignment="CENTER_LEFT" visible="false" managed="false">
-                            <Label text="Mois:" />
-                            <ComboBox fx:id="moisComboBox" prefWidth="150" />
-                            <Label text="Année:" />
-                            <ComboBox fx:id="anneeComboBox" prefWidth="100" />
-                        </HBox>
-                    </HBox>
-                </VBox>
+                <Separator orientation="VERTICAL" />
 
                 <!-- Filtres additionnels -->
-                <VBox fx:id="filtresAdditionnelsBox" spacing="10">
-                    <Label text="Filtres additionnels:" styleClass="section-title" />
-
-                    <HBox spacing="15">
-                        <VBox spacing="5">
-                            <Label text="Service:" />
-                            <ComboBox fx:id="serviceFilterComboBox" prefWidth="200" promptText="Tous les services" />
-                        </VBox>
-
-                        <VBox spacing="5">
-                            <Label text="Bureau/Centre:" />
-                            <ComboBox fx:id="bureauFilterComboBox" prefWidth="200" promptText="Tous les bureaux" />
-                        </VBox>
-
-                        <VBox spacing="5" alignment="CENTER_LEFT">
-                            <Label text="Options:" />
-                            <CheckBox fx:id="includeDetailsCheckBox" text="Inclure les détails" selected="true" />
-                        </VBox>
+                <VBox fx:id="filtresAdditionnelsBox" spacing="5">
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="Bureau:" />
+                        <ComboBox fx:id="bureauFilterComboBox" prefWidth="120" />
+                        <Label text="Service:" />
+                        <ComboBox fx:id="serviceFilterComboBox" prefWidth="120" />
+                        <CheckBox fx:id="includeDetailsCheckBox" text="Inclure détails" />
                     </HBox>
                 </VBox>
 
-                <!-- Boutons d'action -->
-                <HBox spacing="10.0" alignment="CENTER_LEFT">
-                    <Button fx:id="genererButton" text="⚙️ Générer le Rapport" styleClass="button-primary" />
+                <Region HBox.hgrow="ALWAYS" />
 
-                    <Button fx:id="previewButton" text="👁️ Aperçu" disable="true" />
-
-                    <Button fx:id="imprimerButton" text="🖨️ Imprimer" disable="true" />
-
-                    <Button fx:id="exportPdfButton" text="📄 Export PDF" disable="true" styleClass="button-danger" />
-
-                    <Button fx:id="exportExcelButton" text="📊 Export Excel" disable="true" styleClass="button-success" />
-
-                    <Region HBox.hgrow="ALWAYS" />
-
-                    <ProgressIndicator fx:id="progressIndicator" visible="false" prefWidth="30" prefHeight="30" />
+                <!-- Actions principales -->
+                <HBox spacing="10" alignment="CENTER_RIGHT">
+                    <Button fx:id="genererButton" text="🔄 Générer" styleClass="button-primary" />
+                    <Button fx:id="reinitialiserButton" text="↻ Réinitialiser" styleClass="button-secondary" />
                 </HBox>
-            </VBox>
+            </HBox>
+
+            <!-- Barre de progression -->
+            <HBox alignment="CENTER" spacing="10">
+                <ProgressIndicator fx:id="progressIndicator" visible="false" prefWidth="20" prefHeight="20" />
+                <Label fx:id="statusLabel" text="Prêt à générer un rapport" styleClass="status-text" />
+            </HBox>
         </VBox>
     </top>
 
+    <!-- TABLEVIEW PRINCIPALE AU CENTRE -->
     <center>
-        <!-- Zone d'aperçu du rapport -->
         <VBox spacing="10" styleClass="content-section">
             <padding>
                 <Insets bottom="10.0" left="20.0" right="20.0" top="10.0" />
             </padding>
 
-            <Label text="Aperçu du rapport:" styleClass="section-title" />
+            <!-- En-tête du tableau avec informations -->
+            <HBox alignment="CENTER_LEFT" spacing="15">
+                <Label fx:id="tableauTitreLabel" text="Résultats du rapport" styleClass="section-title" />
+                <Region HBox.hgrow="ALWAYS" />
+                <Label fx:id="nombreResultatsLabel" text="0 résultat(s)" styleClass="results-count" />
+            </HBox>
 
-            <WebView fx:id="previewWebView" VBox.vgrow="ALWAYS" />
+            <!-- TableView principale avec colonnes dynamiques -->
+            <TableView fx:id="resultatsTableView" VBox.vgrow="ALWAYS">
+                <placeholder>
+                    <VBox alignment="CENTER" spacing="10">
+                        <Label text="📊" style="-fx-font-size: 48px; -fx-text-fill: #BDBDBD;" />
+                        <Label text="Aucune donnée à afficher" styleClass="placeholder-text" />
+                        <Label text="Sélectionnez un type de rapport et cliquez sur 'Générer'" styleClass="placeholder-hint" />
+                    </VBox>
+                </placeholder>
+
+                <!-- Colonnes dynamiques seront ajoutées par le contrôleur -->
+                <columns>
+                    <!-- Les colonnes seront créées dynamiquement selon le type de rapport -->
+                </columns>
+            </TableView>
         </VBox>
     </center>
 
-    <!-- SECTION FOOTER COMPLÈTE CORRIGÉE: -->
+    <!-- BARRE D'ACTIONS EN BAS -->
     <bottom>
-        <!-- Barre de statut -->
-        <HBox alignment="CENTER_LEFT" spacing="10.0" styleClass="footer-section">
-            <padding>
-                <Insets bottom="10.0" left="20.0" right="20.0" top="10.0" />
-            </padding>
+        <VBox>
+            <!-- Actions sur les données -->
+            <HBox alignment="CENTER_LEFT" spacing="15" styleClass="action-bar">
+                <padding>
+                    <Insets bottom="10.0" left="20.0" right="20.0" top="10.0" />
+                </padding>
 
-            <Label text="ℹ️" style="-fx-font-size: 14px;" styleClass="info-icon" />
-            <Label fx:id="statusLabel" text="Prêt à générer un rapport" styleClass="footer-text" />
+                <!-- Actions de visualisation -->
+                <Label text="Visualisation:" styleClass="action-group-label" />
+                <Button fx:id="previewButton" text="👁 Aperçu" styleClass="button-info" disable="true" />
+                <Button fx:id="imprimerButton" text="🖨 Imprimer" styleClass="button-secondary" disable="true" />
 
-            <Region HBox.hgrow="ALWAYS" />
-
-            <!-- Indicateurs de statut -->
-            <HBox spacing="10.0" alignment="CENTER_RIGHT">
-                <Label text="8 types de rapports disponibles" styleClass="status-info" />
                 <Separator orientation="VERTICAL" />
-                <Label text="💾" style="-fx-font-size: 14px;" styleClass="success-icon" />
-                <Label text="Base de données connectée" styleClass="status-connected" />
+
+                <!-- Actions d'export -->
+                <Label text="Export:" styleClass="action-group-label" />
+                <Button fx:id="exportPdfButton" text="📄 PDF" styleClass="button-danger" disable="true" />
+                <Button fx:id="exportExcelButton" text="📊 Excel" styleClass="button-success" disable="true" />
+
+                <Separator orientation="VERTICAL" />
+
+                <!-- Sélection dans le tableau -->
+                <Label text="Sélection:" styleClass="action-group-label" />
+                <Button fx:id="selectionnerToutButton" text="☑ Tout" styleClass="button-outline" />
+                <Button fx:id="deselectionnerToutButton" text="☐ Aucun" styleClass="button-outline" />
+
+                <Region HBox.hgrow="ALWAYS" />
+
+                <!-- Informations de statut -->
+                <HBox spacing="10" alignment="CENTER_RIGHT">
+                    <Label text="💾" style="-fx-font-size: 14px;" />
+                    <Label text="Base de données connectée" styleClass="status-connected" />
+                    <Separator orientation="VERTICAL" />
+                    <Label fx:id="derniereMajLabel" text="Dernière mise à jour: --" styleClass="status-info" />
+                </HBox>
             </HBox>
-        </HBox>
+
+            <!-- Barre de statut finale -->
+            <HBox alignment="CENTER_LEFT" spacing="10" styleClass="footer-section">
+                <padding>
+                    <Insets bottom="5.0" left="20.0" right="20.0" top="5.0" />
+                </padding>
+
+                <Label text="ℹ️" style="-fx-font-size: 12px;" />
+                <Label fx:id="statusFooterLabel" text="Application de Gestion des Affaires Contentieuses v1.0" styleClass="footer-text" />
+
+                <Region HBox.hgrow="ALWAYS" />
+
+                <Label text="8 types de rapports disponibles" styleClass="footer-info" />
+            </HBox>
+        </VBox>
     </bottom>
 
+    <!-- STYLES CSS -->
     <stylesheets>
         <URL value="@../css/application.css" />
     </stylesheets>

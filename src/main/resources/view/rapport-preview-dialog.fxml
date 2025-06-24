@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.web.WebView?>
+<?import java.net.URL?>
+
+<BorderPane xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.regulation.contentieux.controller.RapportPreviewController"
+            prefWidth="900" prefHeight="700">
+
+    <!-- TOOLBAR D'APERÇU EN HAUT -->
+    <top>
+        <VBox>
+            <!-- Titre et informations du rapport -->
+            <HBox alignment="CENTER_LEFT" spacing="15" styleClass="preview-header">
+                <padding>
+                    <Insets bottom="10.0" left="15.0" right="15.0" top="15.0" />
+                </padding>
+
+                <Label text="📄" style="-fx-font-size: 24px;" />
+                <VBox spacing="2">
+                    <Label fx:id="titreRapportLabel" text="Aperçu du rapport" styleClass="preview-title" />
+                    <Label fx:id="detailsRapportLabel" text="Type: -- | Période: --" styleClass="preview-details" />
+                </VBox>
+
+                <Region HBox.hgrow="ALWAYS" />
+
+                <!-- Informations du document -->
+                <VBox alignment="CENTER_RIGHT" spacing="2">
+                    <Label fx:id="nombrePagesLabel" text="Page 1 sur 1" styleClass="page-info" />
+                    <Label fx:id="tailleDocumentLabel" text="Taille: --" styleClass="document-info" />
+                </VBox>
+            </HBox>
+
+            <Separator />
+
+            <!-- ToolBar avec contrôles d'aperçu -->
+            <ToolBar styleClass="preview-toolbar">
+                <items>
+                    <!-- Contrôles de zoom -->
+                    <Label text="Zoom:" />
+                    <Button fx:id="zoomOutButton" text="🔍-" styleClass="zoom-button" />
+                    <Label fx:id="zoomLabel" text="100%" styleClass="zoom-level" />
+                    <Button fx:id="zoomInButton" text="🔍+" styleClass="zoom-button" />
+                    <Button fx:id="zoomFitButton" text="📐 Ajuster" styleClass="button-outline" />
+
+                    <Separator orientation="VERTICAL" />
+
+                    <!-- Navigation dans le document -->
+                    <Label text="Navigation:" />
+                    <Button fx:id="premierePage" text="⏮" styleClass="nav-button" />
+                    <Button fx:id="pagePrecedente" text="◀" styleClass="nav-button" />
+                    <TextField fx:id="pageActuelleField" text="1" prefWidth="60" styleClass="page-field" />
+                    <Label text="/" />
+                    <Label fx:id="totalPagesLabel" text="1" />
+                    <Button fx:id="pageSuivante" text="▶" styleClass="nav-button" />
+                    <Button fx:id="dernierePage" text="⏭" styleClass="nav-button" />
+
+                    <Separator orientation="VERTICAL" />
+
+                    <!-- Options d'affichage -->
+                    <Label text="Affichage:" />
+                    <ToggleButton fx:id="modePortraitButton" text="📄 Portrait" selected="true" />
+                    <ToggleButton fx:id="modePaysageButton" text="📄 Paysage" />
+                    <CheckBox fx:id="afficherReglesCheckBox" text="Règles" />
+
+                    <!-- Spacer -->
+                    <Region HBox.hgrow="ALWAYS" />
+
+                    <!-- Actions principales -->
+                    <Button fx:id="imprimerButton" text="🖨 Imprimer" styleClass="button-primary" />
+                    <Button fx:id="exportPdfButton" text="📄 Export PDF" styleClass="button-danger" />
+                    <Button fx:id="exportExcelButton" text="📊 Export Excel" styleClass="button-success" />
+
+                    <Separator orientation="VERTICAL" />
+
+                    <Button fx:id="fermerButton" text="✖ Fermer" styleClass="button-secondary" />
+                </items>
+            </ToolBar>
+        </VBox>
+    </top>
+
+    <!-- WEBVIEW D'APERÇU AU CENTRE -->
+    <center>
+        <BorderPane styleClass="preview-container">
+            <padding>
+                <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+            </padding>
+
+            <!-- Zone d'aperçu avec scrolling -->
+            <center>
+                <ScrollPane fx:id="previewScrollPane" fitToWidth="true" fitToHeight="true"
+                            styleClass="preview-scroll" pannable="true">
+
+                    <!-- WebView pour l'aperçu du document -->
+                    <content>
+                        <StackPane styleClass="document-container">
+                            <WebView fx:id="previewWebView" prefWidth="800" prefHeight="1000" />
+
+                            <!-- Overlay de chargement -->
+                            <VBox fx:id="loadingOverlay" alignment="CENTER" spacing="10"
+                                  styleClass="loading-overlay" visible="false">
+                                <ProgressIndicator prefWidth="50" prefHeight="50" />
+                                <Label text="Génération de l'aperçu..." styleClass="loading-text" />
+                            </VBox>
+
+                            <!-- Overlay d'erreur -->
+                            <VBox fx:id="errorOverlay" alignment="CENTER" spacing="10"
+                                  styleClass="error-overlay" visible="false">
+                                <Label text="⚠️" style="-fx-font-size: 48px; -fx-text-fill: #F44336;" />
+                                <Label fx:id="errorMessageLabel" text="Erreur lors de la génération" styleClass="error-text" />
+                                <Button fx:id="retryButton" text="🔄 Réessayer" styleClass="button-primary" />
+                            </VBox>
+                        </StackPane>
+                    </content>
+                </ScrollPane>
+            </center>
+
+            <!-- Barre latérale droite avec miniatures (future) -->
+            <right>
+                <VBox fx:id="thumbnailPanel" spacing="5" styleClass="thumbnail-panel"
+                      visible="false" managed="false" prefWidth="120">
+                    <padding>
+                        <Insets bottom="10.0" left="5.0" right="5.0" top="10.0" />
+                    </padding>
+
+                    <Label text="Pages" styleClass="panel-title" />
+                    <ScrollPane fitToWidth="true" styleClass="thumbnail-scroll">
+                        <VBox fx:id="thumbnailContainer" spacing="5" />
+                    </ScrollPane>
+                </VBox>
+            </right>
+        </BorderPane>
+    </center>
+
+    <!-- BARRE DE STATUT EN BAS -->
+    <bottom>
+        <HBox alignment="CENTER_LEFT" spacing="15" styleClass="preview-footer">
+            <padding>
+                <Insets bottom="8.0" left="15.0" right="15.0" top="8.0" />
+            </padding>
+
+            <!-- Informations de statut -->
+            <Label fx:id="statutLabel" text="✅ Aperçu généré avec succès" styleClass="status-success" />
+
+            <Region HBox.hgrow="ALWAYS" />
+
+            <!-- Informations techniques -->
+            <HBox spacing="10" alignment="CENTER_RIGHT">
+                <Label fx:id="tempsGenerationLabel" text="Généré en 0.5s" styleClass="tech-info" />
+                <Separator orientation="VERTICAL" />
+                <Label fx:id="tailleMemoryLabel" text="Mémoire: 2.1 MB" styleClass="tech-info" />
+                <Separator orientation="VERTICAL" />
+                <Label fx:id="formatDocumentLabel" text="Format: A4" styleClass="tech-info" />
+            </HBox>
+        </HBox>
+    </bottom>
+
+    <!-- STYLES CSS -->
+    <stylesheets>
+        <URL value="@../css/application.css" />
+        <URL value="@../css/rapport-preview.css" />
+    </stylesheets>
+</BorderPane>

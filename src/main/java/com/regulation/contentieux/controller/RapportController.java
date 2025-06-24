@@ -1,9 +1,19 @@
 package com.regulation.contentieux.controller;
 
+import javafx.beans.property.SimpleStringProperty;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import javafx.geometry.Pos;
+import javafx.scene.control.TableCell;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
+import java.time.LocalDateTime;
+
 import java.time.format.DateTimeFormatter;
 import java.awt.Desktop;
 import java.math.BigDecimal;
 import java.text.NumberFormat;
+import java.util.List;
 import java.util.Locale;
 import com.regulation.contentieux.dao.ContraventionDAO;
 import javafx.scene.layout.HBox;
@@ -60,6 +70,19 @@ public class RapportController implements Initializable {
     @FXML private ComboBox<Integer> anneeComboBox;
     @FXML private HBox periodePersonnaliseeBox;
     @FXML private HBox periodeMensuelleBox;
+
+    // === NOUVEAUX COMPOSANTS FXML ===
+    @FXML private TableView<Object> resultatsTableView;
+    @FXML private Label tableauTitreLabel;
+    @FXML private Label nombreResultatsLabel;
+    @FXML private Label derniereMajLabel;
+    @FXML private Label statusFooterLabel;
+
+    // Nouveaux boutons
+    @FXML private Button reinitialiserButton;
+    @FXML private Button selectionnerToutButton;
+    @FXML private Button deselectionnerToutButton;
+    @FXML private Button helpButton;
 
     // Filtres additionnels
     @FXML private VBox filtresAdditionnelsBox;
@@ -144,12 +167,18 @@ public class RapportController implements Initializable {
         initializePeriode();
         initializeFiltres();
         setupEventHandlers();
+        configureTableViewInitial();
+        setupNewEventHandlers();
 
         // État initial
         if (progressIndicator != null) {
             progressIndicator.setVisible(false);
         }
         updateButtonStates(false);
+        // NOUVEAU: Configurer et remplir la TableView
+        configureTableViewForReport(dernierTypeRapport);
+        updateTableViewData(dernierRapportData);
+        updateDerniereMaj();
     }
 
     private void initializeTypeRapport() {
@@ -562,7 +591,7 @@ public class RapportController implements Initializable {
                 if (rapportData != null) {
                     // CORRECTION: Mettre à jour les variables d'état
                     dernierRapportData = rapportData;
-                    dernierTypeRapport = type;
+                    dernierTypeRapport = typeRapportComboBox.getValue();
 
                     // Générer et afficher le HTML
                     String htmlContent = genererHtmlParType(type, debut, fin, rapportData);
@@ -897,9 +926,9 @@ public class RapportController implements Initializable {
     @FXML
     private void handlePreview() {
         if (dernierRapportGenere != null && !dernierRapportGenere.isEmpty()) {
-            if (webEngine != null) {
-                webEngine.loadContent(dernierRapportGenere);
-            }
+            String titre = dernierTypeRapport != null ?
+                    dernierTypeRapport.getLibelle() : "Rapport";
+            ouvrirPopupApercu(dernierRapportGenere, titre, dernierRapportData);
         } else {
             AlertUtil.showWarningAlert("Aucun rapport", "Aperçu impossible",
                     "Veuillez d'abord générer un rapport.");
@@ -1319,18 +1348,20 @@ public class RapportController implements Initializable {
      * Met à jour l'état des boutons selon la disponibilité d'un rapport
      */
     private void updateButtonStates(boolean hasReport) {
-        if (previewButton != null) {
-            previewButton.setDisable(!hasReport);
-        }
-        if (imprimerButton != null) {
-            imprimerButton.setDisable(!hasReport);
-        }
-        if (exportPdfButton != null) {
-            exportPdfButton.setDisable(!hasReport);
-        }
-        if (exportExcelButton != null) {
-            exportExcelButton.setDisable(!hasReport);
-        }
+        Platform.runLater(() -> {
+            if (previewButton != null) {
+                previewButton.setDisable(!hasReport);
+            }
+            if (imprimerButton != null) {
+                imprimerButton.setDisable(!hasReport);
+            }
+            if (exportPdfButton != null) {
+                exportPdfButton.setDisable(!hasReport);
+            }
+            if (exportExcelButton != null) {
+                exportExcelButton.setDisable(!hasReport);
+            }
+        });
     }
 
     /**
@@ -1361,6 +1392,407 @@ public class RapportController implements Initializable {
             statusLabel.setText("Prêt");
         }
         updateButtonStates(false);
+    }
+
+    /**
+     * Configuration initiale de la TableView
+     */
+    private void configureTableViewInitial() {
+        if (resultatsTableView != null) {
+            resultatsTableView.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+            resultatsTableView.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
+        }
+    }
+
+    /**
+     * Configuration des nouveaux gestionnaires d'événements
+     */
+    private void setupNewEventHandlers() {
+        if (reinitialiserButton != null) {
+            reinitialiserButton.setOnAction(e -> handleReinitialiser());
+        }
+        if (selectionnerToutButton != null) {
+            selectionnerToutButton.setOnAction(e -> handleSelectionnerTout());
+        }
+        if (deselectionnerToutButton != null) {
+            deselectionnerToutButton.setOnAction(e -> handleDeselectionnerTout());
+        }
+        if (helpButton != null) {
+            helpButton.setOnAction(e -> handleAideRapport());
+        }
+    }
+
+    /**
+     * Configure la TableView selon le type de rapport sélectionné
+     */
+    private void configureTableViewForReport(TypeRapport typeRapport) {
+        if (resultatsTableView == null) return;
+
+        // Effacer les colonnes existantes
+        resultatsTableView.getColumns().clear();
+
+        switch (typeRapport) {
+            case ETAT_REPARTITION_AFFAIRES:
+                configureColumnsRepartitionAffaires();
+                break;
+            case TABLEAU_AMENDES_SERVICE:
+                configureColumnsAmendesServices();
+                break;
+            case REPARTITION_RETROCESSION:
+                configureColumnsRepartitionRetrocession();
+                break;
+            default:
+                configureColumnsGeneric();
+                break;
+        }
+
+        updateTableauTitre(typeRapport);
+    }
+
+    /**
+     * Configure les colonnes pour le rapport de répartition des affaires
+     */
+    private void configureColumnsRepartitionAffaires() {
+        // Colonne N° Affaire
+        TableColumn<Object, String> numeroCol = new TableColumn<>("N° Affaire");
+        numeroCol.setCellValueFactory(data ->
+                new SimpleStringProperty(extractValue(data.getValue(), "numeroAffaire")));
+        numeroCol.setPrefWidth(120);
+
+        // Colonne Contrevenant
+        TableColumn<Object, String> contrevenantCol = new TableColumn<>("Contrevenant");
+        contrevenantCol.setCellValueFactory(data ->
+                new SimpleStringProperty(extractValue(data.getValue(), "contrevenant")));
+        contrevenantCol.setPrefWidth(200);
+
+        // Colonne Date
+        TableColumn<Object, String> dateCol = new TableColumn<>("Date");
+        dateCol.setCellValueFactory(data ->
+                new SimpleStringProperty(extractValue(data.getValue(), "dateCreation")));
+        dateCol.setPrefWidth(100);
+
+        // Colonne Montant Total
+        TableColumn<Object, String> montantCol = new TableColumn<>("Montant Total");
+        montantCol.setCellValueFactory(data ->
+                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "montantTotal"))));
+        montantCol.setPrefWidth(120);
+
+        // Colonne Statut
+        TableColumn<Object, String> statutCol = new TableColumn<>("Statut");
+        statutCol.setCellValueFactory(data ->
+                new SimpleStringProperty(extractValue(data.getValue(), "statut")));
+        statutCol.setPrefWidth(100);
+
+        // Colonne Actions
+        TableColumn<Object, Void> actionsCol = new TableColumn<>("Actions");
+        actionsCol.setCellFactory(col -> new TableCell<Object, Void>() {
+            private final Button previewBtn = new Button("👁");
+            private final Button printBtn = new Button("🖨");
+
+            {
+                previewBtn.getStyleClass().add("button-info");
+                printBtn.getStyleClass().add("button-secondary");
+                previewBtn.setOnAction(e -> handlePreviewRow(getTableRow().getItem()));
+                printBtn.setOnAction(e -> handlePrintRow(getTableRow().getItem()));
+            }
+
+            @Override
+            protected void updateItem(Void item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty) {
+                    setGraphic(null);
+                } else {
+                    HBox buttons = new HBox(5, previewBtn, printBtn);
+                    buttons.setAlignment(Pos.CENTER);
+                    setGraphic(buttons);
+                }
+            }
+        });
+        actionsCol.setPrefWidth(80);
+
+        resultatsTableView.getColumns().addAll(numeroCol, contrevenantCol, dateCol, montantCol, statutCol, actionsCol);
+    }
+
+    /**
+     * Configure les colonnes pour le tableau des amendes par services
+     */
+    private void configureColumnsAmendesServices() {
+        TableColumn<Object, String> serviceCol = new TableColumn<>("Service");
+        serviceCol.setCellValueFactory(data ->
+                new SimpleStringProperty(extractValue(data.getValue(), "nomService")));
+        serviceCol.setPrefWidth(200);
+
+        TableColumn<Object, String> nombreCol = new TableColumn<>("Nb Affaires");
+        nombreCol.setCellValueFactory(data ->
+                new SimpleStringProperty(extractValue(data.getValue(), "nombreAffaires")));
+        nombreCol.setPrefWidth(100);
+
+        TableColumn<Object, String> montantCol = new TableColumn<>("Montant Total");
+        montantCol.setCellValueFactory(data ->
+                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "montantTotal"))));
+        montantCol.setPrefWidth(150);
+
+        resultatsTableView.getColumns().addAll(serviceCol, nombreCol, montantCol);
+    }
+
+    /**
+     * Configure les colonnes pour le rapport de rétrocession
+     */
+    private void configureColumnsRepartitionRetrocession() {
+        TableColumn<Object, String> numeroCol = new TableColumn<>("N° Affaire");
+        numeroCol.setCellValueFactory(data ->
+                new SimpleStringProperty(extractValue(data.getValue(), "numeroAffaire")));
+        numeroCol.setPrefWidth(120);
+
+        TableColumn<Object, String> contrevenantCol = new TableColumn<>("Contrevenant");
+        contrevenantCol.setCellValueFactory(data ->
+                new SimpleStringProperty(extractValue(data.getValue(), "contrevenant")));
+        contrevenantCol.setPrefWidth(180);
+
+        TableColumn<Object, String> montantTotalCol = new TableColumn<>("Montant Total");
+        montantTotalCol.setCellValueFactory(data ->
+                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "montantTotal"))));
+        montantTotalCol.setPrefWidth(120);
+
+        TableColumn<Object, String> partEtatCol = new TableColumn<>("Part État (60%)");
+        partEtatCol.setCellValueFactory(data ->
+                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "partEtat"))));
+        partEtatCol.setPrefWidth(120);
+
+        TableColumn<Object, String> partCollectiviteCol = new TableColumn<>("Part Collectivité (40%)");
+        partCollectiviteCol.setCellValueFactory(data ->
+                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "partCollectivite"))));
+        partCollectiviteCol.setPrefWidth(140);
+
+        // Colonne Actions
+        TableColumn<Object, Void> actionsCol = new TableColumn<>("Actions");
+        actionsCol.setCellFactory(col -> new TableCell<Object, Void>() {
+            private final Button previewBtn = new Button("👁");
+            private final Button printBtn = new Button("🖨");
+
+            {
+                previewBtn.getStyleClass().add("button-info");
+                printBtn.getStyleClass().add("button-secondary");
+                previewBtn.setOnAction(e -> handlePreviewRow(getTableRow().getItem()));
+                printBtn.setOnAction(e -> handlePrintRow(getTableRow().getItem()));
+            }
+
+            @Override
+            protected void updateItem(Void item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty) {
+                    setGraphic(null);
+                } else {
+                    HBox buttons = new HBox(5, previewBtn, printBtn);
+                    buttons.setAlignment(Pos.CENTER);
+                    setGraphic(buttons);
+                }
+            }
+        });
+        actionsCol.setPrefWidth(80);
+
+        resultatsTableView.getColumns().addAll(numeroCol, contrevenantCol, montantTotalCol,
+                partEtatCol, partCollectiviteCol, actionsCol);
+    }
+
+    /**
+     * Configure les colonnes génériques
+     */
+    private void configureColumnsGeneric() {
+        TableColumn<Object, String> col1 = new TableColumn<>("Donnée");
+        col1.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().toString()));
+        col1.setPrefWidth(300);
+
+        resultatsTableView.getColumns().add(col1);
+    }
+
+    /**
+     * Met à jour les données de la TableView
+     */
+    private void updateTableViewData(Object rapportData) {
+        if (resultatsTableView == null || rapportData == null) return;
+
+        ObservableList<Object> items = FXCollections.observableArrayList();
+
+        // Convertir les données selon leur type
+        if (rapportData instanceof List) {
+            items.addAll((List<?>) rapportData);
+        } else if (rapportData instanceof RapportService.RapportRepartitionDTO rapport) {
+            items.addAll(rapport.getAffaires());
+        } else {
+            items.add(rapportData);
+        }
+
+        Platform.runLater(() -> {
+            resultatsTableView.setItems(items);
+            updateNombreResultats(items.size());
+        });
+    }
+
+    /**
+     * Ouvre le popup d'aperçu pour une ligne spécifique
+     */
+    private void handlePreviewRow(Object item) {
+        if (item == null) return;
+
+        try {
+            String htmlContent = genererHtmlPourItem(item);
+            String titre = "Aperçu - " + extractValue(item, "numeroAffaire");
+            ouvrirPopupApercu(htmlContent, titre, item);
+        } catch (Exception e) {
+            logger.error("Erreur lors de l'aperçu de la ligne", e);
+            AlertUtil.showErrorAlert("Erreur", "Aperçu impossible", e.getMessage());
+        }
+    }
+
+    /**
+     * Imprime directement une ligne
+     */
+    private void handlePrintRow(Object item) {
+        if (item == null) return;
+
+        try {
+            String htmlContent = genererHtmlPourItem(item);
+            boolean success = printService.printHtml(htmlContent);
+
+            if (success) {
+                AlertUtil.showSuccess("Impression", "Document envoyé à l'imprimante");
+            } else {
+                AlertUtil.showWarningAlert("Impression", "Impression annulée", "L'impression a été annulée");
+            }
+        } catch (Exception e) {
+            logger.error("Erreur lors de l'impression de la ligne", e);
+            AlertUtil.showErrorAlert("Erreur", "Impression impossible", e.getMessage());
+        }
+    }
+
+    /**
+     * Ouvre le popup d'aperçu
+     */
+    private void ouvrirPopupApercu(String htmlContent, String titre, Object rapportData) {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/rapport-preview-dialog.fxml"));
+            Parent root = loader.load();
+
+            RapportPreviewController controller = loader.getController();
+
+            Stage dialogStage = new Stage();
+            dialogStage.setTitle("Aperçu du rapport");
+            dialogStage.initModality(Modality.APPLICATION_MODAL);
+            dialogStage.setScene(new Scene(root));
+            dialogStage.setResizable(true);
+
+            controller.setDialogStage(dialogStage);
+            controller.loadContent(htmlContent, titre, rapportData);
+
+            dialogStage.show();
+
+        } catch (IOException e) {
+            logger.error("Erreur lors de l'ouverture du popup d'aperçu", e);
+            AlertUtil.showErrorAlert("Erreur", "Aperçu impossible",
+                    "Impossible d'ouvrir la fenêtre d'aperçu");
+        }
+    }
+
+    /**
+     * Gestion de la sélection dans le tableau
+     */
+    @FXML
+    private void handleSelectionnerTout() {
+        if (resultatsTableView != null) {
+            resultatsTableView.getSelectionModel().selectAll();
+        }
+    }
+
+    @FXML
+    private void handleDeselectionnerTout() {
+        if (resultatsTableView != null) {
+            resultatsTableView.getSelectionModel().clearSelection();
+        }
+    }
+
+    /**
+     * Affiche l'aide
+     */
+    @FXML
+    private void handleAideRapport() {
+        AlertUtil.showInfoAlert("Aide - Rapports",
+                "Guide d'utilisation",
+                "1. Sélectionnez le type de rapport\n" +
+                        "2. Choisissez la période\n" +
+                        "3. Appliquez les filtres\n" +
+                        "4. Cliquez sur 'Générer'\n" +
+                        "5. Utilisez les actions sur chaque ligne ou globalement");
+    }
+
+    /**
+     * Extrait une valeur d'un objet
+     */
+    private String extractValue(Object obj, String fieldName) {
+        if (obj == null) return "";
+
+        try {
+            java.lang.reflect.Field field = obj.getClass().getDeclaredField(fieldName);
+            field.setAccessible(true);
+            Object value = field.get(obj);
+            return value != null ? value.toString() : "";
+        } catch (Exception e) {
+            return obj.toString(); // Fallback
+        }
+    }
+
+    /**
+     * Extrait une valeur BigDecimal
+     */
+    private BigDecimal extractBigDecimal(Object obj, String fieldName) {
+        try {
+            String value = extractValue(obj, fieldName);
+            return value.isEmpty() ? BigDecimal.ZERO : new BigDecimal(value);
+        } catch (Exception e) {
+            return BigDecimal.ZERO;
+        }
+    }
+
+    /**
+     * Met à jour le titre du tableau
+     */
+    private void updateTableauTitre(TypeRapport typeRapport) {
+        if (tableauTitreLabel != null) {
+            tableauTitreLabel.setText(typeRapport.getLibelle());
+        }
+    }
+
+    /**
+     * Met à jour le nombre de résultats
+     */
+    private void updateNombreResultats(int nombre) {
+        if (nombreResultatsLabel != null) {
+            nombreResultatsLabel.setText(nombre + " résultat(s)");
+        }
+    }
+
+    /**
+     * Génère du HTML pour un item spécifique
+     */
+    private String genererHtmlPourItem(Object item) {
+        StringBuilder html = new StringBuilder();
+        html.append(genererEnTeteHTML("Détail", getDateDebut(), getDateFin()));
+        html.append("<div class='item-detail'>");
+        html.append("<h2>Informations détaillées</h2>");
+        html.append("<p>").append(item.toString()).append("</p>");
+        html.append("</div>");
+        html.append(genererPiedHTML());
+        return html.toString();
+    }
+
+    /**
+     * Met à jour la dernière mise à jour
+     */
+    private void updateDerniereMaj() {
+        if (derniereMajLabel != null) {
+            derniereMajLabel.setText("Dernière mise à jour: " +
+                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss")));
+        }
     }
 
     /**

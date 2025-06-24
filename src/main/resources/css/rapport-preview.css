@@ -1,0 +1,261 @@
+/* CSS spécialisé pour l'aperçu des rapports */
+
+/* === HEADER DE L'APERÇU === */
+.preview-header {
+    -fx-background-color: #f8f9fa;
+    -fx-border-color: #dee2e6;
+    -fx-border-width: 0 0 1 0;
+}
+
+.preview-title {
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #212529;
+}
+
+.preview-details {
+    -fx-font-size: 12px;
+    -fx-text-fill: #6c757d;
+}
+
+.page-info {
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #495057;
+}
+
+.document-info {
+    -fx-font-size: 11px;
+    -fx-text-fill: #6c757d;
+}
+
+/* === TOOLBAR D'APERÇU === */
+.preview-toolbar {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #dee2e6;
+    -fx-border-width: 0 0 1 0;
+    -fx-padding: 8 15 8 15;
+}
+
+.zoom-button {
+    -fx-min-width: 35px;
+    -fx-max-width: 35px;
+    -fx-background-color: #f8f9fa;
+    -fx-border-color: #dee2e6;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
+}
+
+.zoom-button:hover {
+    -fx-background-color: #e9ecef;
+}
+
+.zoom-level {
+    -fx-font-family: "Consolas", monospace;
+    -fx-font-size: 12px;
+    -fx-min-width: 50px;
+    -fx-text-alignment: center;
+    -fx-text-fill: #495057;
+}
+
+.nav-button {
+    -fx-min-width: 30px;
+    -fx-max-width: 30px;
+    -fx-background-color: #f8f9fa;
+    -fx-border-color: #dee2e6;
+    -fx-border-radius: 3px;
+    -fx-background-radius: 3px;
+}
+
+.nav-button:hover {
+    -fx-background-color: #e9ecef;
+}
+
+.nav-button:disabled {
+    -fx-opacity: 0.5;
+}
+
+.page-field {
+    -fx-max-width: 60px;
+    -fx-text-alignment: center;
+    -fx-font-family: "Consolas", monospace;
+}
+
+/* === CONTAINER D'APERÇU === */
+.preview-container {
+    -fx-background-color: #f8f9fa;
+}
+
+.preview-scroll {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
+
+.document-container {
+    -fx-background-color: #ffffff;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.15), 10, 0, 0, 2);
+    -fx-background-radius: 8px;
+    -fx-border-radius: 8px;
+    -fx-border-color: #dee2e6;
+    -fx-border-width: 1px;
+    -fx-padding: 20px;
+}
+
+/* === OVERLAYS === */
+.loading-overlay {
+    -fx-background-color: rgba(255, 255, 255, 0.9);
+    -fx-background-radius: 8px;
+}
+
+.loading-text {
+    -fx-font-size: 14px;
+    -fx-text-fill: #6c757d;
+}
+
+.error-overlay {
+    -fx-background-color: rgba(255, 255, 255, 0.95);
+    -fx-background-radius: 8px;
+}
+
+.error-text {
+    -fx-font-size: 14px;
+    -fx-text-fill: #dc3545;
+    -fx-font-weight: bold;
+}
+
+/* === PANNEAU DES MINIATURES === */
+.thumbnail-panel {
+    -fx-background-color: #f8f9fa;
+    -fx-border-color: #dee2e6;
+    -fx-border-width: 0 0 0 1;
+}
+
+.panel-title {
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #495057;
+    -fx-text-alignment: center;
+}
+
+.thumbnail-scroll {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
+
+/* === FOOTER === */
+.preview-footer {
+    -fx-background-color: #f8f9fa;
+    -fx-border-color: #dee2e6;
+    -fx-border-width: 1 0 0 0;
+}
+
+.status-success {
+    -fx-font-size: 12px;
+    -fx-text-fill: #28a745;
+    -fx-font-weight: bold;
+}
+
+.tech-info {
+    -fx-font-size: 11px;
+    -fx-text-fill: #6c757d;
+    -fx-font-family: "Consolas", monospace;
+}
+
+/* === STYLES ADDITIONNELS POUR LE MAIN === */
+.toolbar-section {
+    -fx-background-color: #ffffff;
+    -fx-padding: 8 15 8 15;
+}
+
+.toolbar-label {
+    -fx-font-weight: bold;
+    -fx-text-fill: #495057;
+    -fx-min-width: 80px;
+}
+
+.description-text {
+    -fx-font-size: 12px;
+    -fx-text-fill: #6c757d;
+    -fx-font-style: italic;
+    -fx-padding: 5 15 5 15;
+    -fx-background-color: #f8f9fa;
+    -fx-background-radius: 4px;
+}
+
+.action-bar {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #dee2e6;
+    -fx-border-width: 1 0 0 0;
+}
+
+.action-group-label {
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #6c757d;
+    -fx-text-alignment: center;
+}
+
+.results-count {
+    -fx-font-size: 12px;
+    -fx-text-fill: #495057;
+    -fx-font-weight: bold;
+    -fx-background-color: #e9ecef;
+    -fx-background-radius: 12px;
+    -fx-padding: 4 8 4 8;
+}
+
+.placeholder-text {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #adb5bd;
+}
+
+.placeholder-hint {
+    -fx-font-size: 12px;
+    -fx-text-fill: #6c757d;
+}
+
+.status-text {
+    -fx-font-size: 12px;
+    -fx-text-fill: #495057;
+}
+
+.footer-info {
+    -fx-font-size: 11px;
+    -fx-text-fill: #6c757d;
+}
+
+/* === BOUTONS SPÉCIALISÉS === */
+.button-info {
+    -fx-background-color: #17a2b8;
+    -fx-text-fill: white;
+    -fx-background-radius: 4px;
+}
+
+.button-info:hover {
+    -fx-background-color: #138496;
+}
+
+.button-secondary {
+    -fx-background-color: #6c757d;
+    -fx-text-fill: white;
+    -fx-background-radius: 4px;
+}
+
+.button-secondary:hover {
+    -fx-background-color: #5a6268;
+}
+
+.button-outline {
+    -fx-background-color: transparent;
+    -fx-border-color: #6c757d;
+    -fx-border-width: 1px;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
+    -fx-text-fill: #6c757d;
+}
+
+.button-outline:hover {
+    -fx-background-color: #6c757d;
+    -fx-text-fill: white;
+}

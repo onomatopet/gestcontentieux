@@ -578,6 +578,47 @@ public class MainController implements Initializable {
                 }
             }
 
+            if (menuRapports != null) {
+                MenuItem rapportMandatement = new MenuItem("État de Mandatement");
+                rapportMandatement.setOnAction(e -> loadView("/view/rapport-list.fxml"));
+
+                MenuItem rapportEncaissements = new MenuItem("Rapport des Encaissements");
+                rapportEncaissements.setOnAction(e -> loadView("/view/rapport-list.fxml"));
+
+                MenuItem rapportAffaires = new MenuItem("Rapport des Affaires");
+                rapportAffaires.setOnAction(e -> loadView("/view/rapport-list.fxml"));
+
+                MenuItem rapportAgents = new MenuItem("Rapport des Agents");
+                rapportAgents.setOnAction(e -> loadView("/view/rapport-list.fxml"));
+
+                MenuItem rapportRepartition = new MenuItem("Rapport de Répartition");
+                rapportRepartition.setOnAction(e -> loadView("/view/rapport-list.fxml"));
+
+                MenuItem rapportSynthese = new MenuItem("Rapport de Synthèse");
+                rapportSynthese.setOnAction(e -> loadView("/view/rapport-list.fxml"));
+
+                MenuItem rapportStatistiques = new MenuItem("Statistiques");
+                rapportStatistiques.setOnAction(e -> loadView("/view/rapport-list.fxml"));
+
+                MenuItem rapportExport = new MenuItem("Exports Personnalisés");
+                rapportExport.setOnAction(e -> loadView("/view/rapport-list.fxml"));
+
+                if (menuRapports.getItems().isEmpty()) {
+                    menuRapports.getItems().addAll(
+                            rapportMandatement,
+                            rapportEncaissements,
+                            rapportAffaires,
+                            new SeparatorMenuItem(),
+                            rapportAgents,
+                            rapportRepartition,
+                            new SeparatorMenuItem(),
+                            rapportSynthese,
+                            rapportStatistiques,
+                            rapportExport
+                    );
+                }
+            }
+
             // Menu Administration
             if (menuAdministration != null && authService.getCurrentUser().isAdmin()) {
                 MenuItem gestionUtilisateurs = new MenuItem("Gestion des Utilisateurs");

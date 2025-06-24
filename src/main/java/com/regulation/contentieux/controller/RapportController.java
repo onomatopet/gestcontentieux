@@ -22,6 +22,7 @@ import javafx.fxml.Initializable;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.web.WebEngine;
 import javafx.scene.web.WebView;
@@ -59,7 +60,7 @@ public class RapportController implements Initializable {
     @FXML private ComboBox<Month> moisComboBox;
     @FXML private ComboBox<Integer> anneeComboBox;
     @FXML private VBox periodePersonnaliseeBox;
-    @FXML private VBox periodeMensuelleBox;
+    @FXML private HBox periodeMensuelleBox;
 
     // Filtres additionnels
     @FXML private VBox filtresAdditionnelsBox;

@@ -16,8 +16,7 @@
 
             <!-- Titre principal -->
             <HBox alignment="CENTER_LEFT" spacing="10.0">
-                <FontIcon iconLiteral="mdi2c-chart-line" iconSize="28" styleClass="header-icon" />
-                <Label styleClass="title-large" text="Génération des Rapports" />
+                <Label styleClass="title-large" text="📊 Génération des Rapports" />
             </HBox>
 
             <!-- Description du rapport sélectionné -->

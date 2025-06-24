@@ -34,40 +34,40 @@ public class ServiceDAO extends AbstractSQLiteDAO<Service, Long> {
     @Override
     protected String getInsertQuery() {
         return """
-            INSERT INTO services (code_service, nom_service, description, actif, centre_id) 
-            VALUES (?, ?, ?, ?, ?)
-        """;
+        INSERT INTO services (code_service, nom_service, actif, centre_id) 
+        VALUES (?, ?, ?, ?)
+    """;
     }
 
     @Override
     protected String getUpdateQuery() {
         return """
-            UPDATE services 
-            SET code_service = ?, nom_service = ?, description = ?, actif = ?, centre_id = ?
-            WHERE id = ?
-        """;
+        UPDATE services 
+        SET code_service = ?, nom_service = ?, actif = ?, centre_id = ?
+        WHERE id = ?
+    """;
     }
 
     @Override
     protected String getSelectAllQuery() {
         return """
-            SELECT s.id, s.code_service, s.nom_service, s.description, s.actif, s.centre_id, s.created_at,
-                   c.code_centre, c.nom_centre
-            FROM services s
-            LEFT JOIN centres c ON s.centre_id = c.id
-            ORDER BY s.nom_service ASC
-        """;
+        SELECT s.id, s.code_service, s.nom_service, s.actif, s.centre_id, s.created_at,
+               c.code_centre, c.nom_centre
+        FROM services s
+        LEFT JOIN centres c ON s.centre_id = c.id
+        ORDER BY s.nom_service ASC
+    """;
     }
 
     @Override
     protected String getSelectByIdQuery() {
         return """
-            SELECT s.id, s.code_service, s.nom_service, s.description, s.actif, s.centre_id, s.created_at,
-                   c.code_centre, c.nom_centre
-            FROM services s
-            LEFT JOIN centres c ON s.centre_id = c.id
-            WHERE s.id = ?
-        """;
+        SELECT s.id, s.code_service, s.nom_service, s.actif, s.centre_id, s.created_at,
+               c.code_centre, c.nom_centre
+        FROM services s
+        LEFT JOIN centres c ON s.centre_id = c.id
+        WHERE s.id = ?
+    """;
     }
 
     @Override
@@ -118,21 +118,19 @@ public class ServiceDAO extends AbstractSQLiteDAO<Service, Long> {
     protected void setInsertParameters(PreparedStatement stmt, Service service) throws SQLException {
         stmt.setString(1, service.getCodeService());
         stmt.setString(2, service.getNomService());
-        stmt.setString(3, service.getDescription());
-        stmt.setBoolean(4, service.isActif());
+        stmt.setBoolean(3, service.isActif());
 
-        // Centre parent
         if (service.getCentre() != null && service.getCentre().getId() != null) {
-            stmt.setLong(5, service.getCentre().getId());
+            stmt.setLong(4, service.getCentre().getId());
         } else {
-            stmt.setNull(5, Types.BIGINT);
+            stmt.setNull(4, Types.BIGINT);
         }
     }
 
     @Override
     protected void setUpdateParameters(PreparedStatement stmt, Service service) throws SQLException {
         setInsertParameters(stmt, service);
-        stmt.setLong(6, service.getId());
+        stmt.setLong(5, service.getId());
     }
 
     @Override

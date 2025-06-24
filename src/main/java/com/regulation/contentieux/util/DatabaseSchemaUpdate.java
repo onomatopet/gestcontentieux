@@ -81,121 +81,118 @@ public class DatabaseSchemaUpdate {
             try (Statement stmt = conn.createStatement()) {
                 // Table services
                 createTableIfNotExists(stmt, "services", """
-                    CREATE TABLE IF NOT EXISTS services (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        code_service TEXT NOT NULL UNIQUE,
-                        nom_service TEXT NOT NULL,
-                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-                    )
-                """);
+                CREATE TABLE IF NOT EXISTS services (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    code_service TEXT NOT NULL UNIQUE,
+                    nom_service TEXT NOT NULL,
+                    description TEXT,
+                    actif INTEGER NOT NULL DEFAULT 1,
+                    centre_id INTEGER,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (centre_id) REFERENCES centres (id)
+                )
+            """);
 
                 // Table bureaux
                 createTableIfNotExists(stmt, "bureaux", """
-                    CREATE TABLE IF NOT EXISTS bureaux (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        code_bureau TEXT NOT NULL UNIQUE,
-                        nom_bureau TEXT NOT NULL,
-                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-                    )
-                """);
+                CREATE TABLE IF NOT EXISTS bureaux (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    code_bureau TEXT NOT NULL UNIQUE,
+                    nom_bureau TEXT NOT NULL,
+                    description TEXT,
+                    service_id INTEGER,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (service_id) REFERENCES services (id)
+                )
+            """);
 
                 // Table centres
                 createTableIfNotExists(stmt, "centres", """
-                    CREATE TABLE IF NOT EXISTS centres (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        code_centre TEXT NOT NULL UNIQUE,
-                        nom_centre TEXT NOT NULL,
-                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-                    )
-                """);
+                CREATE TABLE IF NOT EXISTS centres (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    code_centre TEXT NOT NULL UNIQUE,
+                    nom_centre TEXT NOT NULL,
+                    description TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            """);
 
                 // Table banques
                 createTableIfNotExists(stmt, "banques", """
-                    CREATE TABLE IF NOT EXISTS banques (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        code_banque TEXT NOT NULL UNIQUE,
-                        nom_banque TEXT NOT NULL,
-                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-                    )
-                """);
+                CREATE TABLE IF NOT EXISTS banques (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    code_banque TEXT NOT NULL UNIQUE,
+                    nom_banque TEXT NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            """);
 
                 // Table contraventions
                 createTableIfNotExists(stmt, "contraventions", """
-                    CREATE TABLE IF NOT EXISTS contraventions (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        code TEXT NOT NULL UNIQUE,
-                        libelle TEXT NOT NULL,
-                        description TEXT,
-                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-                    )
-                """);
+                CREATE TABLE IF NOT EXISTS contraventions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    code TEXT NOT NULL UNIQUE,
+                    libelle TEXT NOT NULL,
+                    description TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            """);
 
+                // ✅ TABLE MANDATS - CORRECTION PRINCIPALE
                 createTableIfNotExists(stmt, "mandats", """
-                    CREATE TABLE IF NOT EXISTS mandats (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        numero_mandat VARCHAR(20) NOT NULL UNIQUE,
-                        description TEXT,
-                        date_debut DATE NOT NULL,
-                        date_fin DATE NOT NULL,
-                        statut TEXT NOT NULL DEFAULT 'BROUILLON',
-                        actif BOOLEAN DEFAULT FALSE,
-                        date_cloture DATETIME,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        created_by TEXT,
-                        updated_by TEXT
-                    )
-                """);
+                CREATE TABLE IF NOT EXISTS mandats (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    numero_mandat VARCHAR(20) NOT NULL UNIQUE,
+                    description TEXT,
+                    date_debut DATE NOT NULL,
+                    date_fin DATE NOT NULL,
+                    statut TEXT NOT NULL DEFAULT 'BROUILLON',
+                    actif BOOLEAN DEFAULT FALSE,
+                    date_cloture DATETIME,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    created_by TEXT,
+                    updated_by TEXT
+                )
+            """);
 
                 // Table encaissements
                 createTableIfNotExists(stmt, "encaissements", """
-                    CREATE TABLE IF NOT EXISTS encaissements (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        affaire_id INTEGER NOT NULL,
-                        montant_encaisse REAL NOT NULL,
-                        date_encaissement DATE NOT NULL,
-                        mode_reglement TEXT NOT NULL,
-                        reference TEXT,
-                        banque_id INTEGER,
-                        statut TEXT DEFAULT 'EN_ATTENTE',
-                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        created_by TEXT,
-                        updated_by TEXT,
-                        FOREIGN KEY (affaire_id) REFERENCES affaires (id),
-                        FOREIGN KEY (banque_id) REFERENCES banques (id)
-                    )
-                """);
+                CREATE TABLE IF NOT EXISTS encaissements (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    affaire_id INTEGER NOT NULL,
+                    montant_encaisse REAL NOT NULL,
+                    date_encaissement DATE NOT NULL,
+                    mode_reglement TEXT NOT NULL,
+                    reference TEXT,
+                    banque_id INTEGER,
+                    statut TEXT DEFAULT 'EN_ATTENTE',
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    created_by TEXT,
+                    updated_by TEXT,
+                    FOREIGN KEY (affaire_id) REFERENCES affaires (id),
+                    FOREIGN KEY (banque_id) REFERENCES banques (id)
+                )
+            """);
 
-                // Table affaire_acteurs (liaison affaire-agent)
+                // Table affaire_acteurs
                 createTableIfNotExists(stmt, "affaire_acteurs", """
-                    CREATE TABLE IF NOT EXISTS affaire_acteurs (
-                        affaire_id INTEGER NOT NULL,
-                        agent_id INTEGER NOT NULL,
-                        role_sur_affaire TEXT NOT NULL,
-                        assigned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        assigned_by TEXT,
-                        PRIMARY KEY (affaire_id, agent_id, role_sur_affaire),
-                        FOREIGN KEY (affaire_id) REFERENCES affaires (id),
-                        FOREIGN KEY (agent_id) REFERENCES agents (id)
-                    )
-                """);
-
-                // Table repartition_resultats
-                createTableIfNotExists(stmt, "repartition_resultats", """
-                    CREATE TABLE IF NOT EXISTS repartition_resultats (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        encaissement_id INTEGER NOT NULL,
-                        destinataire TEXT NOT NULL,
-                        pourcentage REAL NOT NULL,
-                        montant_calcule REAL NOT NULL,
-                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        FOREIGN KEY (encaissement_id) REFERENCES encaissements (id)
-                    )
-                """);
+                CREATE TABLE IF NOT EXISTS affaire_acteurs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    affaire_id INTEGER NOT NULL,
+                    agent_id INTEGER NOT NULL,
+                    type_acteur TEXT NOT NULL,
+                    pourcentage REAL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (affaire_id) REFERENCES affaires (id),
+                    FOREIGN KEY (agent_id) REFERENCES agents (id),
+                    UNIQUE(affaire_id, agent_id, type_acteur)
+                )
+            """);
 
                 conn.commit();
-                System.out.println("✅ Toutes les tables ont été créées/vérifiées");
+                System.out.println("✅ Toutes les tables ont été créées/vérifiées avec succès");
 
             } catch (SQLException e) {
                 conn.rollback();
@@ -203,11 +200,9 @@ public class DatabaseSchemaUpdate {
             }
 
         } catch (SQLException e) {
-            System.err.println("Erreur lors de la création des tables: " + e.getMessage());
-            throw new RuntimeException(e);
+            System.err.println("❌ Erreur lors de la création des tables: " + e.getMessage());
+            throw new RuntimeException("Impossible de créer les tables", e);
         }
-
-        System.out.println();
     }
 
     /**
@@ -399,10 +394,11 @@ public class DatabaseSchemaUpdate {
         logger.info("Vérification du schéma de base de données...");
 
         try (Connection conn = DatabaseConfig.getSQLiteConnection()) {
-            // Vérifier quelques tables clés
+            // ✅ CORRECTION : Vérifier TOUTES les tables clés y compris mandats
             boolean needsUpdate = !tableExists(conn, "services") ||
                     !tableExists(conn, "bureaux") ||
-                    !tableExists(conn, "contraventions");
+                    !tableExists(conn, "contraventions") ||
+                    !tableExists(conn, "mandats");    // ← AJOUT MANQUANT
 
             if (needsUpdate) {
                 logger.info("Mise à jour du schéma nécessaire, exécution...");

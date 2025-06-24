@@ -66,38 +66,38 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
     @Override
     protected String getSelectAllQuery() {
         return """
-            SELECT a.*, 
-                   c.nom as contrevenant_nom, c.prenom as contrevenant_prenom, 
-                   c.raison_sociale as contrevenant_raison_sociale,
-                   ag.code_agent, ag.nom as agent_nom, ag.prenom as agent_prenom,
-                   b.code_bureau, b.nom_bureau,
-                   s.code_service, s.nom_service
-            FROM affaires a
-            LEFT JOIN contrevenants c ON a.contrevenant_id = c.id
-            LEFT JOIN agents ag ON a.agent_verbalisateur_id = ag.id
-            LEFT JOIN bureaux b ON a.bureau_id = b.id
-            LEFT JOIN services s ON a.service_id = s.id
-            WHERE a.deleted = false 
-            ORDER BY a.date_creation DESC
-        """;
+        SELECT a.*, 
+               c.nom_complet as contrevenant_nom_complet, 
+               c.type_personne as contrevenant_type_personne,
+               ag.code_agent, ag.nom as agent_nom, ag.prenom as agent_prenom,
+               b.code_bureau, b.nom_bureau,
+               s.code_service, s.nom_service
+        FROM affaires a
+        LEFT JOIN contrevenants c ON a.contrevenant_id = c.id
+        LEFT JOIN agents ag ON a.agent_verbalisateur_id = ag.id
+        LEFT JOIN bureaux b ON a.bureau_id = b.id
+        LEFT JOIN services s ON a.service_id = s.id
+        WHERE a.deleted = false 
+        ORDER BY a.date_creation DESC
+    """;
     }
 
     @Override
     protected String getSelectByIdQuery() {
         return """
-            SELECT a.*, 
-                   c.nom as contrevenant_nom, c.prenom as contrevenant_prenom, 
-                   c.raison_sociale as contrevenant_raison_sociale,
-                   ag.code_agent, ag.nom as agent_nom, ag.prenom as agent_prenom,
-                   b.code_bureau, b.nom_bureau,
-                   s.code_service, s.nom_service
-            FROM affaires a
-            LEFT JOIN contrevenants c ON a.contrevenant_id = c.id
-            LEFT JOIN agents ag ON a.agent_verbalisateur_id = ag.id
-            LEFT JOIN bureaux b ON a.bureau_id = b.id
-            LEFT JOIN services s ON a.service_id = s.id
-            WHERE a.id = ? AND a.deleted = false
-        """;
+        SELECT a.*, 
+               c.nom_complet as contrevenant_nom_complet, 
+               c.type_personne as contrevenant_type_personne,
+               ag.code_agent, ag.nom as agent_nom, ag.prenom as agent_prenom,
+               b.code_bureau, b.nom_bureau,
+               s.code_service, s.nom_service
+        FROM affaires a
+        LEFT JOIN contrevenants c ON a.contrevenant_id = c.id
+        LEFT JOIN agents ag ON a.agent_verbalisateur_id = ag.id
+        LEFT JOIN bureaux b ON a.bureau_id = b.id
+        LEFT JOIN services s ON a.service_id = s.id
+        WHERE a.id = ? AND a.deleted = false
+    """;
     }
 
     @Override
@@ -129,120 +129,78 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
         BigDecimal montantEncaisse = rs.getBigDecimal("montant_encaisse");
         affaire.setMontantEncaisse(montantEncaisse != null ? montantEncaisse : BigDecimal.ZERO);
 
-        // Montant amende total (pour compatibilité)
-        try {
-            BigDecimal montantAmendeTotal = rs.getBigDecimal("montant_amende_total");
-            if (montantAmendeTotal != null) {
-                affaire.setMontantAmendeTotal(montantAmendeTotal);
-            } else {
-                affaire.setMontantAmendeTotal(affaire.getMontantTotal());
-            }
-        } catch (SQLException e) {
-            // Colonne optionnelle
-            affaire.setMontantAmendeTotal(affaire.getMontantTotal());
-        }
-
         // Statut
         String statutStr = rs.getString("statut");
         if (statutStr != null) {
             try {
                 affaire.setStatut(StatutAffaire.valueOf(statutStr));
             } catch (IllegalArgumentException e) {
-                logger.warn("Statut invalide dans la base: {}", statutStr);
-                affaire.setStatut(StatutAffaire.OUVERTE);
+                affaire.setStatut(StatutAffaire.EN_COURS);
             }
         }
 
-        affaire.setObservations(rs.getString("observations"));
-
-        // IDs des relations
-        long contrevenantId = rs.getLong("contrevenant_id");
-        if (!rs.wasNull()) {
-            affaire.setContrevenantId(contrevenantId);
-
-            // Charger les infos de base du contrevenant si disponibles
-            try {
+        // ✅ CORRECTION : Mapping du contrevenant avec nom_complet au lieu de nom/prenom
+        try {
+            String contrevenantNomComplet = rs.getString("contrevenant_nom_complet");
+            if (contrevenantNomComplet != null) {
                 Contrevenant contrevenant = new Contrevenant();
-                contrevenant.setId(contrevenantId);
-                String nom = rs.getString("contrevenant_nom");
-                String prenom = rs.getString("contrevenant_prenom");
-                String raisonSociale = rs.getString("contrevenant_raison_sociale");
+                contrevenant.setNomComplet(contrevenantNomComplet);
 
-                if (nom != null) {
-                    contrevenant.setNom(nom);
-                    contrevenant.setPrenom(prenom);
-                } else if (raisonSociale != null) {
-                    contrevenant.setRaisonSociale(raisonSociale);
+                String typePersonne = rs.getString("contrevenant_type_personne");
+                if (typePersonne != null) {
+                    contrevenant.setTypePersonne(typePersonne);
                 }
+
                 affaire.setContrevenant(contrevenant);
-            } catch (SQLException e) {
-                // Colonnes optionnelles
             }
+        } catch (SQLException e) {
+            logger.debug("Pas de contrevenant associé pour l'affaire {}", affaire.getId());
         }
 
-        long agentId = rs.getLong("agent_verbalisateur_id");
-        if (!rs.wasNull()) {
-            try {
+        // Agent verbalisateur
+        try {
+            String codeAgent = rs.getString("code_agent");
+            if (codeAgent != null) {
                 Agent agent = new Agent();
-                agent.setId(agentId);
-                agent.setCodeAgent(rs.getString("code_agent"));
+                agent.setCodeAgent(codeAgent);
                 agent.setNom(rs.getString("agent_nom"));
                 agent.setPrenom(rs.getString("agent_prenom"));
                 affaire.setAgentVerbalisateur(agent);
-            } catch (SQLException e) {
-                // Colonnes optionnelles
             }
+        } catch (SQLException e) {
+            logger.debug("Pas d'agent verbalisateur pour l'affaire {}", affaire.getId());
         }
 
-        long bureauId = rs.getLong("bureau_id");
-        if (!rs.wasNull()) {
-            affaire.setBureauId(bureauId);
-            try {
+        // Bureau
+        try {
+            String codeBureau = rs.getString("code_bureau");
+            if (codeBureau != null) {
                 Bureau bureau = new Bureau();
-                bureau.setId(bureauId);
-                bureau.setCodeBureau(rs.getString("code_bureau"));
+                bureau.setCodeBureau(codeBureau);
                 bureau.setNomBureau(rs.getString("nom_bureau"));
                 affaire.setBureau(bureau);
-            } catch (SQLException e) {
-                // Colonnes optionnelles
             }
+        } catch (SQLException e) {
+            logger.debug("Pas de bureau associé pour l'affaire {}", affaire.getId());
         }
 
-        long serviceId = rs.getLong("service_id");
-        if (!rs.wasNull()) {
-            affaire.setServiceId(serviceId);
-            try {
+        // Service
+        try {
+            String codeService = rs.getString("code_service");
+            if (codeService != null) {
                 Service service = new Service();
-                service.setId(serviceId);
-                service.setCodeService(rs.getString("code_service"));
+                service.setCodeService(codeService);
                 service.setNomService(rs.getString("nom_service"));
                 affaire.setService(service);
-            } catch (SQLException e) {
-                // Colonnes optionnelles
             }
+        } catch (SQLException e) {
+            logger.debug("Pas de service associé pour l'affaire {}", affaire.getId());
         }
 
-        // Métadonnées
-        affaire.setCreatedBy(rs.getString("created_by"));
-
+        // Timestamps
         Timestamp createdAt = rs.getTimestamp("created_at");
         if (createdAt != null) {
             affaire.setCreatedAt(createdAt.toLocalDateTime());
-        }
-
-        affaire.setUpdatedBy(rs.getString("updated_by"));
-
-        Timestamp updatedAt = rs.getTimestamp("updated_at");
-        if (updatedAt != null) {
-            affaire.setUpdatedAt(updatedAt.toLocalDateTime());
-        }
-
-        affaire.setDeleted(rs.getBoolean("deleted"));
-        affaire.setDeletedBy(rs.getString("deleted_by"));
-
-        Date deletedAt = rs.getDate("deleted_at");
-        if (deletedAt != null) {
-            affaire.setDeletedAt(deletedAt.toLocalDate());
         }
 
         return affaire;

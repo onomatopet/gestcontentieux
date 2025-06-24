@@ -1,52 +1,47 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.geometry.*?>
+<?import javafx.geometry.Insets?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
-<?import javafx.scene.text.*?>
+<?import java.lang.String?>
 
-<BorderPane prefHeight="700.0" prefWidth="1000.0" styleClass="main-container" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.regulation.contentieux.controller.MandatController">
+<BorderPane xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.regulation.contentieux.controller.MandatController">
 
     <!-- En-tête -->
     <top>
-        <VBox spacing="10" styleClass="header-section">
+        <VBox styleClass="header-section">
             <padding>
-                <Insets bottom="15" left="20" right="20" top="15" />
+                <Insets top="15" right="15" bottom="15" left="15" />
             </padding>
 
-            <HBox alignment="CENTER_LEFT" spacing="20">
-                <Label fx:id="titleLabel" styleClass="h2" text="Gestion des Mandats">
-                    <font>
-                        <Font name="System Bold" size="24.0" />
-                    </font>
-                </Label>
+            <Label fx:id="titleLabel" text="Gestion des Mandats" styleClass="h1" />
 
-                <Region HBox.hgrow="ALWAYS" />
+            <!-- Informations mandat actif -->
+            <HBox spacing="20" alignment="CENTER_LEFT" styleClass="info-bar">
+                <padding>
+                    <Insets top="10" right="10" bottom="10" left="10"/>
+                </padding>
 
-                <!-- Affichage du mandat actif -->
-                <VBox alignment="CENTER_RIGHT" spacing="5">
-                    <HBox spacing="10" alignment="CENTER_RIGHT">
-                        <Label text="Mandat actif :" styleClass="label-bold" />
-                        <Label fx:id="mandatActifLabel" text="Aucun" styleClass="label-highlight" />
-                    </HBox>
-                    <HBox spacing="10" alignment="CENTER_RIGHT">
-                        <Label text="Période :" />
-                        <Label fx:id="periodeActifLabel" text="-" />
-                    </HBox>
-                    <HBox spacing="10" alignment="CENTER_RIGHT">
-                        <Label text="Statut :" />
-                        <Label fx:id="statutActifLabel" text="Inactif" styleClass="label label-danger" />
-                    </HBox>
-                </VBox>
+                <Label text="Mandat actif :" styleClass="label-bold" />
+                <Label fx:id="mandatActifLabel" text="Aucun" styleClass="label-info" />
+
+                <Separator orientation="VERTICAL" />
+
+                <Label text="Période :" styleClass="label-bold" />
+                <Label fx:id="periodeActifLabel" text="-" styleClass="label-secondary" />
+
+                <Separator orientation="VERTICAL" />
+
+                <Label text="Statut :" styleClass="label-bold" />
+                <Label fx:id="statutActifLabel" text="-" styleClass="label-secondary" />
             </HBox>
-
-            <Separator />
         </VBox>
     </top>
 
     <!-- Contenu principal -->
     <center>
-        <SplitPane dividerPositions="0.35" orientation="VERTICAL">
+        <SplitPane dividerPositions="0.4" orientation="VERTICAL">
 
             <!-- Section supérieure : Création et filtres -->
             <VBox spacing="15">
@@ -68,13 +63,16 @@
                             </columnConstraints>
 
                             <Label text="Description :" GridPane.columnIndex="0" GridPane.rowIndex="0" />
-                            <TextField fx:id="descriptionField" promptText="Description du mandat (optionnel)" GridPane.columnIndex="1" GridPane.rowIndex="0" />
+                            <TextField fx:id="descriptionField" promptText="Description du mandat (optionnel)"
+                                       GridPane.columnIndex="1" GridPane.rowIndex="0" />
 
                             <Label text="Date début :" GridPane.columnIndex="0" GridPane.rowIndex="1" />
-                            <DatePicker fx:id="dateDebutPicker" maxWidth="200" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+                            <DatePicker fx:id="dateDebutPicker" maxWidth="200"
+                                        GridPane.columnIndex="1" GridPane.rowIndex="1" />
 
                             <Label text="Date fin :" GridPane.columnIndex="0" GridPane.rowIndex="2" />
-                            <DatePicker fx:id="dateFinPicker" maxWidth="200" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+                            <DatePicker fx:id="dateFinPicker" maxWidth="200"
+                                        GridPane.columnIndex="1" GridPane.rowIndex="2" />
                         </GridPane>
 
                         <HBox spacing="10" alignment="CENTER_LEFT">
@@ -83,7 +81,6 @@
                                     <Label text="➕" />
                                 </graphic>
                             </Button>
-
                             <Label fx:id="numeroGenereLabel" styleClass="label-info" />
                         </HBox>
                     </VBox>
@@ -92,13 +89,9 @@
                 <!-- Filtres -->
                 <HBox spacing="15" alignment="CENTER_LEFT">
                     <Label text="Filtres :" styleClass="label-bold" />
-
                     <ComboBox fx:id="statutFilterCombo" promptText="Tous les statuts" prefWidth="150" />
-
                     <CheckBox fx:id="seulementActifsCheck" text="Mandats actifs uniquement" />
-
                     <Region HBox.hgrow="ALWAYS" />
-
                     <Button fx:id="refreshButton" text="Actualiser" styleClass="button-secondary">
                         <graphic>
                             <Label text="🔄" />
@@ -109,7 +102,6 @@
 
             <!-- Section inférieure : Tableau et statistiques -->
             <SplitPane dividerPositions="0.7" orientation="HORIZONTAL">
-
                 <!-- Tableau des mandats -->
                 <VBox spacing="10">
                     <padding>
@@ -123,8 +115,10 @@
                             <TableColumn fx:id="numeroColumn" text="Numéro" prefWidth="100" />
                             <TableColumn fx:id="periodeColumn" text="Période" prefWidth="200" />
                             <TableColumn fx:id="statutColumn" text="Statut" prefWidth="100" />
-                            <TableColumn fx:id="affairesColumn" text="Affaires" prefWidth="80" style="-fx-alignment: CENTER" />
-                            <TableColumn fx:id="montantColumn" text="Montant total" prefWidth="120" style="-fx-alignment: CENTER-RIGHT" />
+                            <TableColumn fx:id="affairesColumn" text="Affaires" prefWidth="80"
+                                         style="-fx-alignment: CENTER" />
+                            <TableColumn fx:id="montantColumn" text="Montant total" prefWidth="120"
+                                         style="-fx-alignment: CENTER-RIGHT" />
                             <TableColumn fx:id="actionsColumn" text="Actions" prefWidth="200" />
                         </columns>
                         <placeholder>
@@ -148,21 +142,26 @@
                         </columnConstraints>
 
                         <Label text="Nombre d'affaires :" GridPane.columnIndex="0" GridPane.rowIndex="0" />
-                        <Label fx:id="statsNombreAffaires" text="0" styleClass="label-stat" GridPane.columnIndex="1" GridPane.rowIndex="0" />
+                        <Label fx:id="statsNombreAffaires" text="0" styleClass="label-stat"
+                               GridPane.columnIndex="1" GridPane.rowIndex="0" />
 
                         <Label text="Affaires soldées :" GridPane.columnIndex="0" GridPane.rowIndex="1" />
-                        <Label fx:id="statsAffairesSoldees" text="0" styleClass="label-stat label-success" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+                        <Label fx:id="statsAffairesSoldees" text="0" styleClass="label-stat label-success"
+                               GridPane.columnIndex="1" GridPane.rowIndex="1" />
 
                         <Label text="Affaires en cours :" GridPane.columnIndex="0" GridPane.rowIndex="2" />
-                        <Label fx:id="statsAffairesEnCours" text="0" styleClass="label-stat label-warning" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+                        <Label fx:id="statsAffairesEnCours" text="0" styleClass="label-stat label-warning"
+                               GridPane.columnIndex="1" GridPane.rowIndex="2" />
 
                         <Separator GridPane.columnSpan="2" GridPane.rowIndex="3" />
 
                         <Label text="Montant total :" GridPane.columnIndex="0" GridPane.rowIndex="4" />
-                        <Label fx:id="statsMontantTotal" text="0 FCFA" styleClass="label-stat label-primary" GridPane.columnIndex="1" GridPane.rowIndex="4" />
+                        <Label fx:id="statsMontantTotal" text="0 FCFA" styleClass="label-stat label-primary"
+                               GridPane.columnIndex="1" GridPane.rowIndex="4" />
 
                         <Label text="Agents impliqués :" GridPane.columnIndex="0" GridPane.rowIndex="5" />
-                        <Label fx:id="statsNombreAgents" text="0" styleClass="label-stat" GridPane.columnIndex="1" GridPane.rowIndex="5" />
+                        <Label fx:id="statsNombreAgents" text="0" styleClass="label-stat"
+                               GridPane.columnIndex="1" GridPane.rowIndex="5" />
                     </GridPane>
 
                     <Region VBox.vgrow="ALWAYS" />
@@ -202,8 +201,10 @@
         </HBox>
     </bottom>
 
+    <!-- ✅ CORRECTION PRINCIPALE : Stylesheets avec String au lieu de URL -->
     <stylesheets>
-        <URL value="@../css/main-styles.css" />
-        <URL value="@../css/mandat-styles.css" />
+        <String fx:value="@../css/main-styles.css" />
+        <String fx:value="@../css/mandat-styles.css" />
     </stylesheets>
+
 </BorderPane>

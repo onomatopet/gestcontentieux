@@ -1,0 +1,175 @@
+/* FICHIER: src/main/resources/css/mandat-styles.css */
+/* Styles spécifiques pour la gestion des mandats */
+
+/* ==================== GESTION DES MANDATS ==================== */
+
+/* En-tête de la fenêtre mandats */
+.header-section {
+    -fx-background-color: #f8f9fa;
+    -fx-border-color: #dee2e6;
+    -fx-border-width: 0 0 1 0;
+}
+
+.info-bar {
+    -fx-background-color: #e9ecef;
+    -fx-background-radius: 4px;
+    -fx-border-color: #adb5bd;
+    -fx-border-radius: 4px;
+    -fx-border-width: 1px;
+}
+
+/* Section création de mandat */
+.titled-pane {
+    -fx-background-color: white;
+    -fx-border-color: #dee2e6;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
+}
+
+.titled-pane > .title {
+    -fx-background-color: #007bff;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-padding: 8px 12px;
+}
+
+.titled-pane > .content {
+    -fx-background-color: white;
+    -fx-border-color: #dee2e6;
+    -fx-border-width: 1 1 1 1;
+    -fx-border-radius: 0 0 4 4;
+}
+
+/* Tableau des mandats */
+.table-view {
+    -fx-background-color: white;
+    -fx-border-color: #dee2e6;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
+}
+
+.table-view .column-header {
+    -fx-background-color: #f8f9fa;
+    -fx-border-color: #dee2e6;
+    -fx-font-weight: bold;
+    -fx-text-fill: #495057;
+}
+
+.table-view .table-row-cell {
+    -fx-border-color: transparent #dee2e6 #dee2e6 transparent;
+    -fx-border-width: 0 1 1 0;
+}
+
+.table-view .table-row-cell:selected {
+    -fx-background-color: #007bff;
+    -fx-text-fill: white;
+}
+
+.table-view .table-row-cell:hover {
+    -fx-background-color: #f8f9fa;
+}
+
+/* Section statistiques */
+.statistics-section {
+    -fx-background-color: white;
+    -fx-border-color: #dee2e6;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
+    -fx-padding: 15px;
+}
+
+.label-stat {
+    -fx-font-weight: bold;
+    -fx-font-size: 14px;
+}
+
+.label-stat.label-success {
+    -fx-text-fill: #28a745;
+}
+
+.label-stat.label-warning {
+    -fx-text-fill: #ffc107;
+}
+
+.label-stat.label-primary {
+    -fx-text-fill: #007bff;
+}
+
+/* Boutons spécifiques mandats */
+.button-primary {
+    -fx-background-color: #007bff;
+    -fx-text-fill: white;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
+    -fx-padding: 8px 16px;
+    -fx-font-weight: bold;
+}
+
+.button-primary:hover {
+    -fx-background-color: #0056b3;
+    -fx-cursor: hand;
+}
+
+.button-secondary {
+    -fx-background-color: #6c757d;
+    -fx-text-fill: white;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
+    -fx-padding: 8px 16px;
+}
+
+.button-secondary:hover {
+    -fx-background-color: #545b62;
+    -fx-cursor: hand;
+}
+
+.button-help {
+    -fx-background-color: #17a2b8;
+    -fx-text-fill: white;
+    -fx-border-radius: 50%;
+    -fx-background-radius: 50%;
+    -fx-min-width: 35px;
+    -fx-min-height: 35px;
+    -fx-max-width: 35px;
+    -fx-max-height: 35px;
+}
+
+.button-help:hover {
+    -fx-background-color: #138496;
+    -fx-cursor: hand;
+}
+
+/* Labels informatifs */
+.label-info {
+    -fx-text-fill: #17a2b8;
+    -fx-font-weight: bold;
+}
+
+.label-bold {
+    -fx-font-weight: bold;
+    -fx-text-fill: #495057;
+}
+
+.label-secondary {
+    -fx-text-fill: #6c757d;
+}
+
+/* Pied de page */
+.footer-section {
+    -fx-background-color: #f8f9fa;
+    -fx-border-color: #dee2e6;
+    -fx-border-width: 1 0 0 0;
+}
+
+/* Styles de titres */
+.h1 {
+    -fx-font-size: 24px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #212529;
+}
+
+.h3 {
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #495057;
+}

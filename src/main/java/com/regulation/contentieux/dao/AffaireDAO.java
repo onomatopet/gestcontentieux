@@ -343,6 +343,44 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
     // ========== MÉTHODES SPÉCIFIQUES AUX AFFAIRES ==========
 
     /**
+     * Trouve les affaires non soldées (EN_COURS avec solde restant > 0)
+     */
+    public List<Affaire> findAffairesNonSoldees() {
+        String sql = """
+        SELECT a.*, 
+               c.nom as contrevenant_nom, c.prenom as contrevenant_prenom, 
+               c.raison_sociale as contrevenant_raison_sociale,
+               ag.code_agent, ag.nom as agent_nom, ag.prenom as agent_prenom,
+               b.code_bureau, b.nom_bureau,
+               s.code_service, s.nom_service
+        FROM affaires a
+        LEFT JOIN contrevenants c ON a.contrevenant_id = c.id
+        LEFT JOIN agents ag ON a.agent_verbalisateur_id = ag.id
+        LEFT JOIN bureaux b ON a.bureau_id = b.id
+        LEFT JOIN services s ON a.service_id = s.id
+        WHERE a.deleted = false 
+        AND a.statut = 'EN_COURS'
+        AND a.montant_total > COALESCE(a.montant_encaisse, 0)
+        ORDER BY a.date_creation ASC
+    """;
+
+        List<Affaire> affaires = new ArrayList<>();
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+
+            while (rs.next()) {
+                affaires.add(mapResultSetToEntity(rs));
+            }
+
+        } catch (SQLException e) {
+            logger.error("Erreur lors de la recherche des affaires non soldées", e);
+        }
+
+        return affaires;
+    }
+    
+    /**
      * Génère le prochain numéro d'affaire selon le format YYMMNNNNN
      * ENRICHISSEMENT : Ajout de validations et diagnostics sans changer la signature
      */

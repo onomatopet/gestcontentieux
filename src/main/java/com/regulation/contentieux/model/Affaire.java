@@ -26,6 +26,9 @@ public class Affaire {
     private StatutAffaire statut;
     private String observations;
 
+    private BigDecimal soldeRestant;
+    private Integer joursDepuisCreation;
+
     // Relations
     private Contrevenant contrevenant;
     private Agent agentVerbalisateur;
@@ -189,6 +192,18 @@ public class Affaire {
 
     public Long getId() {
         return id;
+    }
+
+    public void setSoldeRestant(BigDecimal soldeRestant) {
+        this.soldeRestant = soldeRestant;
+    }
+
+    public Integer getJoursDepuisCreation() {
+        return joursDepuisCreation;
+    }
+
+    public void setJoursDepuisCreation(Integer joursDepuisCreation) {
+        this.joursDepuisCreation = joursDepuisCreation;
     }
 
     public void setId(Long id) {

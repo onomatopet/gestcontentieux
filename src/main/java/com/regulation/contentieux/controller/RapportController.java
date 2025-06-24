@@ -8,6 +8,7 @@ import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import java.time.LocalDateTime;
+import javafx.scene.control.Tooltip;
 
 import java.time.format.DateTimeFormatter;
 import java.awt.Desktop;
@@ -1471,6 +1472,7 @@ public class RapportController implements Initializable {
 
     /**
      * Configure les colonnes pour le rapport de répartition des affaires
+     * AMÉLIORÉ: Support natif des AffaireRepartitionDTO
      */
     private void configureColumnsRepartitionAffaires() {
         // Colonne N° Affaire
@@ -1492,16 +1494,38 @@ public class RapportController implements Initializable {
         dateCol.setPrefWidth(100);
 
         // Colonne Montant Total
-        TableColumn<Object, String> montantCol = new TableColumn<>("Montant Total");
-        montantCol.setCellValueFactory(data ->
+        TableColumn<Object, String> montantTotalCol = new TableColumn<>("Montant Total");
+        montantTotalCol.setCellValueFactory(data ->
                 new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "montantTotal"))));
-        montantCol.setPrefWidth(120);
+        montantTotalCol.setPrefWidth(120);
+        montantTotalCol.getStyleClass().add("montant-column");
 
-        // Colonne Statut
-        TableColumn<Object, String> statutCol = new TableColumn<>("Statut");
-        statutCol.setCellValueFactory(data ->
-                new SimpleStringProperty(extractValue(data.getValue(), "statut")));
-        statutCol.setPrefWidth(100);
+        // Colonne Montant Encaissé
+        montantTotalCol.setCellFactory(col -> new TableCell<Object, String>() {
+            @Override
+            protected void updateItem(String montant, boolean empty) {
+                super.updateItem(montant, empty);
+                if (empty || montant == null) {
+                    setText(null);
+                    setStyle("");
+                } else {
+                    setText(montant);
+                    setStyle("-fx-text-fill: #2E7D32; -fx-font-weight: bold;");
+                }
+            }
+        });
+
+        // Colonne Part État (60%)
+        TableColumn<Object, String> partEtatCol = new TableColumn<>("Part État (60%)");
+        partEtatCol.setCellValueFactory(data ->
+                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "partEtat"))));
+        partEtatCol.setPrefWidth(120);
+
+        // Colonne Part Collectivité (40%)
+        TableColumn<Object, String> partCollectiviteCol = new TableColumn<>("Part Collectivité (40%)");
+        partCollectiviteCol.setCellValueFactory(data ->
+                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "partCollectivite"))));
+        partCollectiviteCol.setPrefWidth(140);
 
         // Colonne Actions
         TableColumn<Object, Void> actionsCol = new TableColumn<>("Actions");
@@ -1514,6 +1538,10 @@ public class RapportController implements Initializable {
                 printBtn.getStyleClass().add("button-secondary");
                 previewBtn.setOnAction(e -> handlePreviewRow(getTableRow().getItem()));
                 printBtn.setOnAction(e -> handlePrintRow(getTableRow().getItem()));
+
+                // Tooltips
+                previewBtn.setTooltip(new Tooltip("Aperçu de cette ligne"));
+                printBtn.setTooltip(new Tooltip("Imprimer cette ligne"));
             }
 
             @Override
@@ -1529,30 +1557,94 @@ public class RapportController implements Initializable {
             }
         });
         actionsCol.setPrefWidth(80);
+        actionsCol.setSortable(false);
 
-        resultatsTableView.getColumns().addAll(numeroCol, contrevenantCol, dateCol, montantCol, statutCol, actionsCol);
+        resultatsTableView.getColumns().addAll(numeroCol, contrevenantCol, dateCol,
+                montantTotalCol, partEtatCol, partCollectiviteCol, actionsCol);
     }
 
     /**
      * Configure les colonnes pour le tableau des amendes par services
+     * AMÉLIORÉ: Support natif des ServiceStatsDTO
      */
     private void configureColumnsAmendesServices() {
+        // Colonne Service
         TableColumn<Object, String> serviceCol = new TableColumn<>("Service");
         serviceCol.setCellValueFactory(data ->
                 new SimpleStringProperty(extractValue(data.getValue(), "nomService")));
-        serviceCol.setPrefWidth(200);
+        serviceCol.setPrefWidth(250);
 
+        // Colonne Nombre d'affaires
         TableColumn<Object, String> nombreCol = new TableColumn<>("Nb Affaires");
         nombreCol.setCellValueFactory(data ->
                 new SimpleStringProperty(extractValue(data.getValue(), "nombreAffaires")));
         nombreCol.setPrefWidth(100);
+        nombreCol.setCellFactory(col -> new TableCell<Object, String>() {
+            @Override
+            protected void updateItem(String nombre, boolean empty) {
+                super.updateItem(nombre, empty);
+                if (empty || nombre == null) {
+                    setText(null);
+                } else {
+                    setText(nombre);
+                    setStyle("-fx-text-fill: #1976D2; -fx-font-weight: bold; -fx-text-alignment: center;");
+                }
+            }
+        });
 
+        // Colonne Montant Total
         TableColumn<Object, String> montantCol = new TableColumn<>("Montant Total");
         montantCol.setCellValueFactory(data ->
                 new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "montantTotal"))));
         montantCol.setPrefWidth(150);
+        montantCol.setCellFactory(col -> new TableCell<Object, String>() {
+            @Override
+            protected void updateItem(String montant, boolean empty) {
+                super.updateItem(montant, empty);
+                if (empty || montant == null) {
+                    setText(null);
+                } else {
+                    setText(montant);
+                    setStyle("-fx-text-fill: #388E3C; -fx-font-weight: bold; -fx-text-alignment: right;");
+                }
+            }
+        });
 
-        resultatsTableView.getColumns().addAll(serviceCol, nombreCol, montantCol);
+        // Colonne Observations
+        TableColumn<Object, String> observationsCol = new TableColumn<>("Observations");
+        observationsCol.setCellValueFactory(data ->
+                new SimpleStringProperty(extractValue(data.getValue(), "observations")));
+        observationsCol.setPrefWidth(200);
+
+        // Colonne Actions
+        TableColumn<Object, Void> actionsCol = new TableColumn<>("Actions");
+        actionsCol.setCellFactory(col -> new TableCell<Object, Void>() {
+            private final Button previewBtn = new Button("👁");
+            private final Button detailBtn = new Button("📋");
+
+            {
+                previewBtn.getStyleClass().add("button-info");
+                detailBtn.getStyleClass().add("button-secondary");
+                previewBtn.setOnAction(e -> handlePreviewRow(getTableRow().getItem()));
+                detailBtn.setOnAction(e -> handleDetailService(getTableRow().getItem()));
+            }
+
+            @Override
+            protected void updateItem(Void item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty) {
+                    setGraphic(null);
+                } else {
+                    HBox buttons = new HBox(5, previewBtn, detailBtn);
+                    buttons.setAlignment(Pos.CENTER);
+                    setGraphic(buttons);
+                }
+            }
+        });
+        actionsCol.setPrefWidth(80);
+        actionsCol.setSortable(false);
+
+        resultatsTableView.getColumns().addAll(serviceCol, nombreCol, montantCol, observationsCol, actionsCol);
     }
 
     /**
@@ -1627,26 +1719,76 @@ public class RapportController implements Initializable {
     }
 
     /**
-     * Met à jour les données de la TableView
+     * Met à jour les données de la TableView avec intelligence de type
+     * AMÉLIORÉ: Support des DTOs spécifiques du RapportService
      */
     private void updateTableViewData(Object rapportData) {
-        if (resultatsTableView == null || rapportData == null) return;
+        if (resultatsTableView == null || rapportData == null) {
+            logger.debug("TableView ou données nulles, skip mise à jour");
+            return;
+        }
 
         ObservableList<Object> items = FXCollections.observableArrayList();
 
-        // Convertir les données selon leur type
-        if (rapportData instanceof List) {
-            items.addAll((List<?>) rapportData);
-        } else if (rapportData instanceof RapportService.RapportRepartitionDTO rapport) {
-            items.addAll(rapport.getAffaires());
-        } else {
-            items.add(rapportData);
-        }
+        try {
+            // Traitement intelligent selon le type de données
+            if (rapportData instanceof RapportService.RapportRepartitionDTO) {
+                RapportService.RapportRepartitionDTO rapport = (RapportService.RapportRepartitionDTO) rapportData;
+                if (rapport.getAffaires() != null) {
+                    items.addAll(rapport.getAffaires());
+                }
+                logger.debug("Chargé {} affaires de répartition", items.size());
 
-        Platform.runLater(() -> {
-            resultatsTableView.setItems(items);
-            updateNombreResultats(items.size());
-        });
+            } else if (rapportData instanceof RapportService.TableauAmendesServiceDTO) {
+                RapportService.TableauAmendesServiceDTO tableau = (RapportService.TableauAmendesServiceDTO) rapportData;
+                if (tableau.getServices() != null) {
+                    items.addAll(tableau.getServices());
+                }
+                logger.debug("Chargé {} services d'amendes", items.size());
+
+            } else if (rapportData instanceof RapportService.RapportEncaissementsDTO) {
+                RapportService.RapportEncaissementsDTO rapport = (RapportService.RapportEncaissementsDTO) rapportData;
+                if (rapport.getServices() != null) {
+                    // Aplatir les encaissements de tous les services
+                    for (RapportService.ServiceEncaissementDTO service : rapport.getServices()) {
+                        if (service.getEncaissements() != null) {
+                            items.addAll(service.getEncaissements());
+                        }
+                    }
+                }
+                logger.debug("Chargé {} encaissements", items.size());
+
+            } else if (rapportData instanceof List) {
+                List<?> liste = (List<?>) rapportData;
+                items.addAll(liste);
+                logger.debug("Chargé {} éléments de liste", items.size());
+
+            } else {
+                // Objet unique
+                items.add(rapportData);
+                logger.debug("Chargé objet unique: {}", rapportData.getClass().getSimpleName());
+            }
+
+            // Mise à jour de l'interface
+            Platform.runLater(() -> {
+                resultatsTableView.setItems(items);
+                updateNombreResultats(items.size());
+
+                // Log pour debugging
+                if (!items.isEmpty()) {
+                    Object premier = items.get(0);
+                    logger.debug("Premier élément du type: {}", premier.getClass().getSimpleName());
+                }
+            });
+
+        } catch (Exception e) {
+            logger.error("Erreur lors de la mise à jour des données TableView", e);
+            Platform.runLater(() -> {
+                updateNombreResultats(0);
+                AlertUtil.showWarningAlert("Données", "Erreur d'affichage",
+                        "Impossible d'afficher les données: " + e.getMessage());
+            });
+        }
     }
 
     /**
@@ -1683,6 +1825,31 @@ public class RapportController implements Initializable {
         } catch (Exception e) {
             logger.error("Erreur lors de l'impression de la ligne", e);
             AlertUtil.showErrorAlert("Erreur", "Impression impossible", e.getMessage());
+        }
+    }
+
+    /**
+     * Affiche le détail d'un service
+     */
+    private void handleDetailService(Object item) {
+        if (item == null) return;
+
+        try {
+            String nomService = extractValue(item, "nomService");
+            String details = String.format("Détail du service: %s\n" +
+                            "Nombre d'affaires: %s\n" +
+                            "Montant total: %s\n" +
+                            "Observations: %s",
+                    nomService,
+                    extractValue(item, "nombreAffaires"),
+                    formatMontant(extractBigDecimal(item, "montantTotal")),
+                    extractValue(item, "observations"));
+
+            AlertUtil.showInfoAlert("Détail Service", "Informations du service", details);
+
+        } catch (Exception e) {
+            logger.error("Erreur lors de l'affichage du détail service", e);
+            AlertUtil.showErrorAlert("Erreur", "Détail impossible", e.getMessage());
         }
     }
 
@@ -1746,18 +1913,39 @@ public class RapportController implements Initializable {
     }
 
     /**
-     * Extrait une valeur d'un objet
+     * Extraction générique par réflexion
      */
     private String extractValue(Object obj, String fieldName) {
-        if (obj == null) return "";
+        if (obj == null || fieldName == null) {
+            return "";
+        }
 
         try {
-            java.lang.reflect.Field field = obj.getClass().getDeclaredField(fieldName);
-            field.setAccessible(true);
-            Object value = field.get(obj);
-            return value != null ? value.toString() : "";
+            // Essayer getter d'abord
+            String getterName = "get" + fieldName.substring(0, 1).toUpperCase() + fieldName.substring(1);
+            java.lang.reflect.Method getter = obj.getClass().getMethod(getterName);
+            Object value = getter.invoke(obj);
+
+            if (value == null) {
+                return "";
+            } else if (value instanceof LocalDate) {
+                return DateFormatter.format((LocalDate) value);
+            } else if (value instanceof BigDecimal) {
+                return value.toString();
+            } else {
+                return value.toString();
+            }
         } catch (Exception e) {
-            return obj.toString(); // Fallback
+            try {
+                // Essayer champ direct
+                java.lang.reflect.Field field = obj.getClass().getDeclaredField(fieldName);
+                field.setAccessible(true);
+                Object value = field.get(obj);
+                return value != null ? value.toString() : "";
+            } catch (Exception e2) {
+                logger.debug("Extraction impossible: {}", fieldName);
+                return "";
+            }
         }
     }
 

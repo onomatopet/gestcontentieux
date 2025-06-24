@@ -80,35 +80,15 @@
 
                 <!-- Boutons d'action -->
                 <HBox spacing="10.0" alignment="CENTER_LEFT">
-                    <Button fx:id="genererButton" text="Générer le Rapport" styleClass="button-primary">
-                        <graphic>
-                            <FontIcon iconLiteral="mdi2c-cog" iconSize="16" />
-                        </graphic>
-                    </Button>
+                    <Button fx:id="genererButton" text="⚙️ Générer le Rapport" styleClass="button-primary" />
 
-                    <Button fx:id="previewButton" text="Aperçu" disable="true">
-                        <graphic>
-                            <FontIcon iconLiteral="mdi2e-eye" iconSize="16" />
-                        </graphic>
-                    </Button>
+                    <Button fx:id="previewButton" text="👁️ Aperçu" disable="true" />
 
-                    <Button fx:id="imprimerButton" text="Imprimer" disable="true">
-                        <graphic>
-                            <FontIcon iconLiteral="mdi2p-printer" iconSize="16" />
-                        </graphic>
-                    </Button>
+                    <Button fx:id="imprimerButton" text="🖨️ Imprimer" disable="true" />
 
-                    <Button fx:id="exportPdfButton" text="Export PDF" disable="true" styleClass="button-danger">
-                        <graphic>
-                            <FontIcon iconLiteral="mdi2f-file-pdf-box" iconSize="16" />
-                        </graphic>
-                    </Button>
+                    <Button fx:id="exportPdfButton" text="📄 Export PDF" disable="true" styleClass="button-danger" />
 
-                    <Button fx:id="exportExcelButton" text="Export Excel" disable="true" styleClass="button-success">
-                        <graphic>
-                            <FontIcon iconLiteral="mdi2f-file-excel" iconSize="16" />
-                        </graphic>
-                    </Button>
+                    <Button fx:id="exportExcelButton" text="📊 Export Excel" disable="true" styleClass="button-success" />
 
                     <Region HBox.hgrow="ALWAYS" />
 

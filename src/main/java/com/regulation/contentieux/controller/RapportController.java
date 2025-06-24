@@ -6,7 +6,7 @@ import java.math.BigDecimal;
 import java.text.NumberFormat;
 import java.util.Locale;
 import com.regulation.contentieux.dao.ContraventionDAO;
-
+import javafx.scene.layout.HBox;
 import com.regulation.contentieux.model.enums.TypeRapport;
 import com.regulation.contentieux.service.RapportService;
 import com.regulation.contentieux.service.ExportService;
@@ -22,7 +22,6 @@ import javafx.fxml.Initializable;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
-import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.web.WebEngine;
 import javafx.scene.web.WebView;
@@ -59,7 +58,7 @@ public class RapportController implements Initializable {
     @FXML private DatePicker dateFinPicker;
     @FXML private ComboBox<Month> moisComboBox;
     @FXML private ComboBox<Integer> anneeComboBox;
-    @FXML private VBox periodePersonnaliseeBox;
+    @FXML private HBox periodePersonnaliseeBox;
     @FXML private HBox periodeMensuelleBox;
 
     // Filtres additionnels
@@ -345,7 +344,7 @@ public class RapportController implements Initializable {
         boolean isPersonnalisee = "Personnalisée".equals(typePeriode);
 
         periodePersonnaliseeBox.setVisible(isPersonnalisee);
-        periodePersonnaliseeBox.setManaged(isPersonnalisee);
+        periodeMensuelleBox.setManaged(isPersonnalisee);
 
         if (!isPersonnalisee) {
             // Calculer automatiquement les dates

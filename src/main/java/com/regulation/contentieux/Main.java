@@ -2,15 +2,25 @@ package com.regulation.contentieux;
 
 import atlantafx.base.theme.PrimerLight;
 import com.regulation.contentieux.config.DatabaseConfig;
+import com.regulation.contentieux.dao.AffaireDAO;
+import com.regulation.contentieux.dao.AgentDAO;
+import com.regulation.contentieux.dao.ContrevenantDAO;
+import com.regulation.contentieux.dao.UtilisateurDAO;
+import com.regulation.contentieux.util.AlertUtil;
 import com.regulation.contentieux.util.FXMLLoaderUtil;
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.image.Image;
 import javafx.stage.Stage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Objects;
 
 /**
@@ -52,24 +62,43 @@ public class Main extends Application {
 
     @Override
     public void start(Stage primaryStage) throws Exception {
+        logger.info("🚀 Démarrage de l'application Gestion des Affaires Contentieuses");
+
         try {
-            // Configuration du thème AtlantaFX
-            setupTheme();
+            // 1. Initialisation de la base de données
+            logger.debug("🔧 Initialisation de la base de données...");
+            DatabaseSchemaUpdate.updateSchema();
 
-            // Configuration de la fenêtre principale
-            setupPrimaryStage(primaryStage);
+            // 2. CORRECTION BUG : Initialiser les tables manquantes
+            logger.debug("🔧 Vérification des tables manquantes...");
+            DatabaseConfig.initializeMissingTables();
 
-            // Chargement de l'écran de connexion
-            loadLoginScreen(primaryStage);
+            // 3. Vérification des données existantes
+            verifyDatabaseTables();
 
-            // Affichage de la fenêtre
+            // 4. Configuration du gestionnaire de scènes
+            StageManager.initialize(primaryStage);
+
+            // 5. Chargement de l'écran de connexion
+            logger.debug("🎭 Chargement de l'interface de connexion...");
+            Parent loginView = FXMLLoaderUtil.loadFXML("/fxml/login.fxml");
+            Scene loginScene = new Scene(loginView);
+
+            // 6. Configuration de la fenêtre principale
+            primaryStage.setTitle("Gestion des Affaires Contentieuses - v1.0");
+            primaryStage.setScene(loginScene);
+            primaryStage.setMinWidth(800);
+            primaryStage.setMinHeight(600);
+            primaryStage.centerOnScreen();
             primaryStage.show();
 
-            logger.info("Application démarrée avec succès");
+            logger.info("✅ Application démarrée avec succès");
 
         } catch (Exception e) {
-            logger.error("Erreur lors du démarrage de l'application", e);
-            showStartupError(e);
+            logger.error("❌ Erreur critique lors du démarrage de l'application", e);
+            AlertUtil.showErrorAlert("Erreur de démarrage",
+                    "Impossible de démarrer l'application",
+                    "Détails: " + e.getMessage());
             Platform.exit();
         }
     }
@@ -88,6 +117,68 @@ public class Main extends Application {
         } finally {
             super.stop();
             logger.info("Application fermée");
+        }
+    }
+
+    private void verifyDatabaseTables() {
+        try {
+            // Vérifications existantes
+            UtilisateurDAO userDAO = new UtilisateurDAO();
+            AffaireDAO affaireDAO = new AffaireDAO();
+            ContrevenantDAO contrevenantDAO = new ContrevenantDAO();
+            AgentDAO agentDAO = new AgentDAO();
+
+            long userCount = userDAO.count();
+            long affaireCount = affaireDAO.count();
+            long contrevenantCount = contrevenantDAO.count();
+            long agentCount = agentDAO.count();
+
+            logger.debug("Table utilisateurs vérifiée: {} enregistrements", userCount);
+            logger.debug("Table affaires vérifiée: {} enregistrements", affaireCount);
+            logger.debug("Table contrevenants vérifiée: {} enregistrements", contrevenantCount);
+            logger.debug("Table agents vérifiée: {} enregistrements", agentCount);
+
+            // NOUVELLE VÉRIFICATION : Tables de liaison
+            verifyLinkTables();
+
+        } catch (Exception e) {
+            logger.warn("Erreur lors de la vérification des tables: {}", e.getMessage());
+        }
+
+        private void verifyLinkTables() {
+            try (Connection conn = DatabaseConfig.getSQLiteConnection();
+                 Statement stmt = conn.createStatement()) {
+
+                // Vérifier affaire_contraventions
+                try (ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM affaire_contraventions")) {
+                    if (rs.next()) {
+                        logger.debug("✅ Table affaire_contraventions: {} enregistrements", rs.getInt(1));
+                    }
+                } catch (SQLException e) {
+                    logger.warn("⚠️ Table affaire_contraventions non accessible: {}", e.getMessage());
+                }
+
+                // Vérifier affaire_acteurs
+                try (ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM affaire_acteurs")) {
+                    if (rs.next()) {
+                        logger.debug("✅ Table affaire_acteurs: {} enregistrements", rs.getInt(1));
+                    }
+                } catch (SQLException e) {
+                    logger.warn("⚠️ Table affaire_acteurs non accessible: {}", e.getMessage());
+                }
+
+                // Vérifier roles_speciaux
+                try (ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM roles_speciaux")) {
+                    if (rs.next()) {
+                        logger.debug("✅ Table roles_speciaux: {} enregistrements", rs.getInt(1));
+                    }
+                } catch (SQLException e) {
+                    logger.warn("⚠️ Table roles_speciaux non accessible: {}", e.getMessage());
+                }
+
+            } catch (SQLException e) {
+                logger.error("Erreur lors de la vérification des tables de liaison", e);
+            }
         }
     }
 

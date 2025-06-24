@@ -176,6 +176,102 @@ public class DatabaseConfig {
         logger.info("=== FIN DU DIAGNOSTIC ===");
     }
 
+    public static void ensureAffaireContraventionsTable() {
+        String createTableSQL = """
+        CREATE TABLE IF NOT EXISTS affaire_contraventions (
+            affaire_id INTEGER NOT NULL,
+            contravention_id INTEGER NOT NULL,
+            montant_applique REAL NOT NULL DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (affaire_id, contravention_id),
+            FOREIGN KEY (affaire_id) REFERENCES affaires (id) ON DELETE CASCADE,
+            FOREIGN KEY (contravention_id) REFERENCES contraventions (id) ON DELETE CASCADE
+        )
+    """;
+
+        try (Connection conn = getSQLiteConnection();
+             Statement stmt = conn.createStatement()) {
+
+            stmt.execute(createTableSQL);
+            logger.debug("✅ Table affaire_contraventions vérifiée/créée");
+
+            // Vérifier si la table existe vraiment
+            String checkSQL = "SELECT name FROM sqlite_master WHERE type='table' AND name='affaire_contraventions'";
+            try (ResultSet rs = stmt.executeQuery(checkSQL)) {
+                if (rs.next()) {
+                    logger.debug("✅ Table affaire_contraventions confirmée présente");
+                } else {
+                    logger.error("❌ Table affaire_contraventions non trouvée après création");
+                }
+            }
+
+        } catch (SQLException e) {
+            logger.error("❌ Erreur lors de la création de la table affaire_contraventions", e);
+        }
+    }
+
+    public static void initializeMissingTables() {
+        logger.info("🔧 Initialisation des tables manquantes...");
+
+        // S'assurer que toutes les tables de liaison existent
+        ensureAffaireContraventionsTable();
+
+        // Autres tables potentiellement manquantes
+        ensureAffaireActeursTable();
+        ensureRolesSpeciauxTable();
+
+        logger.info("✅ Initialisation des tables manquantes terminée");
+    }
+
+    private static void ensureAffaireActeursTable() {
+        String createTableSQL = """
+        CREATE TABLE IF NOT EXISTS affaire_acteurs (
+            affaire_id INTEGER NOT NULL,
+            agent_id INTEGER NOT NULL,
+            role_sur_affaire TEXT NOT NULL CHECK(role_sur_affaire IN ('CHEF', 'SAISISSANT', 'VERIFICATEUR')),
+            assigned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            assigned_by TEXT,
+            PRIMARY KEY (affaire_id, agent_id, role_sur_affaire),
+            FOREIGN KEY (affaire_id) REFERENCES affaires (id) ON DELETE CASCADE,
+            FOREIGN KEY (agent_id) REFERENCES agents (id) ON DELETE CASCADE
+        )
+    """;
+
+        try (Connection conn = getSQLiteConnection();
+             Statement stmt = conn.createStatement()) {
+
+            stmt.execute(createTableSQL);
+            logger.debug("✅ Table affaire_acteurs vérifiée/créée");
+
+        } catch (SQLException e) {
+            logger.error("❌ Erreur lors de la création de la table affaire_acteurs", e);
+        }
+    }
+
+    private static void ensureRolesSpeciauxTable() {
+        String createTableSQL = """
+        CREATE TABLE IF NOT EXISTS roles_speciaux (
+            agent_id INTEGER NOT NULL,
+            role_nom TEXT NOT NULL CHECK(role_nom IN ('DD', 'DG')),
+            date_attribution DATE DEFAULT CURRENT_DATE,
+            actif BOOLEAN DEFAULT TRUE,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (agent_id, role_nom),
+            FOREIGN KEY (agent_id) REFERENCES agents (id) ON DELETE CASCADE
+        )
+    """;
+
+        try (Connection conn = getSQLiteConnection();
+             Statement stmt = conn.createStatement()) {
+
+            stmt.execute(createTableSQL);
+            logger.debug("✅ Table roles_speciaux vérifiée/créée");
+
+        } catch (SQLException e) {
+            logger.error("❌ Erreur lors de la création de la table roles_speciaux", e);
+        }
+    }
+
     /**
      * Définit les propriétés par défaut enrichies
      */

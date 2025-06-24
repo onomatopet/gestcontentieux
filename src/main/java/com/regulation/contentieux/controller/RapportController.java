@@ -1723,28 +1723,45 @@ public class RapportController implements Initializable {
      * AMÉLIORÉ: Support des DTOs spécifiques du RapportService
      */
     private void updateTableViewData(Object rapportData) {
-        if (resultatsTableView == null || rapportData == null) {
-            logger.debug("TableView ou données nulles, skip mise à jour");
+        logger.debug("=== DÉBUT updateTableViewData ===");
+
+        if (resultatsTableView == null) {
+            logger.error("resultatsTableView est null");
+            return;
+        }
+
+        if (rapportData == null) {
+            logger.debug("rapportData est null, vidage de la table");
+            Platform.runLater(() -> {
+                resultatsTableView.setItems(FXCollections.observableArrayList());
+                updateNombreResultats(0);
+            });
             return;
         }
 
         ObservableList<Object> items = FXCollections.observableArrayList();
 
         try {
+            logger.debug("Type de données reçues: {}", rapportData.getClass().getSimpleName());
+
             // Traitement intelligent selon le type de données
             if (rapportData instanceof RapportService.RapportRepartitionDTO) {
                 RapportService.RapportRepartitionDTO rapport = (RapportService.RapportRepartitionDTO) rapportData;
-                if (rapport.getAffaires() != null) {
+                if (rapport.getAffaires() != null && !rapport.getAffaires().isEmpty()) {
                     items.addAll(rapport.getAffaires());
+                    logger.debug("✅ Ajouté {} affaires de répartition", items.size());
+                } else {
+                    logger.debug("⚠️ Rapport de répartition vide ou null");
                 }
-                logger.debug("Chargé {} affaires de répartition", items.size());
 
             } else if (rapportData instanceof RapportService.TableauAmendesServiceDTO) {
                 RapportService.TableauAmendesServiceDTO tableau = (RapportService.TableauAmendesServiceDTO) rapportData;
-                if (tableau.getServices() != null) {
+                if (tableau.getServices() != null && !tableau.getServices().isEmpty()) {
                     items.addAll(tableau.getServices());
+                    logger.debug("✅ Ajouté {} services d'amendes", items.size());
+                } else {
+                    logger.debug("⚠️ Tableau amendes services vide ou null");
                 }
-                logger.debug("Chargé {} services d'amendes", items.size());
 
             } else if (rapportData instanceof RapportService.RapportEncaissementsDTO) {
                 RapportService.RapportEncaissementsDTO rapport = (RapportService.RapportEncaissementsDTO) rapportData;
@@ -1755,29 +1772,51 @@ public class RapportController implements Initializable {
                             items.addAll(service.getEncaissements());
                         }
                     }
+                    logger.debug("✅ Ajouté {} encaissements", items.size());
+                } else {
+                    logger.debug("⚠️ Rapport encaissements vides ou null");
                 }
-                logger.debug("Chargé {} encaissements", items.size());
 
             } else if (rapportData instanceof List) {
                 List<?> liste = (List<?>) rapportData;
-                items.addAll(liste);
-                logger.debug("Chargé {} éléments de liste", items.size());
+                if (!liste.isEmpty()) {
+                    items.addAll(liste);
+                    logger.debug("✅ Ajouté {} éléments de liste", items.size());
+                } else {
+                    logger.debug("⚠️ Liste vide");
+                }
 
             } else {
                 // Objet unique
                 items.add(rapportData);
-                logger.debug("Chargé objet unique: {}", rapportData.getClass().getSimpleName());
+                logger.debug("✅ Ajouté objet unique: {}", rapportData.getClass().getSimpleName());
             }
 
-            // Mise à jour de l'interface
+            // CORRECTION PRINCIPALE : Forcer la mise à jour sur le thread JavaFX
             Platform.runLater(() -> {
-                resultatsTableView.setItems(items);
-                updateNombreResultats(items.size());
+                try {
+                    // Vider d'abord la table
+                    resultatsTableView.setItems(null);
 
-                // Log pour debugging
-                if (!items.isEmpty()) {
-                    Object premier = items.get(0);
-                    logger.debug("Premier élément du type: {}", premier.getClass().getSimpleName());
+                    // Puis assigner les nouvelles données
+                    resultatsTableView.setItems(items);
+
+                    // Forcer le rafraîchissement
+                    resultatsTableView.refresh();
+
+                    // Mettre à jour les statistiques
+                    updateNombreResultats(items.size());
+
+                    // Log final
+                    logger.debug("🎯 TableView mise à jour: {} éléments affichés", items.size());
+
+                    // Debug: Afficher le premier élément si présent
+                    if (!items.isEmpty()) {
+                        logger.debug("Premier élément: {}", items.get(0).getClass().getSimpleName());
+                    }
+
+                } catch (Exception e) {
+                    logger.error("Erreur lors de la mise à jour Platform.runLater", e);
                 }
             });
 
@@ -1789,6 +1828,8 @@ public class RapportController implements Initializable {
                         "Impossible d'afficher les données: " + e.getMessage());
             });
         }
+
+        logger.debug("=== FIN updateTableViewData ===");
     }
 
     /**
@@ -1972,11 +2013,14 @@ public class RapportController implements Initializable {
     }
 
     /**
-     * Met à jour le nombre de résultats
+     * CORRECTION BUG : Met à jour le label du nombre de résultats
      */
     private void updateNombreResultats(int nombre) {
         if (nombreResultatsLabel != null) {
-            nombreResultatsLabel.setText(nombre + " résultat(s)");
+            Platform.runLater(() -> {
+                nombreResultatsLabel.setText(nombre + " résultat(s)");
+                logger.debug("Nombre de résultats mis à jour: {}", nombre);
+            });
         }
     }
 

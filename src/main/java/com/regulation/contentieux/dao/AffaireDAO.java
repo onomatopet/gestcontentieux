@@ -1,11 +1,7 @@
 package com.regulation.contentieux.dao;
 
 import com.regulation.contentieux.dao.impl.AbstractSQLiteDAO;
-import com.regulation.contentieux.model.Affaire;
-import com.regulation.contentieux.model.Agent;
-import com.regulation.contentieux.model.Bureau;
-import com.regulation.contentieux.model.Service;
-import com.regulation.contentieux.model.Contrevenant;
+import com.regulation.contentieux.model.*;
 import com.regulation.contentieux.model.enums.StatutAffaire;
 import com.regulation.contentieux.config.DatabaseConfig;
 import org.slf4j.Logger;
@@ -66,18 +62,18 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
     @Override
     protected String getSelectAllQuery() {
         return """
-        SELECT a.*, 
-               c.nom_complet as contrevenant_nom_complet, 
-               c.type_personne as contrevenant_type_personne,
-               ag.code_agent, ag.nom as agent_nom, ag.prenom as agent_prenom,
-               b.code_bureau, b.nom_bureau,
-               s.code_service, s.nom_service
+        SELECT a.id, a.numero_affaire, a.date_creation, a.montant_amende_total, 
+               a.statut, a.contrevenant_id, a.contravention_id, a.bureau_id, 
+               a.service_id, a.created_at, a.updated_at,
+               c.nom_complet as contrevenant_nom_complet,
+               cv.libelle as contravention_libelle,
+               b.nom_bureau as bureau_nom,
+               s.nom_service as service_nom
         FROM affaires a
         LEFT JOIN contrevenants c ON a.contrevenant_id = c.id
-        LEFT JOIN agents ag ON a.agent_verbalisateur_id = ag.id
+        LEFT JOIN contraventions cv ON a.contravention_id = cv.id
         LEFT JOIN bureaux b ON a.bureau_id = b.id
         LEFT JOIN services s ON a.service_id = s.id
-        WHERE a.deleted = false 
         ORDER BY a.date_creation DESC
     """;
     }
@@ -85,18 +81,19 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
     @Override
     protected String getSelectByIdQuery() {
         return """
-        SELECT a.*, 
-               c.nom_complet as contrevenant_nom_complet, 
-               c.type_personne as contrevenant_type_personne,
-               ag.code_agent, ag.nom as agent_nom, ag.prenom as agent_prenom,
-               b.code_bureau, b.nom_bureau,
-               s.code_service, s.nom_service
+        SELECT a.id, a.numero_affaire, a.date_creation, a.montant_amende_total, 
+               a.statut, a.contrevenant_id, a.contravention_id, a.bureau_id, 
+               a.service_id, a.created_at, a.updated_at,
+               c.nom_complet as contrevenant_nom_complet,
+               cv.libelle as contravention_libelle,
+               b.nom_bureau as bureau_nom,
+               s.nom_service as service_nom
         FROM affaires a
         LEFT JOIN contrevenants c ON a.contrevenant_id = c.id
-        LEFT JOIN agents ag ON a.agent_verbalisateur_id = ag.id
+        LEFT JOIN contraventions cv ON a.contravention_id = cv.id
         LEFT JOIN bureaux b ON a.bureau_id = b.id
         LEFT JOIN services s ON a.service_id = s.id
-        WHERE a.id = ? AND a.deleted = false
+        WHERE a.id = ?
     """;
     }
 
@@ -104,30 +101,22 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
     protected Affaire mapResultSetToEntity(ResultSet rs) throws SQLException {
         Affaire affaire = new Affaire();
 
-        // Champs de base
+        // ✅ COLONNES RÉELLES de la table affaires
         affaire.setId(rs.getLong("id"));
         affaire.setNumeroAffaire(rs.getString("numero_affaire"));
 
-        // Dates
+        // Date création (colonne réelle)
         Date dateCreation = rs.getDate("date_creation");
         if (dateCreation != null) {
             affaire.setDateCreation(dateCreation.toLocalDate());
         }
 
-        Date dateConstatation = rs.getDate("date_constatation");
-        if (dateConstatation != null) {
-            affaire.setDateConstatation(dateConstatation.toLocalDate());
-        }
+        // ✅ CORRECTION : montant_amende_total au lieu de montant_total
+        BigDecimal montantAmendeTotal = rs.getBigDecimal("montant_amende_total");
+        affaire.setMontantTotal(montantAmendeTotal != null ? montantAmendeTotal : BigDecimal.ZERO);
 
-        affaire.setLieuConstatation(rs.getString("lieu_constatation"));
-        affaire.setDescription(rs.getString("description"));
-
-        // Montants
-        BigDecimal montantTotal = rs.getBigDecimal("montant_total");
-        affaire.setMontantTotal(montantTotal != null ? montantTotal : BigDecimal.ZERO);
-
-        BigDecimal montantEncaisse = rs.getBigDecimal("montant_encaisse");
-        affaire.setMontantEncaisse(montantEncaisse != null ? montantEncaisse : BigDecimal.ZERO);
+        // Note: montant_encaisse n'existe pas dans la vraie table, on le met à zéro
+        affaire.setMontantEncaisse(BigDecimal.ZERO);
 
         // Statut
         String statutStr = rs.getString("statut");
@@ -139,68 +128,81 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
             }
         }
 
-        // ✅ CORRECTION : Mapping du contrevenant avec nom_complet au lieu de nom/prenom
+        // ✅ CONTREVENANT (via contrevenant_id - colonne réelle)
         try {
             String contrevenantNomComplet = rs.getString("contrevenant_nom_complet");
             if (contrevenantNomComplet != null) {
                 Contrevenant contrevenant = new Contrevenant();
+                contrevenant.setId(rs.getLong("contrevenant_id"));
                 contrevenant.setNomComplet(contrevenantNomComplet);
-
-                String typePersonne = rs.getString("contrevenant_type_personne");
-                if (typePersonne != null) {
-                    contrevenant.setTypePersonne(typePersonne);
-                }
-
                 affaire.setContrevenant(contrevenant);
             }
         } catch (SQLException e) {
             logger.debug("Pas de contrevenant associé pour l'affaire {}", affaire.getId());
         }
 
-        // Agent verbalisateur
+        // ✅ CONTRAVENTION (via contravention_id - colonne réelle)
         try {
-            String codeAgent = rs.getString("code_agent");
-            if (codeAgent != null) {
-                Agent agent = new Agent();
-                agent.setCodeAgent(codeAgent);
-                agent.setNom(rs.getString("agent_nom"));
-                agent.setPrenom(rs.getString("agent_prenom"));
-                affaire.setAgentVerbalisateur(agent);
+            String contraventionLibelle = rs.getString("contravention_libelle");
+            if (contraventionLibelle != null) {
+                Contravention contravention = new Contravention();
+                contravention.setId(rs.getLong("contravention_id"));
+                contravention.setLibelle(contraventionLibelle);
+                //affaire.setContravention(contravention);
             }
         } catch (SQLException e) {
-            logger.debug("Pas d'agent verbalisateur pour l'affaire {}", affaire.getId());
+            logger.debug("Pas de contravention associée pour l'affaire {}", affaire.getId());
         }
 
-        // Bureau
+        // ✅ BUREAU (via bureau_id - colonne réelle optionnelle)
         try {
-            String codeBureau = rs.getString("code_bureau");
-            if (codeBureau != null) {
-                Bureau bureau = new Bureau();
-                bureau.setCodeBureau(codeBureau);
-                bureau.setNomBureau(rs.getString("nom_bureau"));
-                affaire.setBureau(bureau);
+            Long bureauId = rs.getLong("bureau_id");
+            if (bureauId != null && bureauId > 0) {
+                String bureauNom = rs.getString("bureau_nom");
+                if (bureauNom != null) {
+                    Bureau bureau = new Bureau();
+                    bureau.setId(bureauId);
+                    bureau.setNomBureau(bureauNom);
+                    affaire.setBureau(bureau);
+                }
             }
         } catch (SQLException e) {
             logger.debug("Pas de bureau associé pour l'affaire {}", affaire.getId());
         }
 
-        // Service
+        // ✅ SERVICE (via service_id - colonne réelle optionnelle)
         try {
-            String codeService = rs.getString("code_service");
-            if (codeService != null) {
-                Service service = new Service();
-                service.setCodeService(codeService);
-                service.setNomService(rs.getString("nom_service"));
-                affaire.setService(service);
+            Long serviceId = rs.getLong("service_id");
+            if (serviceId != null && serviceId > 0) {
+                String serviceNom = rs.getString("service_nom");
+                if (serviceNom != null) {
+                    Service service = new Service();
+                    service.setId(serviceId);
+                    service.setNomService(serviceNom);
+                    affaire.setService(service);
+                }
             }
         } catch (SQLException e) {
             logger.debug("Pas de service associé pour l'affaire {}", affaire.getId());
         }
 
-        // Timestamps
-        Timestamp createdAt = rs.getTimestamp("created_at");
-        if (createdAt != null) {
-            affaire.setCreatedAt(createdAt.toLocalDateTime());
+        // ✅ TIMESTAMPS (colonnes réelles)
+        try {
+            Timestamp createdAt = rs.getTimestamp("created_at");
+            if (createdAt != null) {
+                affaire.setCreatedAt(createdAt.toLocalDateTime());
+            }
+        } catch (SQLException e) {
+            logger.debug("Colonne created_at nulle");
+        }
+
+        try {
+            Timestamp updatedAt = rs.getTimestamp("updated_at");
+            if (updatedAt != null) {
+                affaire.setUpdatedAt(updatedAt.toLocalDateTime());
+            }
+        } catch (SQLException e) {
+            logger.debug("Colonne updated_at nulle");
         }
 
         return affaire;
@@ -305,20 +307,19 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
      */
     public List<Affaire> findAffairesNonSoldees() {
         String sql = """
-        SELECT a.*, 
-               c.nom as contrevenant_nom, c.prenom as contrevenant_prenom, 
-               c.raison_sociale as contrevenant_raison_sociale,
-               ag.code_agent, ag.nom as agent_nom, ag.prenom as agent_prenom,
-               b.code_bureau, b.nom_bureau,
-               s.code_service, s.nom_service
+        SELECT a.id, a.numero_affaire, a.date_creation, a.montant_amende_total, 
+               a.statut, a.contrevenant_id, a.contravention_id, a.bureau_id, 
+               a.service_id, a.created_at, a.updated_at,
+               c.nom_complet as contrevenant_nom_complet,
+               cv.libelle as contravention_libelle,
+               b.nom_bureau as bureau_nom,
+               s.nom_service as service_nom
         FROM affaires a
         LEFT JOIN contrevenants c ON a.contrevenant_id = c.id
-        LEFT JOIN agents ag ON a.agent_verbalisateur_id = ag.id
+        LEFT JOIN contraventions cv ON a.contravention_id = cv.id
         LEFT JOIN bureaux b ON a.bureau_id = b.id
         LEFT JOIN services s ON a.service_id = s.id
-        WHERE a.deleted = false 
-        AND a.statut = 'EN_COURS'
-        AND a.montant_total > COALESCE(a.montant_encaisse, 0)
+        WHERE a.statut = 'EN_COURS'
         ORDER BY a.date_creation ASC
     """;
 
@@ -616,41 +617,50 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
     public List<Affaire> searchAffaires(String searchTerm, StatutAffaire statut,
                                         LocalDate dateDebut, LocalDate dateFin,
                                         Integer bureauId, int offset, int limit) {
-        StringBuilder sql = new StringBuilder(getSelectAllQuery());
+        StringBuilder sql = new StringBuilder();
+        sql.append("SELECT a.id, a.numero_affaire, a.date_creation, a.montant_amende_total, ");
+        sql.append("a.statut, a.contrevenant_id, a.contravention_id, a.bureau_id, ");
+        sql.append("a.service_id, a.created_at, a.updated_at, ");
+        sql.append("c.nom_complet as contrevenant_nom_complet, ");
+        sql.append("cv.libelle as contravention_libelle, ");
+        sql.append("b.nom_bureau as bureau_nom, ");
+        sql.append("s.nom_service as service_nom ");
+        sql.append("FROM affaires a ");
+        sql.append("LEFT JOIN contrevenants c ON a.contrevenant_id = c.id ");
+        sql.append("LEFT JOIN contraventions cv ON a.contravention_id = cv.id ");
+        sql.append("LEFT JOIN bureaux b ON a.bureau_id = b.id ");
+        sql.append("LEFT JOIN services s ON a.service_id = s.id ");
+        sql.append("WHERE 1=1 ");
+
         List<Object> parameters = new ArrayList<>();
 
-        // Ajouter les conditions WHERE
-        sql.append(" AND 1=1"); // Pour simplifier l'ajout de conditions
-
-        // Ajout des critères de recherche
         if (searchTerm != null && !searchTerm.trim().isEmpty()) {
-            sql.append(" AND a.numero_affaire LIKE ?");
+            sql.append("AND a.numero_affaire LIKE ? ");
             parameters.add("%" + searchTerm.trim() + "%");
         }
 
         if (statut != null) {
-            sql.append(" AND a.statut = ?");
+            sql.append("AND a.statut = ? ");
             parameters.add(statut.name());
         }
 
         if (dateDebut != null) {
-            sql.append(" AND a.date_creation >= ?");
+            sql.append("AND a.date_creation >= ? ");
             parameters.add(Date.valueOf(dateDebut));
         }
 
         if (dateFin != null) {
-            sql.append(" AND a.date_creation <= ?");
+            sql.append("AND a.date_creation <= ? ");
             parameters.add(Date.valueOf(dateFin));
         }
 
-        // AJOUT du paramètre bureauId manquant
+        // ✅ BUREAU_ID : Maintenant possible car la colonne existe !
         if (bureauId != null) {
-            sql.append(" AND a.bureau_id = ?");
-            parameters.add(bureauId.longValue());
+            sql.append("AND a.bureau_id = ? ");
+            parameters.add(bureauId);
         }
 
-        // Ajout de la pagination
-        sql.append(" ORDER BY a.date_creation DESC LIMIT ? OFFSET ?");
+        sql.append("ORDER BY a.date_creation DESC LIMIT ? OFFSET ?");
         parameters.add(limit);
         parameters.add(offset);
 
@@ -669,8 +679,6 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
                 }
             }
 
-            logger.debug("Recherche retournée {} affaires", affaires.size());
-
         } catch (SQLException e) {
             logger.error("Erreur lors de la recherche d'affaires", e);
             throw new RuntimeException("Erreur lors de la recherche", e);
@@ -685,34 +693,33 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
     public long countSearchAffaires(String searchTerm, StatutAffaire statut,
                                     LocalDate dateDebut, LocalDate dateFin,
                                     Integer bureauId) {
-        StringBuilder sql = new StringBuilder("SELECT COUNT(*) FROM affaires WHERE deleted = false");
+        StringBuilder sql = new StringBuilder("SELECT COUNT(*) FROM affaires a WHERE 1=1 ");
         List<Object> parameters = new ArrayList<>();
 
-        // Ajout des critères de recherche
         if (searchTerm != null && !searchTerm.trim().isEmpty()) {
-            sql.append(" AND numero_affaire LIKE ?");
+            sql.append("AND a.numero_affaire LIKE ? ");
             parameters.add("%" + searchTerm.trim() + "%");
         }
 
         if (statut != null) {
-            sql.append(" AND statut = ?");
+            sql.append("AND a.statut = ? ");
             parameters.add(statut.name());
         }
 
         if (dateDebut != null) {
-            sql.append(" AND date_creation >= ?");
+            sql.append("AND a.date_creation >= ? ");
             parameters.add(Date.valueOf(dateDebut));
         }
 
         if (dateFin != null) {
-            sql.append(" AND date_creation <= ?");
+            sql.append("AND a.date_creation <= ? ");
             parameters.add(Date.valueOf(dateFin));
         }
 
-        // AJOUT du paramètre bureauId manquant
+        // ✅ BUREAU_ID : Maintenant utilisable !
         if (bureauId != null) {
-            sql.append(" AND bureau_id = ?");
-            parameters.add(bureauId.longValue());
+            sql.append("AND a.bureau_id = ? ");
+            parameters.add(bureauId);
         }
 
         try (Connection conn = getConnection();
@@ -722,14 +729,13 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
                 stmt.setObject(i + 1, parameters.get(i));
             }
 
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getLong(1);
-                }
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                return rs.getLong(1);
             }
 
         } catch (SQLException e) {
-            logger.error("Erreur lors du comptage avec critères", e);
+            logger.error("Erreur lors du comptage des affaires", e);
         }
 
         return 0;

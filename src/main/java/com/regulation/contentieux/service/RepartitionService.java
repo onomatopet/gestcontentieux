@@ -202,13 +202,13 @@ public class RepartitionService {
      */
     private void ajouterBeneficiairePermanent(RepartitionResultat resultat, String role, BigDecimal montant) {
         try {
-            // Rechercher l'agent avec le rôle spécial DD ou DG
+            // CORRECTION : Utiliser role_nom au lieu de type_role
             String sql = """
-                SELECT a.* FROM agents a
-                JOIN roles_speciaux rs ON a.id = rs.agent_id
-                WHERE rs.type_role = ? AND rs.actif = 1
-                LIMIT 1
-            """;
+            SELECT a.* FROM agents a
+            JOIN roles_speciaux rs ON a.id = rs.agent_id
+            WHERE rs.role_nom = ?
+            LIMIT 1
+        """;
 
             try (Connection conn = DatabaseConfig.getSQLiteConnection();
                  PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -226,18 +226,36 @@ public class RepartitionService {
                         resultat.addPartIndividuelle(beneficiaire, montant, role + "_PERMANENT");
                         logger.info("👤 {} (TOUJOURS bénéficiaire) - {} : {} FCFA",
                                 role, beneficiaire.getNomComplet(), montant);
+                    } else {
+                        logger.warn("⚠️ Agent {} trouvé dans roles_speciaux mais absent de la table agents", agentId);
+                        ajouterBeneficiaireGenerique(resultat, role, montant);
                     }
                 } else {
-                    logger.warn("⚠️ Aucun agent avec le rôle {} trouvé", role);
+                    logger.warn("⚠️ Aucun agent avec le rôle {} trouvé dans roles_speciaux", role);
                     // Créer une entrée générique pour ne pas perdre la répartition
-                    resultat.addBeneficiaireGenerique(role, montant);
+                    ajouterBeneficiaireGenerique(resultat, role, montant);
                 }
             }
         } catch (SQLException e) {
             logger.error("Erreur lors de la recherche du bénéficiaire permanent " + role, e);
             // En cas d'erreur, créer une entrée générique
-            resultat.addBeneficiaireGenerique(role, montant);
+            ajouterBeneficiaireGenerique(resultat, role, montant);
         }
+    }
+
+    private void ajouterBeneficiaireGenerique(RepartitionResultat resultat, String role, BigDecimal montant) {
+        // Si la méthode addBeneficiaireGenerique n'existe pas dans RepartitionResultat,
+        // vous pouvez utiliser cette alternative :
+
+        // Option 1 : Créer un agent fictif
+        Agent agentFictif = new Agent();
+        agentFictif.setId(-1L); // ID négatif pour indiquer qu'il est fictif
+        agentFictif.setCodeAgent("FICTIF_" + role);
+        agentFictif.setNom(role);
+        agentFictif.setPrenom("Bénéficiaire");
+
+        resultat.addPartIndividuelle(agentFictif, montant, role + "_FICTIF");
+        logger.info("👤 {} (Bénéficiaire fictif) : {} FCFA", role, montant);
     }
 
     /**

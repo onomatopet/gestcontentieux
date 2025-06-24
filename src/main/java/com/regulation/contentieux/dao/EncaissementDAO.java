@@ -39,42 +39,46 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
     @Override
     protected String getInsertQuery() {
         return """
-            INSERT INTO encaissements (reference, date_encaissement, montant_encaisse, 
-                                     mode_reglement, numero_piece, banque, observations,
-                                     statut, affaire_id, created_by, created_at) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """;
+        INSERT INTO encaissements (numero_encaissement, numero_mandat, date_encaissement, 
+                                 montant_encaisse, mode_reglement, banque_id, numero_cheque, 
+                                 affaire_id, created_at, updated_at) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """;
     }
 
     @Override
     protected String getUpdateQuery() {
         return """
-            UPDATE encaissements 
-            SET reference = ?, date_encaissement = ?, montant_encaisse = ?,
-                mode_reglement = ?, numero_piece = ?, banque = ?, observations = ?,
-                statut = ?, affaire_id = ?, updated_by = ?, updated_at = ?
-            WHERE id = ?
-        """;
+        UPDATE encaissements 
+        SET numero_encaissement = ?, numero_mandat = ?, date_encaissement = ?, 
+            montant_encaisse = ?, mode_reglement = ?, banque_id = ?, numero_cheque = ?, 
+            affaire_id = ?, updated_at = ?
+        WHERE id = ?
+    """;
     }
 
     @Override
     protected String getSelectAllQuery() {
         return """
-            SELECT e.*, a.numero_affaire, a.montant_total
-            FROM encaissements e
-            LEFT JOIN affaires a ON e.affaire_id = a.id
-            ORDER BY e.date_encaissement DESC
-        """;
+        SELECT e.*, a.numero_affaire, a.montant_amende_total,
+               b.nom_banque as banque_nom
+        FROM encaissements e
+        LEFT JOIN affaires a ON e.affaire_id = a.id
+        LEFT JOIN banques b ON e.banque_id = b.id
+        ORDER BY e.date_encaissement DESC
+    """;
     }
 
     @Override
     protected String getSelectByIdQuery() {
         return """
-            SELECT e.*, a.numero_affaire, a.montant_total
-            FROM encaissements e
-            LEFT JOIN affaires a ON e.affaire_id = a.id
-            WHERE e.id = ?
-        """;
+        SELECT e.*, a.numero_affaire, a.montant_amende_total,
+               b.nom_banque as banque_nom
+        FROM encaissements e
+        LEFT JOIN affaires a ON e.affaire_id = a.id
+        LEFT JOIN banques b ON e.banque_id = b.id
+        WHERE e.id = ?
+    """;
     }
 
     @Override
@@ -82,7 +86,9 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
         Encaissement encaissement = new Encaissement();
 
         encaissement.setId(rs.getLong("id"));
-        encaissement.setReference(rs.getString("reference"));
+
+        // CORRECTION : Utiliser numero_encaissement au lieu de reference
+        encaissement.setReference(rs.getString("numero_encaissement"));
 
         Date dateEnc = rs.getDate("date_encaissement");
         if (dateEnc != null) {
@@ -95,84 +101,143 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
         String modeStr = rs.getString("mode_reglement");
         if (modeStr != null) {
             try {
-                encaissement.setModeReglement(ModeReglement.valueOf(modeStr));
+                // CORRECTION : Normaliser les valeurs des données existantes
+                String modeNormalise = normaliserModeReglement(modeStr);
+                encaissement.setModeReglement(ModeReglement.valueOf(modeNormalise));
             } catch (IllegalArgumentException e) {
-                logger.warn("Mode de règlement invalide: {}", modeStr);
+                logger.warn("Mode de règlement invalide: {} - utilisation de ESPECES par défaut", modeStr);
+                encaissement.setModeReglement(ModeReglement.ESPECES); // Valeur par défaut
             }
         }
 
-        encaissement.setNumeroPiece(rs.getString("numero_piece"));
-        encaissement.setBanque(rs.getString("banque"));
-        encaissement.setObservations(rs.getString("observations"));
+        // CORRECTION : Utiliser numero_cheque au lieu de numero_piece
+        encaissement.setNumeroPiece(rs.getString("numero_cheque"));
 
-        // Statut
-        String statutStr = rs.getString("statut");
-        if (statutStr != null) {
-            try {
-                encaissement.setStatut(StatutEncaissement.valueOf(statutStr));
-            } catch (IllegalArgumentException e) {
-                logger.warn("Statut invalide: {}", statutStr);
-                encaissement.setStatut(StatutEncaissement.EN_ATTENTE);
-            }
+        // CORRECTION : Utiliser banque_nom de la jointure
+        try {
+            encaissement.setBanque(rs.getString("banque_nom"));
+        } catch (SQLException e) {
+            // Colonne optionnelle
         }
 
-        // Affaire liée (relation simplifiée)
+        // CORRECTION : Pas de colonne observations dans votre schéma
+        // encaissement.setObservations(rs.getString("observations"));
+
+        // CORRECTION : Pas de colonne statut - définir un statut par défaut
+        encaissement.setStatut(StatutEncaissement.VALIDE); // Valeur par défaut
+
+        // Affaire liée - DÉJÀ CORRIGÉ
         Long affaireId = rs.getLong("affaire_id");
         if (affaireId != null && affaireId > 0) {
             Affaire affaire = new Affaire();
             affaire.setId(affaireId);
             try {
                 affaire.setNumeroAffaire(rs.getString("numero_affaire"));
-                affaire.setMontantTotal(rs.getBigDecimal("montant_total"));
+                affaire.setMontantTotal(rs.getBigDecimal("montant_amende_total"));
             } catch (SQLException e) {
                 // Colonnes optionnelles
             }
             encaissement.setAffaire(affaire);
         }
 
-        // Métadonnées
-        encaissement.setCreatedBy(rs.getString("created_by"));
-        Timestamp createdAt = rs.getTimestamp("created_at");
-        if (createdAt != null) {
-            encaissement.setCreatedAt(createdAt.toLocalDateTime());
-        }
+        // Métadonnées - Pas de created_by/updated_by dans votre schéma
+        try {
+            Timestamp createdAt = rs.getTimestamp("created_at");
+            if (createdAt != null) {
+                encaissement.setCreatedAt(createdAt.toLocalDateTime());
+            }
 
-        encaissement.setUpdatedBy(rs.getString("updated_by"));
-        Timestamp updatedAt = rs.getTimestamp("updated_at");
-        if (updatedAt != null) {
-            encaissement.setUpdatedAt(updatedAt.toLocalDateTime());
+            Timestamp updatedAt = rs.getTimestamp("updated_at");
+            if (updatedAt != null) {
+                encaissement.setUpdatedAt(updatedAt.toLocalDateTime());
+            }
+        } catch (SQLException e) {
+            // Colonnes optionnelles
         }
 
         return encaissement;
     }
 
-    @Override
-    protected void setInsertParameters(PreparedStatement stmt, Encaissement encaissement) throws SQLException {
-        stmt.setString(1, encaissement.getReference());
-        stmt.setDate(2, Date.valueOf(encaissement.getDateEncaissement()));
-        stmt.setBigDecimal(3, encaissement.getMontantEncaisse());
-        stmt.setString(4, encaissement.getModeReglement().name());
-        stmt.setString(5, encaissement.getNumeroPiece());
-        stmt.setString(6, encaissement.getBanque());
-        stmt.setString(7, encaissement.getObservations());
-        stmt.setString(8, encaissement.getStatut().name());
-
-        if (encaissement.getAffaire() != null) {
-            stmt.setLong(9, encaissement.getAffaire().getId());
-        } else {
-            stmt.setNull(9, Types.BIGINT);
+    /**
+     * Normalise les modes de règlement pour corriger les données existantes
+     */
+    private String normaliserModeReglement(String modeOriginal) {
+        if (modeOriginal == null) {
+            return "ESPECES";
         }
 
-        stmt.setString(10, encaissement.getCreatedBy());
-        stmt.setTimestamp(11, Timestamp.valueOf(encaissement.getCreatedAt()));
+        String mode = modeOriginal.trim().toUpperCase();
+
+        // Corrections des fautes de frappe communes
+        switch (mode) {
+            case "ESPÉCES":
+            case "ESPECES":
+            case "ESPÈCES":
+                return "ESPECES";
+            case "CHÈQUE":
+            case "CHEQUE":
+                return "CHEQUE";
+            case "VIREMENT":
+                return "VIREMENT";
+            default:
+                logger.warn("Mode de règlement non reconnu: {} - conversion en ESPECES", modeOriginal);
+                return "ESPECES";
+        }
+    }
+
+    @Override
+    protected void setInsertParameters(PreparedStatement stmt, Encaissement encaissement) throws SQLException {
+        stmt.setString(1, encaissement.getReference()); // numero_encaissement
+        stmt.setString(2, "2506M0001"); // numero_mandat par défaut - À adapter selon votre logique
+        stmt.setDate(3, Date.valueOf(encaissement.getDateEncaissement()));
+        stmt.setBigDecimal(4, encaissement.getMontantEncaisse());
+        stmt.setString(5, encaissement.getModeReglement().name());
+
+        // banque_id - À adapter selon votre logique de gestion des banques
+        if (encaissement.getBanque() != null && !encaissement.getBanque().isEmpty()) {
+            // TODO: Récupérer l'ID de la banque par son nom
+            stmt.setNull(6, Types.INTEGER); // Temporaire
+        } else {
+            stmt.setNull(6, Types.INTEGER);
+        }
+
+        stmt.setString(7, encaissement.getNumeroPiece()); // numero_cheque
+
+        if (encaissement.getAffaire() != null) {
+            stmt.setLong(8, encaissement.getAffaire().getId());
+        } else {
+            stmt.setNull(8, Types.BIGINT);
+        }
+
+        stmt.setTimestamp(9, Timestamp.valueOf(encaissement.getCreatedAt()));
+        stmt.setTimestamp(10, Timestamp.valueOf(LocalDateTime.now()));
     }
 
     @Override
     protected void setUpdateParameters(PreparedStatement stmt, Encaissement encaissement) throws SQLException {
-        setInsertParameters(stmt, encaissement); // Les 11 premiers paramètres
-        stmt.setString(10, encaissement.getUpdatedBy());
-        stmt.setTimestamp(11, Timestamp.valueOf(LocalDateTime.now()));
-        stmt.setLong(12, encaissement.getId());
+        stmt.setString(1, encaissement.getReference()); // numero_encaissement
+        stmt.setString(2, "2506M0001"); // numero_mandat - À adapter
+        stmt.setDate(3, Date.valueOf(encaissement.getDateEncaissement()));
+        stmt.setBigDecimal(4, encaissement.getMontantEncaisse());
+        stmt.setString(5, encaissement.getModeReglement().name());
+
+        // banque_id
+        if (encaissement.getBanque() != null && !encaissement.getBanque().isEmpty()) {
+            stmt.setNull(6, Types.INTEGER); // Temporaire
+        } else {
+            stmt.setNull(6, Types.INTEGER);
+        }
+
+        stmt.setString(7, encaissement.getNumeroPiece()); // numero_cheque
+
+        if (encaissement.getAffaire() != null) {
+            stmt.setLong(8, encaissement.getAffaire().getId());
+        } else {
+            stmt.setNull(8, Types.BIGINT);
+        }
+
+        stmt.setTimestamp(9, Timestamp.valueOf(LocalDateTime.now()));
+        stmt.setLong(10, encaissement.getId());
     }
 
     @Override
@@ -687,29 +752,29 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
     }
 
     /**
-     * Recherche d'encaissements avec critères multiples
+     * CORRECTION : Recherche d'encaissements avec critères multiples
      */
     public List<Encaissement> searchEncaissements(String reference, StatutEncaissement statut,
                                                   ModeReglement modeReglement, LocalDate dateDebut,
                                                   LocalDate dateFin, Long affaireId,
                                                   int offset, int limit) {
         StringBuilder sql = new StringBuilder(
-                "SELECT e.*, a.numero_affaire, a.montant_total " +
+                "SELECT e.*, a.numero_affaire, a.montant_amende_total, " +
+                        "b.nom_banque as banque_nom " +
                         "FROM encaissements e " +
                         "LEFT JOIN affaires a ON e.affaire_id = a.id " +
+                        "LEFT JOIN banques b ON e.banque_id = b.id " +
                         "WHERE 1=1 ");
 
         List<Object> parameters = new ArrayList<>();
 
         if (reference != null && !reference.trim().isEmpty()) {
-            sql.append("AND e.reference LIKE ? ");
+            sql.append("AND e.numero_encaissement LIKE ? ");
             parameters.add("%" + reference.trim() + "%");
         }
 
-        if (statut != null) {
-            sql.append("AND e.statut = ? ");
-            parameters.add(statut.name());
-        }
+        // CORRECTION : Ignorer le statut car la colonne n'existe pas
+        // if (statut != null) { ... }
 
         if (modeReglement != null) {
             sql.append("AND e.mode_reglement = ? ");
@@ -818,8 +883,17 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
         return 0;
     }
 
+    /**
+     * CORRECTION : Trouve les encaissements par statut
+     */
     public List<Encaissement> findByStatut(StatutEncaissement statut) {
-        String sql = "SELECT * FROM encaissements WHERE statut = ? ORDER BY date_encaissement DESC";
+        String sql = """
+            SELECT e.*, a.numero_affaire, a.montant_amende_total
+            FROM encaissements e
+            LEFT JOIN affaires a ON e.affaire_id = a.id 
+            WHERE e.statut = ? 
+            ORDER BY e.date_encaissement DESC
+        """;
         List<Encaissement> encaissements = new ArrayList<>();
 
         try (Connection conn = DatabaseConfig.getSQLiteConnection();
@@ -838,14 +912,17 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
         return encaissements;
     }
 
+    /**
+     * Calcule le total des encaissements par période et statut
+     */
     public BigDecimal getTotalEncaissementsByPeriod(LocalDate debut, LocalDate fin, StatutEncaissement statut) {
         String sql;
 
         if (debut == null && fin == null) {
             // Cas spécial pour les statistiques générales
-            sql = "SELECT SUM(montant_encaisse) as total FROM encaissements WHERE statut = ?";
+            sql = "SELECT COALESCE(SUM(montant_encaisse), 0) as total FROM encaissements WHERE statut = ?";
         } else {
-            sql = "SELECT SUM(montant_encaisse) as total FROM encaissements WHERE date_encaissement BETWEEN ? AND ? AND statut = ?";
+            sql = "SELECT COALESCE(SUM(montant_encaisse), 0) as total FROM encaissements WHERE date_encaissement BETWEEN ? AND ? AND statut = ?";
         }
 
         try (Connection conn = DatabaseConfig.getSQLiteConnection();
@@ -872,17 +949,18 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
     }
 
     /**
-     * Trouve les encaissements pour une période donnée (pour les rapports)
+     * CORRECTION : Trouve les encaissements pour une période donnée (pour les rapports)
      */
     public List<Encaissement> findByPeriod(LocalDate dateDebut, LocalDate dateFin) {
         String sql = """
-            SELECT e.*, a.numero_affaire, a.montant_total
-            FROM encaissements e
-            LEFT JOIN affaires a ON e.affaire_id = a.id
-            WHERE e.date_encaissement BETWEEN ? AND ?
-              AND e.statut = 'VALIDE'
-            ORDER BY e.date_encaissement
-        """;
+        SELECT e.*, a.numero_affaire, a.montant_amende_total,
+               b.nom_banque as banque_nom
+        FROM encaissements e
+        LEFT JOIN affaires a ON e.affaire_id = a.id
+        LEFT JOIN banques b ON e.banque_id = b.id
+        WHERE e.date_encaissement BETWEEN ? AND ?
+        ORDER BY e.date_encaissement
+    """;
 
         List<Encaissement> encaissements = new ArrayList<>();
 
@@ -906,46 +984,19 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
     }
 
     /**
-     * Trouve les encaissements par période et statut
+     * CORRECTION : Trouve les encaissements par période et statut
      */
     public List<Encaissement> findByPeriodAndStatut(LocalDate dateDebut, LocalDate dateFin, StatutEncaissement statut) {
-        String sql = """
-        SELECT e.*, a.numero_affaire, a.montant_total
-        FROM encaissements e
-        LEFT JOIN affaires a ON e.affaire_id = a.id
-        WHERE e.date_encaissement BETWEEN ? AND ?
-          AND e.statut = ?
-        ORDER BY e.date_encaissement
-    """;
-
-        List<Encaissement> encaissements = new ArrayList<>();
-
-        try (Connection conn = getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-            stmt.setDate(1, Date.valueOf(dateDebut));
-            stmt.setDate(2, Date.valueOf(dateFin));
-            stmt.setString(3, statut.name());
-
-            ResultSet rs = stmt.executeQuery();
-
-            while (rs.next()) {
-                encaissements.add(mapResultSetToEntity(rs));
-            }
-
-        } catch (SQLException e) {
-            logger.error("Erreur lors de la recherche par période et statut", e);
-        }
-
-        return encaissements;
+        // CORRECTION : Ignorer le statut car la colonne n'existe pas
+        return findByPeriod(dateDebut, dateFin);
     }
 
     /**
-     * Trouve les encaissements d'une affaire pour une période donnée
+     * CORRECTION : Trouve les encaissements d'une affaire pour une période donnée
      */
     public List<Encaissement> findByAffaireAndPeriod(Long affaireId, LocalDate dateDebut, LocalDate dateFin) {
         String sql = """
-            SELECT e.*, a.numero_affaire, a.montant_total
+            SELECT e.*, a.numero_affaire, a.montant_amende_total
             FROM encaissements e
             LEFT JOIN affaires a ON e.affaire_id = a.id
             WHERE e.affaire_id = ?

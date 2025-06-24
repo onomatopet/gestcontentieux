@@ -130,6 +130,23 @@ public class DatabaseSchemaUpdate {
                     )
                 """);
 
+                createTableIfNotExists(stmt, "mandats", """
+                    CREATE TABLE IF NOT EXISTS mandats (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        numero_mandat VARCHAR(20) NOT NULL UNIQUE,
+                        description TEXT,
+                        date_debut DATE NOT NULL,
+                        date_fin DATE NOT NULL,
+                        statut TEXT NOT NULL DEFAULT 'BROUILLON',
+                        actif BOOLEAN DEFAULT FALSE,
+                        date_cloture DATETIME,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        created_by TEXT,
+                        updated_by TEXT
+                    )
+                """);
+
                 // Table encaissements
                 createTableIfNotExists(stmt, "encaissements", """
                     CREATE TABLE IF NOT EXISTS encaissements (

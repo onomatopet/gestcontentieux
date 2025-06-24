@@ -51,7 +51,7 @@
             <!-- Section supérieure : Création et filtres -->
             <VBox spacing="15">
                 <padding>
-                    <Insets all="15" />
+                    <Insets top="15" right="15" bottom="15" left="15" />
                 </padding>
 
                 <!-- Section création de mandat -->
@@ -113,7 +113,7 @@
                 <!-- Tableau des mandats -->
                 <VBox spacing="10">
                     <padding>
-                        <Insets all="15" />
+                        <Insets top="15" right="15" bottom="15" left="15" />
                     </padding>
 
                     <Label text="Liste des mandats" styleClass="h3" />
@@ -136,7 +136,7 @@
                 <!-- Statistiques du mandat sélectionné -->
                 <VBox fx:id="statisticsSection" spacing="15" visible="false">
                     <padding>
-                        <Insets all="15" />
+                        <Insets top="15" right="15" bottom="15" left="15" />
                     </padding>
 
                     <Label text="Statistiques du mandat" styleClass="h3" />

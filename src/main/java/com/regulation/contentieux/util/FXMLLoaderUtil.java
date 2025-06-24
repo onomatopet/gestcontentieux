@@ -55,6 +55,57 @@ public class FXMLLoaderUtil {
     }
 
     /**
+     * Charge un fichier FXML et retourne le Parent
+     * MÉTHODE MANQUANTE AJOUTÉE
+     *
+     * @param fxmlPath Chemin vers le fichier FXML
+     * @return Parent chargé depuis le FXML
+     */
+    public static Parent loadFXML(String fxmlPath) {
+        logger.debug("=== CHARGEMENT FXML ===");
+        logger.debug("Chemin demandé: {}", fxmlPath);
+
+        try {
+            // Normaliser le chemin (enlever le "/" initial s'il existe)
+            String normalizedPath = fxmlPath.startsWith("/") ? fxmlPath.substring(1) : fxmlPath;
+
+            // CORRECTION: Utiliser getResource avec le bon chemin
+            URL fxmlUrl = FXMLLoaderUtil.class.getResource("/" + normalizedPath);
+            logger.debug("Méthode 1 (getResource /{}): {}", normalizedPath, fxmlUrl);
+
+            if (fxmlUrl == null) {
+                // Fallback: essayer sans le slash initial
+                fxmlUrl = FXMLLoaderUtil.class.getClassLoader().getResource(normalizedPath);
+                logger.debug("Méthode 2 (ClassLoader {}): {}", normalizedPath, fxmlUrl);
+            }
+
+            if (fxmlUrl == null) {
+                String errorMsg = "Fichier FXML introuvable: " + fxmlPath +
+                        "\nChemin normalisé: " + normalizedPath +
+                        "\nVérifiez que le fichier existe dans src/main/resources/" + normalizedPath;
+                logger.error("❌ {}", errorMsg);
+                throw new RuntimeException(errorMsg);
+            }
+
+            logger.debug("✅ Chargement avec l'URL: {}", fxmlUrl);
+            FXMLLoader loader = new FXMLLoader(fxmlUrl);
+            Parent root = loader.load();
+
+            logger.debug("✅ Fichier FXML chargé avec succès: {}", fxmlPath);
+            return root;
+
+        } catch (IOException e) {
+            String errorMsg = "Erreur IOException lors du chargement du FXML: " + fxmlPath + " - " + e.getMessage();
+            logger.error("❌ {}", errorMsg, e);
+            throw new RuntimeException(errorMsg, e);
+        } catch (Exception e) {
+            String errorMsg = "Erreur générale lors du chargement du FXML: " + fxmlPath + " - " + e.getMessage();
+            logger.error("❌ {}", errorMsg, e);
+            throw new RuntimeException(errorMsg, e);
+        }
+    }
+
+    /**
      * Charge un Parent FXML
      */
     public static Parent loadParent(String fxmlPath) {
@@ -80,6 +131,49 @@ public class FXMLLoaderUtil {
             logger.error("Erreur lors du chargement du Parent FXML: " + fxmlPath, e);
             throw new RuntimeException("Impossible de charger le fichier FXML: " + fxmlPath, e);
         }
+    }
+
+    /**
+     * CORRECTION BUG : Méthode utilitaire pour vérifier l'existence d'un fichier FXML
+     */
+    public static boolean existsFXML(String fxmlPath) {
+        try {
+            String normalizedPath = fxmlPath.startsWith("/") ? fxmlPath.substring(1) : fxmlPath;
+
+            URL fxmlUrl = FXMLLoaderUtil.class.getResource("/" + normalizedPath);
+            if (fxmlUrl == null) {
+                fxmlUrl = FXMLLoaderUtil.class.getClassLoader().getResource(normalizedPath);
+            }
+
+            boolean exists = fxmlUrl != null;
+            logger.debug("Vérification existence FXML {}: {}", fxmlPath, exists);
+            return exists;
+
+        } catch (Exception e) {
+            logger.debug("Erreur lors de la vérification FXML {}: {}", fxmlPath, e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * CORRECTION BUG : Méthode de debug pour lister les ressources disponibles
+     */
+    public static void debugAvailableResources() {
+        logger.debug("=== DEBUG RESSOURCES FXML ===");
+
+        String[] commonPaths = {
+                "fxml/login.fxml",
+                "fxml/main.fxml",
+                "/fxml/login.fxml",
+                "/fxml/main.fxml"
+        };
+
+        for (String path : commonPaths) {
+            URL resource = FXMLLoaderUtil.class.getResource(path);
+            logger.debug("Ressource {}: {}", path, resource != null ? "TROUVÉE" : "NON TROUVÉE");
+        }
+
+        logger.debug("=== FIN DEBUG RESSOURCES ===");
     }
 
     /**

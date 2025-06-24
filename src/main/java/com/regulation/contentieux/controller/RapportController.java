@@ -393,70 +393,209 @@ public class RapportController implements Initializable {
     /**
      * Configuration des gestionnaires d'événements des boutons
      */
-    private void setupEventHandlers() {
-        // Bouton Générer le Rapport
-        if (genererButton != null) {
-            genererButton.setOnAction(e -> handleGenererRapport());
+    @FXML
+    private void handleGenererRapport() {
+        logger.debug("🎯 === DÉBUT GÉNÉRATION RAPPORT ===");
+
+        // Validation des paramètres
+        TypeRapport typeSelectionne = typeRapportComboBox.getValue();
+        if (typeSelectionne == null) {
+            AlertUtil.showWarningAlert("Paramètres manquants",
+                    "Type de rapport requis",
+                    "Veuillez sélectionner un type de rapport");
+            return;
         }
 
-        // Bouton Aperçu (utilise la méthode existante handlePreview)
-        if (previewButton != null) {
-            previewButton.setOnAction(e -> handlePreview());
+        LocalDate dateDebut = dateDebutPicker.getValue();
+        LocalDate dateFin = dateFinPicker.getValue();
+
+        if (dateDebut == null || dateFin == null) {
+            AlertUtil.showWarningAlert("Paramètres manquants",
+                    "Période requise",
+                    "Veuillez sélectionner une période");
+            return;
         }
 
-        // Bouton Imprimer (utilise la méthode existante)
-        if (imprimerButton != null) {
-            imprimerButton.setOnAction(e -> handleImprimer());
-        }
+        logger.debug("📊 Génération rapport: {}", typeSelectionne);
+        logger.debug("📅 Période: {} - {}", dateDebut, dateFin);
 
-        // Bouton Export PDF (utilise la méthode existante)
-        if (exportPdfButton != null) {
-            exportPdfButton.setOnAction(e -> handleExportPDF());
-        }
+        // Désactiver les boutons pendant la génération
+        setButtonsEnabled(false);
+        updateStatus("Génération en cours...");
 
-        // Bouton Export Excel (utilise la méthode existante)
-        if (exportExcelButton != null) {
-            exportExcelButton.setOnAction(e -> handleExportExcel());
-        }
+        // CORRECTION : Configurer les colonnes AVANT la génération
+        configureTableViewForReport(typeSelectionne);
 
-        // Configuration du ComboBox type de rapport
-        if (typeRapportComboBox != null) {
-            typeRapportComboBox.setOnAction(e -> {
-                TypeRapport selected = typeRapportComboBox.getSelectionModel().getSelectedItem();
-                if (selected != null && descriptionLabel != null) {
-                    descriptionLabel.setText(selected.getDescription());
+        // Génération asynchrone
+        Task<Object> task = new Task<Object>() {
+            @Override
+            protected Object call() throws Exception {
+                logger.debug("🔄 Début génération asynchrone...");
+                Object resultData = genererRapportParType(typeSelectionne, dateDebut, dateFin);
+                logger.debug("✅ Données générées: {}", resultData != null ? resultData.getClass().getSimpleName() : "NULL");
+                return resultData;
+            }
+        };
+
+        task.setOnSucceeded(event -> {
+            logger.debug("🎉 Génération réussie");
+
+            try {
+                Object rapportData = task.getValue();
+                logger.debug("📦 Données récupérées: {}", rapportData != null ? rapportData.getClass().getSimpleName() : "NULL");
+
+                // CORRECTION PRINCIPALE : Appel explicite et forcé de updateTableViewData
+                if (rapportData != null) {
+                    logger.debug("🔧 Appel explicite de updateTableViewData...");
+                    updateTableViewData(rapportData);
+
+                    // Sauvegarder pour utilisation ultérieure
+                    dernierRapportData = rapportData;
+                    dernierRapportGenere = typeSelectionne;
+
+                    // CORRECTION : Forcer un second appel après délai pour s'assurer
+                    Platform.runLater(() -> {
+                        try {
+                            Thread.sleep(100); // Petit délai
+                            logger.debug("🔧 Second appel de updateTableViewData (sécurité)...");
+                            updateTableViewData(rapportData);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        }
+                    });
+
+                    updateStatus("Rapport généré avec succès");
+                    updateButtonStates(true);
+
+                    AlertUtil.showSuccess("Rapport généré", "Le rapport a été généré avec succès.");
+
+                } else {
+                    logger.warn("⚠️ Données de rapport nulles");
+                    updateStatus("Aucune donnée trouvée");
+                    updateTableViewData(null); // Vider la table
+                    AlertUtil.showWarningAlert("Données", "Aucune donnée",
+                            "Aucune donnée trouvée pour la période sélectionnée");
                 }
-            });
+
+            } catch (Exception e) {
+                logger.error("❌ Erreur lors du traitement des données", e);
+                updateStatus("Erreur lors du traitement");
+                AlertUtil.showErrorAlert("Erreur", "Erreur de traitement",
+                        "Erreur lors du traitement des données: " + e.getMessage());
+            } finally {
+                setButtonsEnabled(true);
+            }
+        });
+
+        task.setOnFailed(event -> {
+            logger.error("❌ Échec génération rapport", task.getException());
+
+            setButtonsEnabled(true);
+            updateStatus("Erreur lors de la génération");
+
+            Throwable exception = task.getException();
+            AlertUtil.showErrorAlert("Erreur", "Erreur de génération",
+                    "Erreur lors de la génération du rapport: " +
+                            (exception != null ? exception.getMessage() : "Erreur inconnue"));
+        });
+
+        // Lancer la tâche
+        Thread thread = new Thread(task);
+        thread.setDaemon(true);
+        thread.start();
+
+        logger.debug("🚀 Tâche de génération lancée");
+    }
+
+    private void diagnosticTableView() {
+        if (resultatsTableView == null) {
+            logger.error("❌ resultatsTableView est NULL");
+            return;
         }
 
-        // Configuration des pickers de dates
-        if (dateDebutPicker != null) {
-            dateDebutPicker.setOnAction(e -> {
-                LocalDate debut = dateDebutPicker.getValue();
-                LocalDate fin = dateFinPicker.getValue();
+        logger.debug("🔍 === DIAGNOSTIC TABLEVIEW ===");
+        logger.debug("- Visible: {}", resultatsTableView.isVisible());
+        logger.debug("- Managed: {}", resultatsTableView.isManaged());
+        logger.debug("- Width: {}", resultatsTableView.getWidth());
+        logger.debug("- Height: {}", resultatsTableView.getHeight());
+        logger.debug("- Colonnes: {}", resultatsTableView.getColumns().size());
+        logger.debug("- Items: {}", resultatsTableView.getItems() != null ? resultatsTableView.getItems().size() : "NULL");
 
-                if (debut != null && fin != null && debut.isAfter(fin)) {
-                    AlertUtil.showWarningAlert("Dates invalides",
-                            "Période incorrecte",
-                            "La date de début doit être antérieure à la date de fin.");
-                    dateFinPicker.setValue(null);
-                }
-            });
+        if (resultatsTableView.getItems() != null && !resultatsTableView.getItems().isEmpty()) {
+            logger.debug("- Premier item: {}", resultatsTableView.getItems().get(0).getClass().getSimpleName());
         }
 
-        if (dateFinPicker != null) {
-            dateFinPicker.setOnAction(e -> {
-                LocalDate debut = dateDebutPicker.getValue();
-                LocalDate fin = dateFinPicker.getValue();
-
-                if (debut != null && fin != null && debut.isAfter(fin)) {
-                    AlertUtil.showWarningAlert("Dates invalides",
-                            "Période incorrecte",
-                            "La date de début doit être antérieure à la date de fin.");
-                    dateFinPicker.setValue(null);
-                }
-            });
+        if (!resultatsTableView.getColumns().isEmpty()) {
+            logger.debug("- Première colonne: {}", resultatsTableView.getColumns().get(0).getText());
         }
+
+        logger.debug("🔍 === FIN DIAGNOSTIC ===");
+    }
+
+    /**
+     * CORRECTION BUG : Forcer la mise à jour de la TableView
+     */
+    @FXML
+    private void handleActualiser() {
+        logger.debug("🔄 Actualisation forcée de la TableView");
+
+        if (dernierRapportData != null) {
+            logger.debug("🔧 Re-application des dernières données...");
+            updateTableViewData(dernierRapportData);
+            diagnosticTableView();
+        } else {
+            logger.debug("⚠️ Aucune donnée précédente à ré-appliquer");
+            AlertUtil.showInfoAlert("Actualisation", "Aucune donnée",
+                    "Aucune donnée précédente à actualiser. Générez d'abord un rapport.");
+        }
+    }
+
+    /**
+     * CORRECTION BUG : Test de la TableView avec données fictives
+     */
+    @FXML
+    private void handleTestTableView() {
+        logger.debug("🧪 Test de la TableView avec données fictives");
+
+        // Créer des données de test
+        ObservableList<Object> testData = FXCollections.observableArrayList();
+        testData.add("Test Item 1");
+        testData.add("Test Item 2");
+        testData.add("Test Item 3");
+
+        // Configurer colonnes si nécessaire
+        if (resultatsTableView.getColumns().isEmpty()) {
+            configureColumnsGeneric();
+        }
+
+        // Appliquer les données de test
+        Platform.runLater(() -> {
+            resultatsTableView.setItems(testData);
+            resultatsTableView.refresh();
+            updateNombreResultats(testData.size());
+
+            logger.debug("✅ Données de test appliquées: {} éléments", testData.size());
+            diagnosticTableView();
+        });
+    }
+
+    private void setButtonsEnabled(boolean enabled) {
+        Platform.runLater(() -> {
+            if (genererButton != null) genererButton.setDisable(!enabled);
+            if (exporterButton != null) exporterButton.setDisable(!enabled);
+            if (imprimerButton != null) imprimerButton.setDisable(!enabled);
+        });
+    }
+
+    private void updateStatus(String message) {
+        Platform.runLater(() -> {
+            if (statusLabel != null) {
+                statusLabel.setText(message);
+            }
+            if (statusFooterLabel != null) {
+                statusFooterLabel.setText(message);
+            }
+        });
     }
 
     private void configurerFiltresSelonType(TypeRapport type) {
@@ -554,85 +693,116 @@ public class RapportController implements Initializable {
      */
     @FXML
     private void handleGenererRapport() {
-        TypeRapport type = typeRapportComboBox.getValue();
-        if (type == null) {
-            AlertUtil.showWarningAlert("Type requis", "Sélection manquante",
-                    "Veuillez sélectionner un type de rapport.");
+        logger.debug("🎯 === DÉBUT GÉNÉRATION RAPPORT ===");
+
+        // Validation des paramètres
+        TypeRapport typeSelectionne = typeRapportComboBox.getValue();
+        if (typeSelectionne == null) {
+            AlertUtil.showWarningAlert("Paramètres manquants",
+                    "Type de rapport requis",
+                    "Veuillez sélectionner un type de rapport");
             return;
         }
 
-        // Validation de la période
-        LocalDate debut = getDateDebut();
-        LocalDate fin = getDateFin();
+        LocalDate dateDebut = dateDebutPicker.getValue();
+        LocalDate dateFin = dateFinPicker.getValue();
 
-        if (debut == null || fin == null || debut.isAfter(fin)) {
-            AlertUtil.showWarningAlert("Période invalide", "Dates incorrectes",
-                    "Veuillez sélectionner une période valide.");
+        if (dateDebut == null || dateFin == null) {
+            AlertUtil.showWarningAlert("Paramètres manquants",
+                    "Période requise",
+                    "Veuillez sélectionner une période");
             return;
         }
 
-        // Afficher l'indicateur de progression
-        showProgressIndicator(true, "Génération du rapport en cours...");
-        genererButton.setDisable(true);
+        logger.debug("📊 Génération rapport: {}", typeSelectionne);
+        logger.debug("📅 Période: {} - {}", dateDebut, dateFin);
+
+        // Désactiver les boutons pendant la génération
+        setButtonsEnabled(false);
+        updateStatus("Génération en cours...");
+
+        // CORRECTION : Configurer les colonnes AVANT la génération
+        configureTableViewForReport(typeSelectionne);
 
         // Génération asynchrone
-        Task<Object> generationTask = new Task<>() {
+        Task<Object> task = new Task<Object>() {
             @Override
             protected Object call() throws Exception {
-                return genererRapportParType(type, debut, fin);
+                logger.debug("🔄 Début génération asynchrone...");
+                Object resultData = genererRapportParType(typeSelectionne, dateDebut, dateFin);
+                logger.debug("✅ Données générées: {}", resultData != null ? resultData.getClass().getSimpleName() : "NULL");
+                return resultData;
             }
         };
 
-        generationTask.setOnSucceeded(e -> {
-            Platform.runLater(() -> {
-                Object rapportData = generationTask.getValue();
+        task.setOnSucceeded(event -> {
+            logger.debug("🎉 Génération réussie");
 
+            try {
+                Object rapportData = task.getValue();
+                logger.debug("📦 Données récupérées: {}", rapportData != null ? rapportData.getClass().getSimpleName() : "NULL");
+
+                // CORRECTION PRINCIPALE : Appel explicite et forcé de updateTableViewData
                 if (rapportData != null) {
-                    // CORRECTION: Mettre à jour les variables d'état
+                    logger.debug("🔧 Appel explicite de updateTableViewData...");
+                    updateTableViewData(rapportData);
+
+                    // Sauvegarder pour utilisation ultérieure
                     dernierRapportData = rapportData;
-                    dernierTypeRapport = typeRapportComboBox.getValue();
+                    dernierRapportGenere = typeSelectionne;
 
-                    // Générer et afficher le HTML
-                    String htmlContent = genererHtmlParType(type, debut, fin, rapportData);
-                    dernierRapportGenere = htmlContent; // CORRECTION: Stocker le HTML généré
+                    // CORRECTION : Forcer un second appel après délai pour s'assurer
+                    Platform.runLater(() -> {
+                        try {
+                            Thread.sleep(100); // Petit délai
+                            logger.debug("🔧 Second appel de updateTableViewData (sécurité)...");
+                            updateTableViewData(rapportData);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        }
+                    });
 
-                    if (webEngine != null) {
-                        webEngine.loadContent(htmlContent);
-                    }
-
-                    // CORRECTION: Activer les boutons d'export
+                    updateStatus("Rapport généré avec succès");
                     updateButtonStates(true);
 
                     AlertUtil.showSuccess("Rapport généré", "Le rapport a été généré avec succès.");
 
                 } else {
-                    AlertUtil.showWarningAlert("Génération échouée", "Aucune donnée",
-                            "Aucune donnée trouvée pour la période sélectionnée.");
+                    logger.warn("⚠️ Données de rapport nulles");
+                    updateStatus("Aucune donnée trouvée");
+                    updateTableViewData(null); // Vider la table
+                    AlertUtil.showWarningAlert("Données", "Aucune donnée",
+                            "Aucune donnée trouvée pour la période sélectionnée");
                 }
 
-                showProgressIndicator(false, "");
-                genererButton.setDisable(false);
-            });
+            } catch (Exception e) {
+                logger.error("❌ Erreur lors du traitement des données", e);
+                updateStatus("Erreur lors du traitement");
+                AlertUtil.showErrorAlert("Erreur", "Erreur de traitement",
+                        "Erreur lors du traitement des données: " + e.getMessage());
+            } finally {
+                setButtonsEnabled(true);
+            }
         });
 
-        generationTask.setOnFailed(e -> {
-            Platform.runLater(() -> {
-                Throwable exception = generationTask.getException();
-                logger.error("Erreur lors de la génération du rapport", exception);
+        task.setOnFailed(event -> {
+            logger.error("❌ Échec génération rapport", task.getException());
 
-                AlertUtil.showErrorAlert("Erreur de génération",
-                        "Impossible de générer le rapport",
-                        exception.getMessage());
+            setButtonsEnabled(true);
+            updateStatus("Erreur lors de la génération");
 
-                showProgressIndicator(false, "");
-                genererButton.setDisable(false);
-            });
+            Throwable exception = task.getException();
+            AlertUtil.showErrorAlert("Erreur", "Erreur de génération",
+                    "Erreur lors de la génération du rapport: " +
+                            (exception != null ? exception.getMessage() : "Erreur inconnue"));
         });
 
         // Lancer la tâche
-        Thread generationThread = new Thread(generationTask);
-        generationThread.setDaemon(true);
-        generationThread.start();
+        Thread thread = new Thread(task);
+        thread.setDaemon(true);
+        thread.start();
+
+        logger.debug("🚀 Tâche de génération lancée");
     }
 
     // Méthode alternative si besoin d'afficher des statistiques simples
@@ -1711,11 +1881,71 @@ public class RapportController implements Initializable {
      * Configure les colonnes génériques
      */
     private void configureColumnsGeneric() {
-        TableColumn<Object, String> col1 = new TableColumn<>("Donnée");
-        col1.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().toString()));
-        col1.setPrefWidth(300);
+        logger.debug("🔧 Configuration colonnes génériques");
 
-        resultatsTableView.getColumns().add(col1);
+        // Vider les colonnes existantes
+        resultatsTableView.getColumns().clear();
+
+        // Colonne principale flexible
+        TableColumn<Object, String> col1 = new TableColumn<>("Informations");
+        col1.setCellValueFactory(data -> {
+            Object item = data.getValue();
+            if (item == null) {
+                return new SimpleStringProperty("N/A");
+            }
+
+            // Affichage intelligent selon le type
+            String display = formatObjectForDisplay(item);
+            return new SimpleStringProperty(display);
+        });
+        col1.setPrefWidth(400);
+        col1.setMinWidth(200);
+
+        // Colonne type pour debug
+        TableColumn<Object, String> col2 = new TableColumn<>("Type");
+        col2.setCellValueFactory(data -> {
+            Object item = data.getValue();
+            return new SimpleStringProperty(item != null ? item.getClass().getSimpleName() : "NULL");
+        });
+        col2.setPrefWidth(150);
+
+        resultatsTableView.getColumns().addAll(col1, col2);
+
+        logger.debug("✅ Colonnes génériques configurées: {}", resultatsTableView.getColumns().size());
+    }
+
+    private String formatObjectForDisplay(Object item) {
+        if (item == null) return "NULL";
+
+        try {
+            // Si c'est un DTO avec des propriétés, essayer d'extraire les infos principales
+            String className = item.getClass().getSimpleName();
+
+            if (className.contains("Encaissement")) {
+                return String.format("Encaissement - Référence: %s, Montant: %s",
+                        extractValue(item, "reference", "N/A"),
+                        formatMontant(extractBigDecimal(item, "montantEncaisse")));
+
+            } else if (className.contains("Affaire")) {
+                return String.format("Affaire - N°: %s, Montant: %s",
+                        extractValue(item, "numeroAffaire", "N/A"),
+                        formatMontant(extractBigDecimal(item, "montantTotal")));
+
+            } else if (className.contains("Service")) {
+                return String.format("Service - Nom: %s, Nb Affaires: %s",
+                        extractValue(item, "nomService", "N/A"),
+                        extractValue(item, "nombreAffaires", "N/A"));
+
+            } else {
+                // Fallback : toString ou informations de base
+                String toString = item.toString();
+                return toString.length() > 100 ? toString.substring(0, 100) + "..." : toString;
+            }
+
+        } catch (Exception e) {
+            logger.debug("Erreur formatage objet: {}", e.getMessage());
+            return item.toString();
+        }
     }
 
     /**
@@ -1724,14 +1954,17 @@ public class RapportController implements Initializable {
      */
     private void updateTableViewData(Object rapportData) {
         logger.debug("=== DÉBUT updateTableViewData ===");
+        logger.debug("Paramètres reçus:");
+        logger.debug("- resultatsTableView: {}", resultatsTableView != null ? "EXISTS" : "NULL");
+        logger.debug("- rapportData: {}", rapportData != null ? rapportData.getClass().getSimpleName() : "NULL");
 
         if (resultatsTableView == null) {
-            logger.error("resultatsTableView est null");
+            logger.error("❌ resultatsTableView est null");
             return;
         }
 
         if (rapportData == null) {
-            logger.debug("rapportData est null, vidage de la table");
+            logger.debug("⚠️ rapportData est null, vidage de la table");
             Platform.runLater(() -> {
                 resultatsTableView.setItems(FXCollections.observableArrayList());
                 updateNombreResultats(0);
@@ -1739,89 +1972,123 @@ public class RapportController implements Initializable {
             return;
         }
 
+        // CORRECTION : Vérifier d'abord les colonnes
+        logger.debug("📊 Nombre de colonnes actuelles: {}", resultatsTableView.getColumns().size());
+
         ObservableList<Object> items = FXCollections.observableArrayList();
 
         try {
-            logger.debug("Type de données reçues: {}", rapportData.getClass().getSimpleName());
+            logger.debug("🔍 Type de données reçues: {}", rapportData.getClass().getName());
 
-            // Traitement intelligent selon le type de données
-            if (rapportData instanceof RapportService.RapportRepartitionDTO) {
+            // CORRECTION : Traitement amélioré selon le type de données
+            if (rapportData instanceof RapportService.RapportEncaissementsDTO) {
+                RapportService.RapportEncaissementsDTO rapport = (RapportService.RapportEncaissementsDTO) rapportData;
+                logger.debug("📋 Traitement RapportEncaissementsDTO");
+
+                if (rapport.getServices() != null && !rapport.getServices().isEmpty()) {
+                    logger.debug("📊 Nombre de services: {}", rapport.getServices().size());
+
+                    // Aplatir les encaissements de tous les services
+                    for (RapportService.ServiceEncaissementDTO service : rapport.getServices()) {
+                        if (service.getEncaissements() != null && !service.getEncaissements().isEmpty()) {
+                            logger.debug("💰 Service {}: {} encaissements",
+                                    service.getNomService(), service.getEncaissements().size());
+                            items.addAll(service.getEncaissements());
+                        }
+                    }
+                    logger.debug("✅ Total encaissements ajoutés: {}", items.size());
+                } else {
+                    logger.warn("⚠️ Rapport encaissements sans services ou services vides");
+                }
+
+            } else if (rapportData instanceof RapportService.RapportRepartitionDTO) {
                 RapportService.RapportRepartitionDTO rapport = (RapportService.RapportRepartitionDTO) rapportData;
+                logger.debug("📋 Traitement RapportRepartitionDTO");
+
                 if (rapport.getAffaires() != null && !rapport.getAffaires().isEmpty()) {
                     items.addAll(rapport.getAffaires());
                     logger.debug("✅ Ajouté {} affaires de répartition", items.size());
                 } else {
-                    logger.debug("⚠️ Rapport de répartition vide ou null");
+                    logger.warn("⚠️ Rapport répartition sans affaires");
                 }
 
             } else if (rapportData instanceof RapportService.TableauAmendesServiceDTO) {
                 RapportService.TableauAmendesServiceDTO tableau = (RapportService.TableauAmendesServiceDTO) rapportData;
+                logger.debug("📋 Traitement TableauAmendesServiceDTO");
+
                 if (tableau.getServices() != null && !tableau.getServices().isEmpty()) {
                     items.addAll(tableau.getServices());
                     logger.debug("✅ Ajouté {} services d'amendes", items.size());
                 } else {
-                    logger.debug("⚠️ Tableau amendes services vide ou null");
-                }
-
-            } else if (rapportData instanceof RapportService.RapportEncaissementsDTO) {
-                RapportService.RapportEncaissementsDTO rapport = (RapportService.RapportEncaissementsDTO) rapportData;
-                if (rapport.getServices() != null) {
-                    // Aplatir les encaissements de tous les services
-                    for (RapportService.ServiceEncaissementDTO service : rapport.getServices()) {
-                        if (service.getEncaissements() != null) {
-                            items.addAll(service.getEncaissements());
-                        }
-                    }
-                    logger.debug("✅ Ajouté {} encaissements", items.size());
-                } else {
-                    logger.debug("⚠️ Rapport encaissements vides ou null");
+                    logger.warn("⚠️ Tableau amendes services vide");
                 }
 
             } else if (rapportData instanceof List) {
                 List<?> liste = (List<?>) rapportData;
+                logger.debug("📋 Traitement List générique: {} éléments", liste.size());
+
                 if (!liste.isEmpty()) {
+                    logger.debug("🔍 Type du premier élément: {}", liste.get(0).getClass().getSimpleName());
                     items.addAll(liste);
                     logger.debug("✅ Ajouté {} éléments de liste", items.size());
                 } else {
-                    logger.debug("⚠️ Liste vide");
+                    logger.warn("⚠️ Liste vide");
                 }
 
             } else {
                 // Objet unique
+                logger.debug("📋 Traitement objet unique: {}", rapportData.getClass().getSimpleName());
                 items.add(rapportData);
-                logger.debug("✅ Ajouté objet unique: {}", rapportData.getClass().getSimpleName());
+                logger.debug("✅ Ajouté objet unique");
             }
 
             // CORRECTION PRINCIPALE : Forcer la mise à jour sur le thread JavaFX
+            logger.debug("🎯 Préparation mise à jour UI avec {} éléments", items.size());
+
             Platform.runLater(() -> {
                 try {
-                    // Vider d'abord la table
+                    logger.debug("🎭 Exécution sur JavaFX Thread");
+
+                    // CORRECTION 1 : Vider complètement la table d'abord
                     resultatsTableView.setItems(null);
-
-                    // Puis assigner les nouvelles données
-                    resultatsTableView.setItems(items);
-
-                    // Forcer le rafraîchissement
                     resultatsTableView.refresh();
 
-                    // Mettre à jour les statistiques
+                    // CORRECTION 2 : Vérifier et reconfigurer les colonnes si nécessaire
+                    if (resultatsTableView.getColumns().isEmpty()) {
+                        logger.debug("⚠️ Aucune colonne configurée, configuration générique");
+                        configureColumnsGeneric();
+                    }
+
+                    // CORRECTION 3 : Assigner les nouvelles données
+                    resultatsTableView.setItems(items);
+
+                    // CORRECTION 4 : Forcer un double rafraîchissement
+                    resultatsTableView.refresh();
+                    resultatsTableView.autosize();
+
+                    // CORRECTION 5 : Mettre à jour les statistiques
                     updateNombreResultats(items.size());
 
-                    // Log final
-                    logger.debug("🎯 TableView mise à jour: {} éléments affichés", items.size());
+                    // Debug final
+                    logger.debug("🎯 TableView mise à jour terminée:");
+                    logger.debug("- Éléments dans la TableView: {}", resultatsTableView.getItems().size());
+                    logger.debug("- Colonnes: {}", resultatsTableView.getColumns().size());
+                    logger.debug("- Visible: {}", resultatsTableView.isVisible());
 
-                    // Debug: Afficher le premier élément si présent
+                    // Debug des données
                     if (!items.isEmpty()) {
-                        logger.debug("Premier élément: {}", items.get(0).getClass().getSimpleName());
+                        Object premier = items.get(0);
+                        logger.debug("🔍 Premier élément type: {}", premier.getClass().getSimpleName());
+                        logger.debug("🔍 Premier élément contenu: {}", premier.toString());
                     }
 
                 } catch (Exception e) {
-                    logger.error("Erreur lors de la mise à jour Platform.runLater", e);
+                    logger.error("❌ Erreur lors de la mise à jour Platform.runLater", e);
                 }
             });
 
         } catch (Exception e) {
-            logger.error("Erreur lors de la mise à jour des données TableView", e);
+            logger.error("❌ Erreur lors de la mise à jour des données TableView", e);
             Platform.runLater(() -> {
                 updateNombreResultats(0);
                 AlertUtil.showWarningAlert("Données", "Erreur d'affichage",
@@ -1953,6 +2220,15 @@ public class RapportController implements Initializable {
                         "5. Utilisez les actions sur chaque ligne ou globalement");
     }
 
+    private String extractValue(Object item, String property, String defaultValue) {
+        try {
+            String value = extractValue(item, property);
+            return value != null && !value.isEmpty() ? value : defaultValue;
+        } catch (Exception e) {
+            return defaultValue;
+        }
+    }
+
     /**
      * Extraction générique par réflexion
      */
@@ -2016,12 +2292,19 @@ public class RapportController implements Initializable {
      * CORRECTION BUG : Met à jour le label du nombre de résultats
      */
     private void updateNombreResultats(int nombre) {
-        if (nombreResultatsLabel != null) {
-            Platform.runLater(() -> {
+        Platform.runLater(() -> {
+            if (nombreResultatsLabel != null) {
                 nombreResultatsLabel.setText(nombre + " résultat(s)");
-                logger.debug("Nombre de résultats mis à jour: {}", nombre);
-            });
-        }
+                logger.debug("📊 Nombre de résultats affiché: {}", nombre);
+            }
+
+            if (tableauTitreLabel != null && nombre > 0) {
+                TypeRapport typeSelectionne = typeRapportComboBox.getValue();
+                if (typeSelectionne != null) {
+                    tableauTitreLabel.setText(typeSelectionne.getLibelle() + " (" + nombre + " éléments)");
+                }
+            }
+        });
     }
 
     /**

@@ -744,8 +744,10 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
     /**
      * Compte le nombre total d'affaires
      */
+    @Override
     public long count() {
-        String sql = "SELECT COUNT(*) FROM affaires WHERE deleted = false";
+        // CORRECTION : Supprimer la condition sur 'deleted' qui n'existe pas
+        String sql = "SELECT COUNT(*) FROM affaires";
 
         try (Connection conn = getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql);
@@ -766,7 +768,8 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
      * Compte le nombre d'affaires selon des critères
      */
     public long countWithCriteria(String searchTerm, StatutAffaire statut, LocalDate dateDebut, LocalDate dateFin) {
-        StringBuilder sql = new StringBuilder("SELECT COUNT(*) FROM affaires WHERE deleted = false");
+        // CORRECTION : Supprimer la condition sur 'deleted'
+        StringBuilder sql = new StringBuilder("SELECT COUNT(*) FROM affaires WHERE 1=1");
         List<Object> parameters = new ArrayList<>();
 
         // Ajout des critères de recherche
@@ -797,10 +800,9 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
                 stmt.setObject(i + 1, parameters.get(i));
             }
 
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getLong(1);
-                }
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                return rs.getLong(1);
             }
 
         } catch (SQLException e) {
@@ -848,7 +850,8 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
      * Compte les affaires par statut
      */
     public long countByStatut(StatutAffaire statut) {
-        String sql = "SELECT COUNT(*) FROM affaires WHERE statut = ? AND deleted = false";
+        // CORRECTION : Supprimer la condition sur 'deleted'
+        String sql = "SELECT COUNT(*) FROM affaires WHERE statut = ?";
 
         try (Connection conn = getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -883,7 +886,8 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
      * Compte les affaires créées dans une année
      */
     public long countByYear(int year) {
-        String sql = "SELECT COUNT(*) FROM affaires WHERE strftime('%Y', date_creation) = ? AND deleted = false";
+        // CORRECTION : Supprimer la condition sur 'deleted'
+        String sql = "SELECT COUNT(*) FROM affaires WHERE strftime('%Y', date_creation) = ?";
 
         try (Connection conn = getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -1084,27 +1088,20 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
      */
     @Override
     public void deleteById(Long id) {
-        String sql = """
-            UPDATE affaires 
-            SET deleted = true, deleted_by = ?, deleted_at = ?
-            WHERE id = ?
-        """;
+        String sql = "DELETE FROM affaires WHERE id = ?";
 
         try (Connection conn = getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-            stmt.setString(1, "SYSTEM"); // À remplacer par l'utilisateur courant
-            stmt.setTimestamp(2, Timestamp.valueOf(LocalDateTime.now()));
-            stmt.setLong(3, id);
-
+            stmt.setLong(1, id);
             int updated = stmt.executeUpdate();
 
             if (updated > 0) {
-                logger.info("Affaire {} supprimée logiquement", id);
+                logger.info("Affaire {} supprimée", id);
             }
 
         } catch (SQLException e) {
-            logger.error("Erreur lors de la suppression logique de l'affaire", e);
+            logger.error("Erreur lors de la suppression de l'affaire", e);
             throw new RuntimeException("Erreur lors de la suppression", e);
         }
     }

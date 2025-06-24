@@ -74,7 +74,7 @@ public class DatabaseMigrationTool {
     /**
      * Ajoute les colonnes manquantes aux tables existantes
      */
-    private static void addMissingColumns() {
+    public static void addMissingColumns() {
         System.out.println("2. AJOUT DES COLONNES MANQUANTES:");
         System.out.println("---------------------------------");
 

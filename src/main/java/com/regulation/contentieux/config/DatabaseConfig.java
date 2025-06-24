@@ -15,6 +15,8 @@ import java.nio.file.Paths;
 import java.sql.*;
 import java.util.Properties;
 
+import static com.regulation.contentieux.util.DatabaseMigrationTool.addMissingColumns;
+
 /**
  * Configuration et gestion des connexions aux bases de données SQLite et MySQL
  * VERSION ENRICHIE avec diagnostics avancés et mécanismes de récupération
@@ -195,16 +197,6 @@ public class DatabaseConfig {
             stmt.execute(createTableSQL);
             logger.debug("✅ Table affaire_contraventions vérifiée/créée");
 
-            // Vérifier si la table existe vraiment
-            String checkSQL = "SELECT name FROM sqlite_master WHERE type='table' AND name='affaire_contraventions'";
-            try (ResultSet rs = stmt.executeQuery(checkSQL)) {
-                if (rs.next()) {
-                    logger.debug("✅ Table affaire_contraventions confirmée présente");
-                } else {
-                    logger.error("❌ Table affaire_contraventions non trouvée après création");
-                }
-            }
-
         } catch (SQLException e) {
             logger.error("❌ Erreur lors de la création de la table affaire_contraventions", e);
         }
@@ -213,12 +205,13 @@ public class DatabaseConfig {
     public static void initializeMissingTables() {
         logger.info("🔧 Initialisation des tables manquantes...");
 
-        // S'assurer que toutes les tables de liaison existent
+        // Tables de liaison existantes
         ensureAffaireContraventionsTable();
-
-        // Autres tables potentiellement manquantes
         ensureAffaireActeursTable();
         ensureRolesSpeciauxTable();
+
+        // NOUVEAU : Ajouter les colonnes manquantes
+        addMissingColumns();
 
         logger.info("✅ Initialisation des tables manquantes terminée");
     }

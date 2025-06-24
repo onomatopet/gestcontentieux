@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -44,6 +45,24 @@ public class StageManager {
     }
 
     /**
+     * Initialise le gestionnaire de stages avec le stage principal
+     * MÉTHODE MANQUANTE AJOUTÉE
+     *
+     * @param primaryStage Le stage principal de l'application
+     */
+    public void initialize(Stage primaryStage) {
+        if (primaryStage == null) {
+            throw new IllegalArgumentException("Primary stage cannot be null");
+        }
+
+        this.primaryStage = primaryStage;
+        logger.debug("✅ StageManager initialisé avec le stage principal");
+
+        // Configuration de base du stage principal
+        configurePrimaryStage();
+    }
+
+    /**
      * Obtient l'instance unique du StageManager
      */
     public static synchronized StageManager getInstance() {
@@ -65,24 +84,41 @@ public class StageManager {
      * Configure le stage principal
      */
     private void configurePrimaryStage() {
-        if (primaryStage != null) {
+        if (primaryStage == null) {
+            logger.error("❌ Primary stage est null lors de la configuration");
+            return;
+        }
+
+        try {
+            // Configuration de base
             primaryStage.setTitle(APP_TITLE);
             primaryStage.setMinWidth(MIN_WIDTH);
             primaryStage.setMinHeight(MIN_HEIGHT);
 
-            // Icône de l'application
+            // Icône de l'application (si disponible)
             try {
-                Image icon = new Image(Objects.requireNonNull(
-                        getClass().getResourceAsStream(APP_ICON)));
-                primaryStage.getIcons().add(icon);
+                URL iconUrl = StageManager.class.getResource(APP_ICON);
+                if (iconUrl != null) {
+                    Image icon = new Image(iconUrl.toExternalForm());
+                    primaryStage.getIcons().add(icon);
+                    logger.debug("✅ Icône de l'application définie");
+                } else {
+                    logger.debug("⚠️ Icône non trouvée: {}", APP_ICON);
+                }
             } catch (Exception e) {
-                logger.warn("Impossible de charger l'icône de l'application", e);
+                logger.warn("⚠️ Impossible de charger l'icône: {}", e.getMessage());
             }
 
-            // Gestion de la fermeture
+            // Gestionnaire de fermeture
             primaryStage.setOnCloseRequest(event -> {
-                closeAllStages();
+                logger.info("🛑 Demande de fermeture de l'application");
+                // Possibilité d'ajouter une confirmation de fermeture ici
             });
+
+            logger.debug("✅ Stage principal configuré");
+
+        } catch (Exception e) {
+            logger.error("❌ Erreur lors de la configuration du stage principal", e);
         }
     }
 
@@ -299,10 +335,17 @@ public class StageManager {
     }
 
     /**
-     * Obtient le stage principal
+     * CORRECTION BUG : Obtient le stage principal
      */
     public Stage getPrimaryStage() {
         return primaryStage;
+    }
+
+    /**
+     * CORRECTION BUG : Vérifie si le gestionnaire est initialisé
+     */
+    public boolean isInitialized() {
+        return primaryStage != null;
     }
 
     /**

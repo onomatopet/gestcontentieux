@@ -111,6 +111,7 @@
         </VBox>
     </center>
 
+    <!-- SECTION FOOTER COMPLÈTE CORRIGÉE: -->
     <bottom>
         <!-- Barre de statut -->
         <HBox alignment="CENTER_LEFT" spacing="10.0" styleClass="footer-section">
@@ -118,7 +119,7 @@
                 <Insets bottom="10.0" left="20.0" right="20.0" top="10.0" />
             </padding>
 
-            <FontIcon iconLiteral="mdi2i-information" iconSize="14" styleClass="info-icon" />
+            <Label text="ℹ️" style="-fx-font-size: 14px;" styleClass="info-icon" />
             <Label fx:id="statusLabel" text="Prêt à générer un rapport" styleClass="footer-text" />
 
             <Region HBox.hgrow="ALWAYS" />
@@ -127,7 +128,7 @@
             <HBox spacing="10.0" alignment="CENTER_RIGHT">
                 <Label text="8 types de rapports disponibles" styleClass="status-info" />
                 <Separator orientation="VERTICAL" />
-                <FontIcon iconLiteral="mdi2d-database" iconSize="14" styleClass="success-icon" />
+                <Label text="💾" style="-fx-font-size: 14px;" styleClass="success-icon" />
                 <Label text="Base de données connectée" styleClass="status-connected" />
             </HBox>
         </HBox>

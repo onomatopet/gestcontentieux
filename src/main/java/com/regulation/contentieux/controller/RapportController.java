@@ -143,6 +143,7 @@ public class RapportController implements Initializable {
         initializeTypeRapport();
         initializePeriode();
         initializeFiltres();
+        setupEventHandlers();
 
         // État initial
         if (progressIndicator != null) {
@@ -1412,5 +1413,108 @@ public class RapportController implements Initializable {
                         "Pour plus d'options, utilisez les rapports avancés."
         );
         alert.showAndWait();
+    }
+
+    /**
+     * Gestionnaires d'événements des boutons
+     */
+    @FXML
+    private void handleApercu() {
+        if (dernierRapportGenere != null && webEngine != null) {
+            // Afficher l'aperçu dans une nouvelle fenêtre ou maximiser la vue
+            logger.info("Affichage de l'aperçu du rapport");
+        } else {
+            AlertUtil.showWarningAlert("Aucun rapport",
+                    "Aperçu indisponible",
+                    "Veuillez d'abord générer un rapport.");
+        }
+    }
+
+    @FXML
+    private void handleImprimer() {
+        if (dernierRapportGenere != null) {
+            try {
+                printService.imprimerRapport(dernierRapportGenere);
+                logger.info("Impression du rapport lancée");
+            } catch (Exception e) {
+                logger.error("Erreur lors de l'impression", e);
+                AlertUtil.showErrorAlert("Erreur d'impression",
+                        "Impossible d'imprimer",
+                        e.getMessage());
+            }
+        } else {
+            AlertUtil.showWarningAlert("Aucun rapport",
+                    "Impression impossible",
+                    "Veuillez d'abord générer un rapport.");
+        }
+    }
+
+    @FXML
+    private void handleExportPdf() {
+        if (dernierRapportGenere != null) {
+            try {
+                FileChooser fileChooser = new FileChooser();
+                fileChooser.setTitle("Exporter en PDF");
+                fileChooser.getExtensionFilters().add(
+                        new FileChooser.ExtensionFilter("Fichiers PDF", "*.pdf")
+                );
+
+                File file = fileChooser.showSaveDialog(exportPdfButton.getScene().getWindow());
+                if (file != null) {
+                    exportService.exporterEnPdf(dernierRapportGenere, file.getAbsolutePath());
+                    AlertUtil.showSuccess("Export réussi",
+                            "Le rapport a été exporté en PDF avec succès.");
+                }
+            } catch (Exception e) {
+                logger.error("Erreur lors de l'export PDF", e);
+                AlertUtil.showErrorAlert("Erreur d'export",
+                        "Impossible d'exporter en PDF",
+                        e.getMessage());
+            }
+        }
+    }
+
+    @FXML
+    private void handleExportExcel() {
+        if (dernierRapportData != null) {
+            try {
+                FileChooser fileChooser = new FileChooser();
+                fileChooser.setTitle("Exporter en Excel");
+                fileChooser.getExtensionFilters().add(
+                        new FileChooser.ExtensionFilter("Fichiers Excel", "*.xlsx")
+                );
+
+                File file = fileChooser.showSaveDialog(exportExcelButton.getScene().getWindow());
+                if (file != null) {
+                    exportService.exporterEnExcel(dernierRapportData, file.getAbsolutePath());
+                    AlertUtil.showSuccess("Export réussi",
+                            "Le rapport a été exporté en Excel avec succès.");
+                }
+            } catch (Exception e) {
+                logger.error("Erreur lors de l'export Excel", e);
+                AlertUtil.showErrorAlert("Erreur d'export",
+                        "Impossible d'exporter en Excel",
+                        e.getMessage());
+            }
+        }
+    }
+
+    private void updateDescription() {
+        TypeRapport selected = typeRapportComboBox.getSelectionModel().getSelectedItem();
+        if (selected != null && descriptionLabel != null) {
+            descriptionLabel.setText(selected.getDescription());
+        }
+    }
+
+    private void validateDateRange() {
+        LocalDate debut = dateDebutPicker.getValue();
+        LocalDate fin = dateFinPicker.getValue();
+
+        if (debut != null && fin != null && debut.isAfter(fin)) {
+            AlertUtil.showWarningAlert("Dates invalides",
+                    "Période incorrecte",
+                    "La date de début doit être antérieure à la date de fin.");
+            dateFinPicker.setValue(null);
+        }
     }
 }

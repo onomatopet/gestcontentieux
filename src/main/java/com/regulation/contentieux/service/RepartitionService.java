@@ -262,9 +262,8 @@ public class RepartitionService {
      * Vérifie s'il y a un indicateur pour l'affaire
      */
     private boolean hasIndicateur(Affaire affaire) {
-        // Logique pour déterminer si un indicateur existe
-        // À implémenter selon les règles métier
-        return false; // Pour l'instant, pas d'indicateur
+        // CORRECTION: Selon vos instructions, la part indicateur est toujours calculée
+        return true;
     }
 
     /**

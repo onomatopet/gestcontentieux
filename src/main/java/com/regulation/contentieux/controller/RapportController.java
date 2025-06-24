@@ -1688,7 +1688,7 @@ public class RapportController implements Initializable {
         directionDDCol.setPrefWidth(140);
         directionDDCol.getStyleClass().add("montant-column");
 
-        // 5. Indicateur
+        // 5. Indicateur - CORRIGÉ
         TableColumn<Object, String> indicateurCol = new TableColumn<>("Indicateur");
         indicateurCol.setCellValueFactory(data ->
                 new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "partIndicateur"))));
@@ -1716,10 +1716,10 @@ public class RapportController implements Initializable {
         tresorCol.setPrefWidth(80);
         tresorCol.getStyleClass().add("montant-column");
 
-        // 9. Produit net ayants droits
+        // 9. Produit net ayants droits - CORRIGÉ
         TableColumn<Object, String> produitNetDroitsCol = new TableColumn<>("Produit net ayants droits");
         produitNetDroitsCol.setCellValueFactory(data ->
-                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "produitNetDroits"))));
+                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "partAyantsDroits"))));
         produitNetDroitsCol.setPrefWidth(160);
         produitNetDroitsCol.getStyleClass().add("montant-column");
 

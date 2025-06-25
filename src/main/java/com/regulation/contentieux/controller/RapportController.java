@@ -181,14 +181,16 @@ public class RapportController implements Initializable {
     }
 
     private void initializeTypeRapport() {
+        // CORRECTION : Un seul addAll au lieu de deux
         typeRapportComboBox.getItems().addAll(TypeRapport.values());
 
-        typeRapportComboBox.getItems().addAll(TypeRapport.values());
+        // SUPPRESSION DE LA LIGNE DUPLIQUÉE :
+        // typeRapportComboBox.getItems().addAll(TypeRapport.values());
 
         typeRapportComboBox.setConverter(new StringConverter<TypeRapport>() {
             @Override
             public String toString(TypeRapport type) {
-                return type != null ? type.getLibelle() : ""; // CORRECTION
+                return type != null ? type.getLibelle() : "";
             }
 
             @Override
@@ -205,11 +207,22 @@ public class RapportController implements Initializable {
             }
         });
 
-        // Gestionnaire de changement
+        // CORRECTION PROBLÈME 2 : Gestionnaire de changement amélioré avec chargement automatique
         typeRapportComboBox.setOnAction(e -> {
             TypeRapport selected = typeRapportComboBox.getValue();
-            if (selected != null && descriptionLabel != null) {
-                descriptionLabel.setText(selected.getDescription());
+            if (selected != null) {
+                // Mettre à jour la description
+                if (descriptionLabel != null) {
+                    descriptionLabel.setText(selected.getDescription());
+                }
+
+                // Configurer les colonnes
+                configureTableViewForReport(selected);
+
+                // AJOUT : Charger automatiquement les données pour le template sélectionné
+                chargerDonneesAutomatiquement(selected);
+
+                logger.debug("Type de rapport changé: {}", selected.getLibelle());
             }
         });
 
@@ -269,8 +282,210 @@ public class RapportController implements Initializable {
             // Configurer la TableView selon le type
             configureTableViewForReport(typeSelectionne);
 
+            // AJOUT : Chargement automatique des données (évite le double chargement)
+            if (!typeSelectionne.equals(dernierTypeRapport)) {
+                chargerDonneesAutomatiquement(typeSelectionne);
+                dernierTypeRapport = typeSelectionne;
+            }
+
             logger.debug("Type de rapport changé: {}", typeSelectionne.getLibelle());
         }
+    }
+
+    /**
+     * CORRECTION PROBLÈME 2 : Chargement automatique des données au changement de template
+     */
+    private void chargerDonneesAutomatiquement(TypeRapport typeRapport) {
+        if (typeRapport == null) {
+            return;
+        }
+
+        // Afficher l'indicateur de chargement
+        showProgressIndicator(true, "Chargement des données pour " + typeRapport.getLibelle() + "...");
+
+        // Dates par défaut (mois courant)
+        LocalDate debut = getDateDebut();
+        LocalDate fin = getDateFin();
+
+        // Si pas de dates sélectionnées, utiliser le mois courant
+        if (debut == null || fin == null) {
+            LocalDate now = LocalDate.now();
+            debut = now.withDayOfMonth(1);
+            fin = now.withDayOfMonth(now.lengthOfMonth());
+
+            // Mettre à jour les DatePickers
+            if (dateDebutPicker != null) dateDebutPicker.setValue(debut);
+            if (dateFinPicker != null) dateFinPicker.setValue(fin);
+        }
+
+        // Charger les données en arrière-plan
+        final LocalDate finalDebut = debut;
+        final LocalDate finalFin = fin;
+
+        Task<Object> task = new Task<Object>() {
+            @Override
+            protected Object call() throws Exception {
+                logger.debug("🔄 Chargement automatique des données pour: {}", typeRapport.getLibelle());
+                return genererDonneesSelon(typeRapport, finalDebut, finalFin);
+            }
+
+            @Override
+            protected void succeeded() {
+                Platform.runLater(() -> {
+                    try {
+                        Object donnees = getValue();
+                        logger.debug("📦 Données automatiques chargées: {}",
+                                donnees != null ? donnees.getClass().getSimpleName() : "NULL");
+
+                        updateTableViewData(donnees);
+                        dernierRapportData = donnees;
+
+                        // Générer l'aperçu HTML
+                        genererApercuHtml(typeRapport, finalDebut, finalFin, donnees);
+
+                        showProgressIndicator(false, "");
+
+                        if (statusLabel != null) {
+                            statusLabel.setText("Données chargées automatiquement");
+                        }
+
+                    } catch (Exception e) {
+                        logger.error("Erreur lors de la mise à jour automatique", e);
+                        showProgressIndicator(false, "");
+                        if (statusLabel != null) {
+                            statusLabel.setText("Erreur lors du chargement automatique");
+                        }
+                    }
+                });
+            }
+
+            @Override
+            protected void failed() {
+                Platform.runLater(() -> {
+                    logger.error("Échec du chargement automatique", getException());
+                    showProgressIndicator(false, "");
+                    if (statusLabel != null) {
+                        statusLabel.setText("Erreur: " + getException().getMessage());
+                    }
+                });
+            }
+        };
+
+        Thread thread = new Thread(task);
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    /**
+     * CORRECTION PROBLÈME 3 : Génération d'aperçu HTML automatique
+     */
+    private void genererApercuHtml(TypeRapport typeRapport, LocalDate debut, LocalDate fin, Object donnees) {
+        try {
+            String html;
+
+            // Utiliser le template engine pour générer le HTML
+            if (rapportService != null) {
+                html = rapportService.genererHtml(typeRapport, debut, fin);
+            } else {
+                // Fallback : génération basique
+                html = genererHtmlBasique(typeRapport, debut, fin, donnees);
+            }
+
+            // Afficher l'aperçu
+            if (webEngine != null && html != null) {
+                webEngine.loadContent(html);
+                dernierRapportGenere = html;
+            }
+
+            logger.debug("✅ Aperçu HTML généré automatiquement pour {}", typeRapport.getLibelle());
+
+        } catch (Exception e) {
+            logger.error("Erreur lors de la génération automatique de l'aperçu HTML", e);
+
+            // Afficher un message d'erreur dans l'aperçu
+            String errorHtml = genererHtmlErreur(typeRapport, e);
+            if (webEngine != null) {
+                webEngine.loadContent(errorHtml);
+            }
+        }
+    }
+
+    /**
+     * CORRECTION PROBLÈME 3 : Génération HTML de base en cas d'échec du template engine
+     */
+    private String genererHtmlBasique(TypeRapport typeRapport, LocalDate debut, LocalDate fin, Object donnees) {
+        StringBuilder html = new StringBuilder();
+
+        html.append("<!DOCTYPE html><html><head><meta charset='UTF-8'>");
+        html.append("<title>").append(typeRapport.getLibelle()).append("</title>");
+        html.append("<style>");
+        html.append("body { font-family: Arial, sans-serif; margin: 20px; }");
+        html.append("h1 { text-align: center; color: #333; }");
+        html.append("table { width: 100%; border-collapse: collapse; margin: 20px 0; }");
+        html.append("th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }");
+        html.append("th { background-color: #f2f2f2; font-weight: bold; }");
+        html.append(".info { background-color: #e7f3ff; padding: 15px; border-radius: 5px; margin: 10px 0; }");
+        html.append("</style></head><body>");
+
+        html.append("<h1>").append(typeRapport.getLibelle()).append("</h1>");
+        html.append("<div class='info'>");
+        html.append("<p><strong>Période :</strong> ").append(debut).append(" au ").append(fin).append("</p>");
+        html.append("<p><strong>Template :</strong> ").append(typeRapport.getNumeroTemplate()).append("</p>");
+        html.append("<p><strong>Données :</strong> ").append(donnees != null ? "Chargées" : "Aucune donnée").append("</p>");
+        html.append("</div>");
+
+        if (donnees != null) {
+            html.append("<div class='info'>");
+            html.append("<p><strong>Type de données :</strong> ").append(donnees.getClass().getSimpleName()).append("</p>");
+            html.append("<p><strong>Contenu :</strong> ").append(donnees.toString()).append("</p>");
+            html.append("</div>");
+        } else {
+            html.append("<div class='info' style='background-color: #fff3cd;'>");
+            html.append("<p><strong>⚠️ Remarque :</strong> Aucune donnée disponible pour cette période.</p>");
+            html.append("<p>Cela peut être normal si aucune affaire n'a été traitée pendant cette période.</p>");
+            html.append("</div>");
+        }
+
+        html.append("</body></html>");
+
+        return html.toString();
+    }
+
+    /**
+     * CORRECTION PROBLÈME 3 : HTML d'erreur informatif
+     */
+    private String genererHtmlErreur(TypeRapport typeRapport, Exception e) {
+        return String.format("""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset='UTF-8'>
+            <title>Erreur - %s</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                .error { background-color: #f8d7da; color: #721c24; padding: 15px; border-radius: 5px; border: 1px solid #f5c6cb; }
+                .info { background-color: #d1ecf1; color: #0c5460; padding: 15px; border-radius: 5px; border: 1px solid #bee5eb; margin-top: 10px; }
+            </style>
+        </head>
+        <body>
+            <h1>%s</h1>
+            <div class='error'>
+                <h3>❌ Erreur lors de la génération</h3>
+                <p><strong>Erreur :</strong> %s</p>
+            </div>
+            <div class='info'>
+                <h3>ℹ️ Informations</h3>
+                <p>Cette erreur peut se produire si :</p>
+                <ul>
+                    <li>Le template n'est pas encore complètement implémenté</li>
+                    <li>Aucune donnée n'est disponible pour la période sélectionnée</li>
+                    <li>Il y a un problème de connexion à la base de données</li>
+                </ul>
+                <p><strong>Solution :</strong> Essayez de sélectionner un autre template ou une autre période.</p>
+            </div>
+        </body>
+        </html>
+        """, typeRapport.getLibelle(), typeRapport.getLibelle(), e.getMessage());
     }
 
     /**
@@ -888,26 +1103,6 @@ public class RapportController implements Initializable {
     }
 
     /**
-     * ENRICHISSEMENT : HTML d'erreur
-     */
-    private String genererHtmlErreur(TypeRapport type, Exception erreur) {
-        StringBuilder html = new StringBuilder();
-        html.append(genererEnTeteHTML("Erreur - " + type.getLibelle(), LocalDate.now(), LocalDate.now()));
-
-        html.append("<div class='error-box'>");
-        html.append("<h3>Erreur lors de la génération du rapport</h3>");
-        html.append("<p><strong>Type :</strong> ").append(type.getLibelle()).append("</p>");
-        html.append("<p><strong>Erreur :</strong> ").append(erreur.getMessage()).append("</p>");
-        html.append("<p>Veuillez vérifier les paramètres et réessayer.</p>");
-        html.append("</div>");
-
-        html.append(genererPiedHTML());
-
-        return html.toString();
-    }
-
-
-    /**
      * ENRICHISSEMENT : HTML générique en cas de type non supporté
      */
     private String genererHtmlGenerique(TypeRapport type, Object rapportData, LocalDate debut, LocalDate fin) {
@@ -1185,8 +1380,8 @@ public class RapportController implements Initializable {
             if (progressIndicator != null) {
                 progressIndicator.setVisible(show);
             }
-            if (statusLabel != null) {
-                statusLabel.setText(message != null ? message : "");
+            if (statusLabel != null && message != null && !message.isEmpty()) {
+                statusLabel.setText(message);
             }
         });
     }

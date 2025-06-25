@@ -1894,67 +1894,32 @@ public class RapportService {
         }
 
         public void calculateTotaux() {
-            totalProduitNet = mandatements.stream()
-                    .map(MandatementDTO::getProduitNet)
-                    .filter(Objects::nonNull)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-            totalPartChefs = mandatements.stream()
-                    .map(MandatementDTO::getPartChefs)
-                    .filter(Objects::nonNull)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-            totalPartSaisissants = mandatements.stream()
-                    .map(MandatementDTO::getPartSaisissants)
-                    .filter(Objects::nonNull)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-            totalPartMutuelle = mandatements.stream()
-                    .map(MandatementDTO::getPartMutuelle)
-                    .filter(Objects::nonNull)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-            totalPartMasseCommune = mandatements.stream()
-                    .map(MandatementDTO::getPartMasseCommune)
-                    .filter(Objects::nonNull)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-            totalPartInteressement = mandatements.stream()
-                    .map(MandatementDTO::getPartInteressement)
-                    .filter(Objects::nonNull)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-            nombreMandatements = mandatements.size();
-        }
-
-        // Getters et Setters
-        public LocalDate getDateDebut() { return dateDebut; }
-        public void setDateDebut(LocalDate dateDebut) { this.dateDebut = dateDebut; }
-
-        public LocalDate getDateFin() { return dateFin; }
-        public void setDateFin(LocalDate dateFin) { this.dateFin = dateFin; }
-
-        public LocalDate getDateGeneration() { return dateGeneration; }
-        public void setDateGeneration(LocalDate dateGeneration) { this.dateGeneration = dateGeneration; }
-
-        public String getPeriodeLibelle() { return periodeLibelle; }
-        public void setPeriodeLibelle(String periodeLibelle) { this.periodeLibelle = periodeLibelle; }
-
-        public String getTypeEtat() { return typeEtat; }
-        public void setTypeEtat(String typeEtat) { this.typeEtat = typeEtat; }
-
-        public List<MandatementDTO> getMandatements() { return mandatements; }
-        public void setMandatements(List<MandatementDTO> mandatements) { this.mandatements = mandatements; }
-
-        // Getters pour les totaux
-        public BigDecimal getTotalProduitNet() { return totalProduitNet; }
-        public BigDecimal getTotalPartChefs() { return totalPartChefs; }
-        public BigDecimal getTotalPartSaisissants() { return totalPartSaisissants; }
-        public BigDecimal getTotalPartMutuelle() { return totalPartMutuelle; }
-        public BigDecimal getTotalPartMasseCommune() { return totalPartMasseCommune; }
-        public BigDecimal getTotalPartInteressement() { return totalPartInteressement; }
-        public int getNombreMandatements() { return nombreMandatements; }
-    }
+            if (mandatements != null) {
+                totalProduitNet = mandatements.stream()
+                        .map(MandatementDTO::getProduitNet)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                totalChefs = mandatements.stream()
+                        .map(MandatementDTO::getPartChefs)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                totalSaisissants = mandatements.stream()
+                        .map(MandatementDTO::getPartSaisissants)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                totalMutuelleNationale = mandatements.stream()
+                        .map(MandatementDTO::getPartMutuelle)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                totalMasseCommune = mandatements.stream()
+                        .map(MandatementDTO::getPartMasseCommune)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                totalInteressement = mandatements.stream()
+                        .map(MandatementDTO::getPartInteressement)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                totalDG = mandatements.stream()
+                        .map(MandatementDTO::getPartDG)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                totalDD = mandatements.stream()
+                        .map(MandatementDTO::getPartDD)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+            }
 
             if (lignes != null) {
                 totalMontantEncaisse = lignes.stream()

@@ -2780,4 +2780,64 @@ public class RapportService {
         public String getObservations() { return observations; }
         public void setObservations(String observations) { this.observations = observations; }
     }
+
+    /**
+     * CORRECTION BUG : Classe DTO manquante TableauAmendesServiceDTO
+     */
+    public static class TableauAmendesServiceDTO {
+        private LocalDate dateDebut;
+        private LocalDate dateFin;
+        private LocalDate dateGeneration;
+        private String periodeLibelle;
+        private String titreRapport;
+        private List<ServiceStatsDTO> services = new ArrayList<>();
+        private int totalAffaires = 0;
+        private BigDecimal totalMontant = BigDecimal.ZERO;
+        private int nombreServices = 0;
+
+        public TableauAmendesServiceDTO() {
+            this.dateGeneration = LocalDate.now();
+        }
+
+        // Getters et setters
+        public LocalDate getDateDebut() { return dateDebut; }
+        public void setDateDebut(LocalDate dateDebut) { this.dateDebut = dateDebut; }
+
+        public LocalDate getDateFin() { return dateFin; }
+        public void setDateFin(LocalDate dateFin) { this.dateFin = dateFin; }
+
+        public LocalDate getDateGeneration() { return dateGeneration; }
+        public void setDateGeneration(LocalDate dateGeneration) { this.dateGeneration = dateGeneration; }
+
+        public String getPeriodeLibelle() { return periodeLibelle; }
+        public void setPeriodeLibelle(String periodeLibelle) { this.periodeLibelle = periodeLibelle; }
+
+        public String getTitreRapport() { return titreRapport; }
+        public void setTitreRapport(String titreRapport) { this.titreRapport = titreRapport; }
+
+        public List<ServiceStatsDTO> getServices() { return services; }
+        public void setServices(List<ServiceStatsDTO> services) { this.services = services; }
+
+        public int getTotalAffaires() { return totalAffaires; }
+        public void setTotalAffaires(int totalAffaires) { this.totalAffaires = totalAffaires; }
+
+        public BigDecimal getTotalMontant() { return totalMontant; }
+        public void setTotalMontant(BigDecimal totalMontant) { this.totalMontant = totalMontant; }
+
+        public int getNombreServices() { return nombreServices; }
+        public void setNombreServices(int nombreServices) { this.nombreServices = nombreServices; }
+    }
+
+    /**
+     * CORRECTION BUG : Méthode manquante printHtml()
+     * Imprime du contenu HTML directement
+     */
+    public boolean printHtml(String htmlContent) {
+        if (htmlContent == null || htmlContent.trim().isEmpty()) {
+            logger.error("Contenu HTML vide, impossible d'imprimer");
+            return false;
+        }
+
+        return printHtmlContent(htmlContent, "Rapport Contentieux");
+    }
 }

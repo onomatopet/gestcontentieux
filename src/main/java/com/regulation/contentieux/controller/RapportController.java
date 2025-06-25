@@ -1015,9 +1015,9 @@ public class RapportController implements Initializable {
                 case REPARTITION_PRODUIT:
                     return rapportService.genererDonneesRepartitionProduit(debut, fin);
 
-                // Template 6
+                // Template 6 - CORRIGER LE NOM DE MÉTHODE
                 case ETAT_CUMULE_AGENT:
-                    return rapportService.genererDonneesCumuleParAgent(debut, fin);
+                    return rapportService.genererDonneesEtatCumuleParAgent(debut, fin);
 
                 // Template 7
                 case TABLEAU_AMENDES_SERVICE:
@@ -1322,7 +1322,6 @@ public class RapportController implements Initializable {
     @FXML
     private void handleGenererRapportAffairesNonSoldees() {
         try {
-            dernierTypeRapport = TypeRapport.AFFAIRES_NON_SOLDEES;
             showProgressIndicator(true, "Génération du rapport des affaires non soldées...");
 
             Task<String> task = new Task<String>() {
@@ -1570,7 +1569,7 @@ public class RapportController implements Initializable {
      */
     private void configureTableViewInitial() {
         if (resultatsTableView != null) {
-            resultatsTableView.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+            resultatsTableView.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
             resultatsTableView.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
 
             // Configuration par défaut sans TypeRapport
@@ -1650,13 +1649,86 @@ public class RapportController implements Initializable {
         }
     }
 
+    /**
+     * Configure les colonnes pour le Template 2 : État par séries de mandatement
+     */
+    private void configureColumnsEtatMandatement() {
+        // 1. N° encaissement et Date
+        TableColumn<Object, String> numeroEncCol = new TableColumn<>("N° encaissement et Date");
+        numeroEncCol.setCellValueFactory(data ->
+                new SimpleStringProperty(extractValue(data.getValue(), "numeroEncaissement")));
+        numeroEncCol.setPrefWidth(140);
+
+        // 2. N° Affaire et Date
+        TableColumn<Object, String> numeroAffCol = new TableColumn<>("N° Affaire et Date");
+        numeroAffCol.setCellValueFactory(data ->
+                new SimpleStringProperty(extractValue(data.getValue(), "numeroAffaire")));
+        numeroAffCol.setPrefWidth(130);
+
+        // 3. Produit net
+        TableColumn<Object, String> produitNetCol = new TableColumn<>("Produit net");
+        produitNetCol.setCellValueFactory(data ->
+                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "produitNet"))));
+        produitNetCol.setPrefWidth(100);
+        produitNetCol.getStyleClass().add("montant-column");
+
+        // 4. Chefs
+        TableColumn<Object, String> chefsCol = new TableColumn<>("Chefs");
+        chefsCol.setCellValueFactory(data ->
+                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "partChefs"))));
+        chefsCol.setPrefWidth(80);
+        chefsCol.getStyleClass().add("montant-column");
+
+        // 5. Saisissants
+        TableColumn<Object, String> saisissantsCol = new TableColumn<>("Saisissants");
+        saisissantsCol.setCellValueFactory(data ->
+                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "partSaisissants"))));
+        saisissantsCol.setPrefWidth(100);
+        saisissantsCol.getStyleClass().add("montant-column");
+
+        // 6. Mutuelle nationale
+        TableColumn<Object, String> mutuelleCol = new TableColumn<>("Mutuelle nationale");
+        mutuelleCol.setCellValueFactory(data ->
+                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "partMutuelle"))));
+        mutuelleCol.setPrefWidth(120);
+        mutuelleCol.getStyleClass().add("montant-column");
+
+        // 7. Masse commune
+        TableColumn<Object, String> masseCommuneCol = new TableColumn<>("Masse commune");
+        masseCommuneCol.setCellValueFactory(data ->
+                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "partMasseCommune"))));
+        masseCommuneCol.setPrefWidth(110);
+        masseCommuneCol.getStyleClass().add("montant-column");
+
+        // 8. Intéressement
+        TableColumn<Object, String> interessementCol = new TableColumn<>("Intéressement");
+        interessementCol.setCellValueFactory(data ->
+                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "partInteressement"))));
+        interessementCol.setPrefWidth(110);
+        interessementCol.getStyleClass().add("montant-column");
+
+        // 9. Observations
+        TableColumn<Object, String> observationsCol = new TableColumn<>("Observations");
+        observationsCol.setCellValueFactory(data ->
+                new SimpleStringProperty(extractValue(data.getValue(), "observations")));
+        observationsCol.setPrefWidth(150);
+
+        // Ajouter toutes les colonnes
+        resultatsTableView.getColumns().addAll(
+                numeroEncCol, numeroAffCol, produitNetCol, chefsCol,
+                saisissantsCol, mutuelleCol, masseCommuneCol, interessementCol, observationsCol
+        );
+
+        logger.debug("✅ Colonnes Template 2 configurées : 9 colonnes exactes");
+    }
+
     public static TypeRapport fromLibelle(String libelle) {
         if (libelle == null) {
             return null;
         }
 
-        for (TypeRapport type : values()) {
-            if (type.libelle.equalsIgnoreCase(libelle)) {
+        for (TypeRapport type : TypeRapport.values()) {  // Corriger : TypeRapport.values()
+            if (type.getLibelle().equalsIgnoreCase(libelle)) {  // Corriger : type.getLibelle()
                 return type;
             }
         }

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>{{titre}}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            margin: 20px;
+            line-height: 1.4;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        h1 {
+            margin-bottom: 10px;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        .periode {
+            margin-bottom: 20px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 10px;
+        }
+        th, td {
+            border: 1px solid #000;
+            padding: 4px;
+            text-align: left;
+        }
+        th {
+            background-color: #f0f0f0;
+            font-weight: bold;
+            text-align: center;
+            font-size: 9px;
+        }
+        .montant {
+            text-align: right;
+            font-family: monospace;
+        }
+        .total-row {
+            background-color: #e0e0e0;
+            font-weight: bold;
+        }
+        .footer {
+            margin-top: 30px;
+            font-size: 10px;
+            text-align: center;
+            color: #666;
+        }
+        .stats {
+            margin-top: 20px;
+            font-size: 11px;
+            background: #f8f9fa;
+            padding: 10px;
+            border: 1px solid #dee2e6;
+        }
+    </style>
+</head>
+<body>
+<div class="header">
+    <h1>{{titre}}</h1>
+    <div class="periode">Période du {{dateDebut}} au {{dateFin}}</div>
+</div>
+
+{{#if affaires}}
+<table>
+    <thead>
+    <tr>
+        <th>N° Affaire</th>
+        <th>Date Encaissement</th>
+        <th>N° Encaissement</th>
+        <th>Produit Disponible</th>
+        <th>Part DD</th>
+        <th>Part Indicateur</th>
+        <th>Produit Net</th>
+        <th>Part FLCF</th>
+        <th>Part Trésor</th>
+        <th>Part Ayants Droits</th>
+        <th>Part Chefs</th>
+        <th>Part Saisissants</th>
+        <th>Part Mutuelle</th>
+        <th>Part Intéressement</th>
+    </tr>
+    </thead>
+    <tbody>
+    {{#each affaires}}
+    <tr>
+        <td>{{numeroAffaire}}</td>
+        <td>{{dateEncaissement}}</td>
+        <td>{{numeroEncaissement}}</td>
+        <td class="montant">{{produitDisponible}}</td>
+        <td class="montant">{{partDD}}</td>
+        <td class="montant">{{partIndicateur}}</td>
+        <td class="montant">{{produitNet}}</td>
+        <td class="montant">{{partFlcf}}</td>
+        <td class="montant">{{partTresor}}</td>
+        <td class="montant">{{partAyantsDroits}}</td>
+        <td class="montant">{{partChefs}}</td>
+        <td class="montant">{{partSaisissants}}</td>
+        <td class="montant">{{partMutuelle}}</td>
+        <td class="montant">{{partInteressement}}</td>
+    </tr>
+    {{/each}}
+
+    <!-- Ligne de totaux -->
+    <tr class="total-row">
+        <td colspan="3"><strong>TOTAUX</strong></td>
+        <td class="montant"><strong>{{totalProduitDisponible}}</strong></td>
+        <td class="montant"><strong>-</strong></td>
+        <td class="montant"><strong>{{totalPartIndicateur}}</strong></td>
+        <td class="montant"><strong>-</strong></td>
+        <td class="montant"><strong>{{totalPartFLCF}}</strong></td>
+        <td class="montant"><strong>{{totalPartTresor}}</strong></td>
+        <td class="montant"><strong>{{totalPartAyantsDroits}}</strong></td>
+        <td class="montant"><strong>-</strong></td>
+        <td class="montant"><strong>-</strong></td>
+        <td class="montant"><strong>-</strong></td>
+        <td class="montant"><strong>-</strong></td>
+    </tr>
+    </tbody>
+</table>
+
+<div class="stats">
+    <strong>Statistiques :</strong>
+    {{nombreAffaires}} affaire(s) •
+    Total encaissé : {{totalEncaisse}} FCFA
+</div>
+{{/if}}
+
+{{#if rapport}}
+{{#if rapport.affaires}}
+<!-- Le tableau sera affiché via la condition affaires ci-dessus -->
+{{/if}}
+{{/if}}
+
+<div class="footer">
+    <strong>Template 1</strong> - État de répartition des affaires contentieuses<br>
+    Généré le {{dateGeneration}} par le système de gestion contentieux
+</div>
+</body>
+</html>

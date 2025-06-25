@@ -54,6 +54,9 @@ public class RapportService {
     private static final String ROLE_DG = "DG";
     private static final String ROLE_DD = "DD";
 
+    // Template engine pour la génération HTML
+    private final RapportHtmlBuilder htmlBuilder = new RapportHtmlBuilder(this);
+
     // CORRECTION LIGNE 446 : Constante pour les rôles spéciaux avec nom correct
     private static final String ROLE_SPECIAL = "ROLE_SPECIAL"; // CORRECTION : Variable manquante avec point-virgule
 
@@ -2839,5 +2842,61 @@ public class RapportService {
         }
 
         return printHtmlContent(htmlContent, "Rapport Contentieux");
+    }
+
+    /**
+     * Template 1 - État de répartition des affaires contentieuses
+     */
+    public String genererEtatRepartitionAffaires(LocalDate debut, LocalDate fin) {
+        return htmlBuilder.buildHtml(TypeRapport.ETAT_REPARTITION_AFFAIRES, debut, fin);
+    }
+
+    /**
+     * Template 2 - État par séries de mandatement
+     */
+    public String genererEtatMandatement(LocalDate debut, LocalDate fin) {
+        return htmlBuilder.buildHtml(TypeRapport.ETAT_MANDATEMENT, debut, fin);
+    }
+
+    /**
+     * Template 3 - État cumulé par centre de répartition
+     */
+    public String genererEtatCentreRepartition(LocalDate debut, LocalDate fin) {
+        return htmlBuilder.buildHtml(TypeRapport.CENTRE_REPARTITION, debut, fin);
+    }
+
+    /**
+     * Template 4 - État de répartition des parts des indicateurs réels
+     */
+    public String genererEtatIndicateursReels(LocalDate debut, LocalDate fin) {
+        return htmlBuilder.buildHtml(TypeRapport.INDICATEURS_REELS, debut, fin);
+    }
+
+    /**
+     * Template 5 - État de répartition du produit des affaires contentieuses
+     */
+    public String genererEtatRepartitionProduit(LocalDate debut, LocalDate fin) {
+        return htmlBuilder.buildHtml(TypeRapport.REPARTITION_PRODUIT, debut, fin);
+    }
+
+    /**
+     * Template 6 - État cumulé par agent
+     */
+    public String genererEtatCumuleParAgent(LocalDate debut, LocalDate fin) {
+        return htmlBuilder.buildHtml(TypeRapport.ETAT_CUMULE_AGENT, debut, fin);
+    }
+
+    /**
+     * Template 7 - Tableau des amendes par services
+     */
+    public String genererTableauAmendesParServices(LocalDate debut, LocalDate fin) {
+        return htmlBuilder.buildHtml(TypeRapport.TABLEAU_AMENDES_SERVICE, debut, fin);
+    }
+
+    /**
+     * Template 8 - État par séries de mandatements (agents)
+     */
+    public String genererEtatMandatementAgents(LocalDate debut, LocalDate fin) {
+        return htmlBuilder.buildHtml(TypeRapport.MANDATEMENT_AGENTS, debut, fin);
     }
 }

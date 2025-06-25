@@ -12,7 +12,6 @@ import com.regulation.contentieux.config.DatabaseConfig;
 import com.regulation.contentieux.dao.*;
 import com.regulation.contentieux.model.*;
 import com.regulation.contentieux.model.enums.*;
-import com.regulation.contentieux.util.CurrencyFormatter;
 import com.regulation.contentieux.util.DateFormatter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,11 +22,7 @@ import com.regulation.contentieux.model.enums.StatutEncaissement;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Service de génération des rapports de rétrocession
@@ -46,9 +41,10 @@ public class RapportService {
     private AgentDAO agentDAO = new AgentDAO();
     private ServiceDAO serviceDAO = new ServiceDAO();
     private CentreDAO centreDAO = new CentreDAO();
+    private ContraventionDAO contraventionDAO; // CORRECTION : Variable manquante
+    private PrintService printService = new PrintService();
     private RepartitionService repartitionService = new RepartitionService();
 
-    private ContraventionDAO contraventionDAO; // CORRECTION : Variable manquante
 
     // CORRECTION : Définir les constantes de rôles spéciaux correctement
     private static final String ROLE_DG = "DG";
@@ -2841,7 +2837,7 @@ public class RapportService {
             return false;
         }
 
-        return printHtmlContent(htmlContent, "Rapport Contentieux");
+        return printService.printHtmlContent(htmlContent, "Rapport Contentieux");
     }
 
     /**

@@ -191,7 +191,7 @@ public class RapportHtmlBuilder {
         } else if (data instanceof RapportService.TableauAmendesParServicesDTO amendes) {
             // Template 7 - Amendes par services
             context.put("services", amendes.getServices());
-            context.put("nombreServices", amendes.getNombreServices());
+            context.put("nombreServices", amendes.getServices() != null ? amendes.getServices().size() : 0);
             context.put("totalGeneral", amendes.getTotalGeneral());
             context.put("nombreTotalAffaires", amendes.getNombreTotalAffaires());
         }

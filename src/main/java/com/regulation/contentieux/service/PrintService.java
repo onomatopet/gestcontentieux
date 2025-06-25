@@ -375,4 +375,17 @@ public class PrintService {
             }
         });
     }
+
+    /**
+     * CORRECTION BUG : Méthode manquante printHtml()
+     * Imprime du contenu HTML directement
+     */
+    public boolean printHtml(String htmlContent) {
+        if (htmlContent == null || htmlContent.trim().isEmpty()) {
+            logger.error("Contenu HTML vide, impossible d'imprimer");
+            return false;
+        }
+
+        return printHtmlContent(htmlContent, "Rapport Contentieux");
+    }
 }

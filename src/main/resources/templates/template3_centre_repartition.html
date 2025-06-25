@@ -28,19 +28,18 @@
             width: 100%;
             border-collapse: collapse;
             margin: 20px 0;
-            font-size: 11px;
+            font-size: 10px;
         }
         th, td {
             border: 1px solid #000;
-            padding: 6px;
+            padding: 4px;
             text-align: left;
-            vertical-align: middle;
         }
         th {
             background-color: #f0f0f0;
             font-weight: bold;
             text-align: center;
-            font-size: 10px;
+            font-size: 9px;
         }
         .montant {
             text-align: right;
@@ -48,10 +47,6 @@
         }
         .total-row {
             background-color: #e0e0e0;
-            font-weight: bold;
-        }
-        .centre-cell {
-            min-width: 200px;
             font-weight: bold;
         }
         .footer {
@@ -67,23 +62,6 @@
             padding: 10px;
             border: 1px solid #dee2e6;
         }
-
-        /* Colonnes avec largeurs optimisées */
-        .col-centre { width: 40%; }
-        .col-base { width: 20%; }
-        .col-indicateur { width: 20%; }
-        .col-total { width: 20%; }
-
-        /* Styles pour les montants négatifs ou nuls */
-        .montant-nul {
-            color: #666;
-            font-style: italic;
-        }
-
-        .montant-positif {
-            color: #000;
-            font-weight: normal;
-        }
     </style>
 </head>
 <body>
@@ -96,39 +74,28 @@
 <table>
     <thead>
     <tr>
-        <th rowspan="2" class="col-centre">Centre de répartition</th>
+        <th rowspan="2">Centre de répartition</th>
         <th colspan="2">Part revenant au centre au titre de</th>
-        <th rowspan="2" class="col-total">Part centre</th>
+        <th rowspan="2">Part centre</th>
     </tr>
     <tr>
-        <th class="col-base">Répartition de base</th>
-        <th class="col-indicateur">Répartition part indicateur</th>
+        <th>Répartition de base</th>
+        <th>Répartition part indicateur</th>
     </tr>
     </thead>
     <tbody>
     {{#each centres}}
     <tr>
-        <!-- Centre de répartition -->
-        <td class="centre-cell">{{nomCentre}}</td>
-
-        <!-- Répartition de base -->
-        <td class="montant {{#if repartitionBase}}montant-positif{{else}}montant-nul{{/if}}">
-            {{#if repartitionBase}}{{repartitionBase}}{{else}}-{{/if}}
-        </td>
-
-        <!-- Répartition part indicateur -->
-        <td class="montant {{#if repartitionIndicateur}}montant-positif{{else}}montant-nul{{/if}}">
-            {{#if repartitionIndicateur}}{{repartitionIndicateur}}{{else}}-{{/if}}
-        </td>
-
-        <!-- Part centre totale -->
-        <td class="montant montant-positif">{{partTotalCentre}}</td>
+        <td>{{nomCentre}}</td>
+        <td class="montant">{{repartitionBase}}</td>
+        <td class="montant">{{repartitionIndicateur}}</td>
+        <td class="montant">{{partCentre}}</td>
     </tr>
     {{/each}}
 
     <!-- Ligne de totaux -->
     <tr class="total-row">
-        <td class="centre-cell"><strong>TOTAUX</strong></td>
+        <td><strong>TOTAUX</strong></td>
         <td class="montant"><strong>{{totalRepartitionBase}}</strong></td>
         <td class="montant"><strong>{{totalRepartitionIndicateur}}</strong></td>
         <td class="montant"><strong>{{totalPartCentre}}</strong></td>
@@ -138,30 +105,14 @@
 
 <div class="stats">
     <strong>Statistiques :</strong>
-    {{nombreCentres}} centre(s) de répartition •
-    Total réparti : {{totalPartCentre}} FCFA<br>
-    Répartition de base : {{totalRepartitionBase}} FCFA •
-    Répartition indicateur : {{totalRepartitionIndicateur}} FCFA
+    {{nombreCentres}} centre(s) •
+    Total part centres : {{totalPartCentre}} FCFA
 </div>
 {{/if}}
-
-{{#if rapport}}
-{{#if rapport.centres}}
-<!-- Le tableau sera affiché via la condition centres ci-dessus -->
-{{/if}}
-{{/if}}
-
-<!-- Message si aucun centre -->
-{{#unless centres}}
-<div class="stats" style="background: #fff3cd; border-color: #ffeaa7;">
-    <strong>Aucun centre de répartition</strong> trouvé pour la période sélectionnée.
-</div>
-{{/unless}}
 
 <div class="footer">
     <strong>Template 3</strong> - État cumulé par centre de répartition<br>
-    Généré le {{dateGeneration}} par le système de gestion contentieux<br>
-    <em>Répartition des parts par centre selon l'activité de la période</em>
+    Généré le {{dateGeneration}} par le système de gestion contentieux
 </div>
 </body>
 </html>

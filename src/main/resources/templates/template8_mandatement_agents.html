@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>{{titre}}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            margin: 20px;
+            line-height: 1.4;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        h1 {
+            margin-bottom: 10px;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        .periode {
+            margin-bottom: 20px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 10px;
+        }
+        th, td {
+            border: 1px solid #000;
+            padding: 4px;
+            text-align: left;
+        }
+        th {
+            background-color: #f0f0f0;
+            font-weight: bold;
+            text-align: center;
+            font-size: 9px;
+        }
+        .montant {
+            text-align: right;
+            font-family: monospace;
+        }
+        .total-row {
+            background-color: #e0e0e0;
+            font-weight: bold;
+        }
+        .footer {
+            margin-top: 30px;
+            font-size: 10px;
+            text-align: center;
+            color: #666;
+        }
+        .stats {
+            margin-top: 20px;
+            font-size: 11px;
+            background: #f8f9fa;
+            padding: 10px;
+            border: 1px solid #dee2e6;
+        }
+    </style>
+</head>
+<body>
+<div class="header">
+    <h1>{{titre}}</h1>
+    <div class="periode">Période du {{dateDebut}} au {{dateFin}}</div>
+</div>
+
+{{#if mandatements}}
+<table>
+    <thead>
+    <tr>
+        <th rowspan="2">N° encaissement et Date</th>
+        <th rowspan="2">N° Affaire et Date</th>
+        <th colspan="5">Part revenant à l'agent après répartition en tant que</th>
+        <th rowspan="2">Part agent</th>
+    </tr>
+    <tr>
+        <th>Chefs</th>
+        <th>Saisissants</th>
+        <th>Mutuelle nationale</th>
+        <th>D.G</th>
+        <th>D.D</th>
+    </tr>
+    </thead>
+    <tbody>
+    {{#each mandatements}}
+    <tr>
+        <td>{{reference}}<br><small>{{dateEncaissement}}</small></td>
+        <td>{{numeroAffaire}}<br><small>{{dateAffaire}}</small></td>
+        <td class="montant">{{partChefs}}</td>
+        <td class="montant">{{partSaisissants}}</td>
+        <td class="montant">{{partMutuelle}}</td>
+        <td class="montant">{{partDG}}</td>
+        <td class="montant">{{partDD}}</td>
+        <td class="montant">{{partAgent}}</td>
+    </tr>
+    {{/each}}
+
+    <!-- Ligne de totaux -->
+    <tr class="total-row">
+        <td colspan="2"><strong>TOTAUX</strong></td>
+        <td class="montant"><strong>{{totalChefs}}</strong></td>
+        <td class="montant"><strong>{{totalSaisissants}}</strong></td>
+        <td class="montant"><strong>{{totalMutuelle}}</strong></td>
+        <td class="montant"><strong>{{totalDG}}</strong></td>
+        <td class="montant"><strong>{{totalDD}}</strong></td>
+        <td class="montant"><strong>{{totalPartAgent}}</strong></td>
+    </tr>
+    </tbody>
+</table>
+
+<div class="stats">
+    <strong>Statistiques :</strong>
+    {{nombreMandatements}} mandatement(s) •
+    Total part agents : {{totalPartAgent}} FCFA
+</div>
+{{/if}}
+
+<div class="footer">
+    <strong>Template 8</strong> - État par séries de mandatements (agents)<br>
+    Généré le {{dateGeneration}} par le système de gestion contentieux
+</div>
+</body>
+</html>

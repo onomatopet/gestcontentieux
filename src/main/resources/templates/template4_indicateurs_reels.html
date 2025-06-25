@@ -34,7 +34,6 @@
             border: 1px solid #000;
             padding: 4px;
             text-align: left;
-            vertical-align: middle;
         }
         th {
             background-color: #f0f0f0;
@@ -50,44 +49,6 @@
             background-color: #e0e0e0;
             font-weight: bold;
         }
-        .service-header {
-            background-color: #d4edda !important;
-            font-weight: bold;
-            font-size: 11px;
-            text-align: left !important;
-            padding: 8px;
-            color: #155724;
-        }
-        .section-header {
-            background-color: #fff3cd !important;
-            font-weight: bold;
-            font-size: 10px;
-            text-align: left !important;
-            padding: 6px;
-            color: #856404;
-        }
-        .ref-cell {
-            min-width: 90px;
-        }
-        .ref-cell .numero {
-            font-weight: bold;
-            margin-bottom: 2px;
-        }
-        .ref-cell .date {
-            font-size: 8px;
-            color: #666;
-        }
-        .contrevenant-cell {
-            min-width: 150px;
-        }
-        .contraventions-cell {
-            min-width: 120px;
-            font-size: 9px;
-        }
-        .observations {
-            min-width: 100px;
-            background-color: #f9f9f9;
-        }
         .footer {
             margin-top: 30px;
             font-size: 10px;
@@ -101,22 +62,6 @@
             padding: 10px;
             border: 1px solid #dee2e6;
         }
-
-        /* Responsive pour les petits écrans */
-        @media (max-width: 1200px) {
-            .ref-cell .numero, .ref-cell .date {
-                display: block;
-            }
-        }
-
-        @media (min-width: 1201px) {
-            .ref-cell .numero::after {
-                content: " - ";
-            }
-            .ref-cell .numero, .ref-cell .date {
-                display: inline;
-            }
-        }
     </style>
 </head>
 <body>
@@ -125,7 +70,7 @@
     <div class="periode">Période du {{dateDebut}} au {{dateFin}}</div>
 </div>
 
-{{#if services}}
+{{#if indicateurs}}
 <table>
     <thead>
     <tr>
@@ -139,136 +84,39 @@
     </tr>
     </thead>
     <tbody>
-    {{#each services}}
-    <!-- En-tête du service -->
-    <tr>
-        <th colspan="7" class="service-header">
-            Service : {{nomService}}
-            {{#if nombreIndicateurs}}({{nombreIndicateurs}} indicateur(s)){{/if}}
-        </th>
-    </tr>
-
-    <!-- Lignes des indicateurs du service -->
     {{#each indicateurs}}
     <tr>
-        <!-- N° encaissement et Date -->
-        <td class="ref-cell">
-            <div class="numero">{{numeroEncaissement}}</div>
-            <div class="date">{{dateEncaissement}}</div>
-        </td>
-
-        <!-- N° Affaire et Date -->
-        <td class="ref-cell">
-            <div class="numero">{{numeroAffaire}}</div>
-            <div class="date">{{dateAffaire}}</div>
-        </td>
-
-        <!-- Noms des contrevenants -->
-        <td class="contrevenant-cell">{{nomContrevenant}}</td>
-
-        <!-- Contraventions -->
-        <td class="contraventions-cell">{{contraventions}}</td>
-
-        <!-- Montant encaissement -->
+        <td>{{numeroEncaissement}}<br><small>{{dateEncaissement}}</small></td>
+        <td>{{numeroAffaire}}<br><small>{{dateAffaire}}</small></td>
+        <td>{{nomContrevenant}}</td>
+        <td>{{contraventions}}</td>
         <td class="montant">{{montantEncaisse}}</td>
-
-        <!-- Part indicateur -->
         <td class="montant">{{partIndicateur}}</td>
-
-        <!-- Observations (vide pour saisie manuelle) -->
-        <td class="observations"></td>
+        <td>{{observations}}</td>
     </tr>
     {{/each}}
 
-    <!-- Sous-total du service -->
-    {{#if ../isLast}}{{else}}
-    <tr style="background-color: #f8f9fa;">
-        <td colspan="4"><em>Sous-total {{nomService}}</em></td>
-        <td class="montant"><strong>{{totalMontant}}</strong></td>
-        <td class="montant"><strong>{{totalPartIndicateur}}</strong></td>
-        <td></td>
-    </tr>
-    {{/if}}
-    {{/each}}
-
-    <!-- Ligne de totaux généraux -->
+    <!-- Ligne de totaux -->
     <tr class="total-row">
-        <td colspan="4"><strong>TOTAUX GÉNÉRAUX</strong></td>
+        <td colspan="4"><strong>TOTAUX</strong></td>
         <td class="montant"><strong>{{totalEncaissement}}</strong></td>
         <td class="montant"><strong>{{totalPartIndicateur}}</strong></td>
-        <td></td>
+        <td><strong>-</strong></td>
     </tr>
     </tbody>
 </table>
 
 <div class="stats">
     <strong>Statistiques :</strong>
-    {{nombreIndicateurs}} indicateur(s) réel(s) •
-    {{services.length}} service(s) concerné(s) •
+    {{nombreIndicateurs}} indicateur(s) •
     Total encaissé : {{totalEncaissement}} FCFA •
     Total parts indicateurs : {{totalPartIndicateur}} FCFA
 </div>
 {{/if}}
 
-<!-- Cas particulier : affichage par indicateurs individuels si pas de groupement par service -->
-{{#if indicateurs}}
-{{#unless services}}
-<table>
-    <thead>
-    <tr>
-        <th>N° encaissement et Date</th>
-        <th>N° Affaire et Date</th>
-        <th>Noms des contrevenants</th>
-        <th>Contraventions</th>
-        <th>Montant encaissement</th>
-        <th>Part indicateur</th>
-        <th>Observations</th>
-    </tr>
-    </thead>
-    <tbody>
-    {{#each indicateurs}}
-    <tr>
-        <td class="ref-cell">
-            <div class="numero">{{numeroEncaissement}}</div>
-            <div class="date">{{dateEncaissement}}</div>
-        </td>
-        <td class="ref-cell">
-            <div class="numero">{{numeroAffaire}}</div>
-            <div class="date">{{dateEncaissement}}</div>
-        </td>
-        <td class="contrevenant-cell">{{nomContrevenant}}</td>
-        <td class="contraventions-cell">{{contraventions}}</td>
-        <td class="montant">{{montantEncaisse}}</td>
-        <td class="montant">{{partIndicateur}}</td>
-        <td class="observations"></td>
-    </tr>
-    {{/each}}
-
-    <!-- Totaux -->
-    <tr class="total-row">
-        <td colspan="4"><strong>TOTAUX</strong></td>
-        <td class="montant"><strong>{{totalEncaissement}}</strong></td>
-        <td class="montant"><strong>{{totalPartIndicateur}}</strong></td>
-        <td></td>
-    </tr>
-    </tbody>
-</table>
-{{/unless}}
-{{/if}}
-
-<!-- Message si aucun indicateur -->
-{{#unless indicateurs}}
-{{#unless services}}
-<div class="stats" style="background: #fff3cd; border-color: #ffeaa7;">
-    <strong>Aucun indicateur réel</strong> trouvé pour la période sélectionnée.
-</div>
-{{/unless}}
-{{/unless}}
-
 <div class="footer">
     <strong>Template 4</strong> - État de répartition des parts des indicateurs réels<br>
-    Généré le {{dateGeneration}} par le système de gestion contentieux<br>
-    <em>Répartition détaillée par service et section avec indicateurs • Colonne "Observations" à remplir manuellement</em>
+    Généré le {{dateGeneration}} par le système de gestion contentieux
 </div>
 </body>
 </html>

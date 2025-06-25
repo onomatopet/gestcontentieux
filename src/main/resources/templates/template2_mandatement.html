@@ -34,7 +34,6 @@
             border: 1px solid #000;
             padding: 4px;
             text-align: left;
-            vertical-align: middle;
         }
         th {
             background-color: #f0f0f0;
@@ -50,21 +49,6 @@
             background-color: #e0e0e0;
             font-weight: bold;
         }
-        .ref-cell {
-            min-width: 100px;
-        }
-        .ref-cell .numero {
-            font-weight: bold;
-            margin-bottom: 2px;
-        }
-        .ref-cell .date {
-            font-size: 9px;
-            color: #666;
-        }
-        .observations {
-            min-width: 120px;
-            background-color: #f9f9f9;
-        }
         .footer {
             margin-top: 30px;
             font-size: 10px;
@@ -77,22 +61,6 @@
             background: #f8f9fa;
             padding: 10px;
             border: 1px solid #dee2e6;
-        }
-
-        /* Responsive pour petits écrans */
-        @media (max-width: 1200px) {
-            .ref-cell .numero, .ref-cell .date {
-                display: block;
-            }
-        }
-
-        @media (min-width: 1201px) {
-            .ref-cell .numero::after {
-                content: " - ";
-            }
-            .ref-cell .numero, .ref-cell .date {
-                display: inline;
-            }
         }
     </style>
 </head>
@@ -123,30 +91,15 @@
     <tbody>
     {{#each mandatements}}
     <tr>
-        <!-- N° encaissement et Date -->
-        <td class="ref-cell">
-            <div class="numero">{{reference}}</div>
-            <div class="date">{{dateEncaissement}}</div>
-        </td>
-
-        <!-- N° Affaire et Date -->
-        <td class="ref-cell">
-            <div class="numero">{{numeroAffaire}}</div>
-            <div class="date">{{dateAffaire}}</div>
-        </td>
-
-        <!-- Produit net -->
+        <td>{{reference}}<br><small>{{dateEncaissement}}</small></td>
+        <td>{{numeroAffaire}}<br><small>{{dateAffaire}}</small></td>
         <td class="montant">{{produitNet}}</td>
-
-        <!-- Parts aux bénéficiaires -->
         <td class="montant">{{partChefs}}</td>
         <td class="montant">{{partSaisissants}}</td>
         <td class="montant">{{partMutuelle}}</td>
         <td class="montant">{{partMasseCommune}}</td>
         <td class="montant">{{partInteressement}}</td>
-
-        <!-- Observations (vide pour saisie manuelle) -->
-        <td class="observations"></td>
+        <td>{{observations}}</td>
     </tr>
     {{/each}}
 
@@ -159,7 +112,7 @@
         <td class="montant"><strong>{{totalMutuelleNationale}}</strong></td>
         <td class="montant"><strong>{{totalMasseCommune}}</strong></td>
         <td class="montant"><strong>{{totalInteressement}}</strong></td>
-        <td class="observations"></td>
+        <td><strong>-</strong></td>
     </tr>
     </tbody>
 </table>
@@ -167,21 +120,13 @@
 <div class="stats">
     <strong>Statistiques :</strong>
     {{nombreMandatements}} mandatement(s) •
-    {{#if typeEtat}}Type : {{typeEtat}} • {{/if}}
     Total produit net : {{totalProduitNet}} FCFA
 </div>
 {{/if}}
 
-{{#if rapport}}
-{{#if rapport.mandatements}}
-<!-- Le tableau sera affiché via la condition mandatements ci-dessus -->
-{{/if}}
-{{/if}}
-
 <div class="footer">
     <strong>Template 2</strong> - État par séries de mandatement<br>
-    Généré le {{dateGeneration}} par le système de gestion contentieux<br>
-    <em>Colonne "Observations" à remplir manuellement après impression</em>
+    Généré le {{dateGeneration}} par le système de gestion contentieux
 </div>
 </body>
 </html>

@@ -39,8 +39,8 @@ public class Main extends Application {
     private static final String APP_ICON = "/images/app-icon.png";
 
     // Dimensions de la fenêtre de connexion
-    private static final int LOGIN_WIDTH = 400;
-    private static final int LOGIN_HEIGHT = 350;
+    private static final int LOGIN_WIDTH = 250;
+    private static final int LOGIN_HEIGHT = 300;
 
     @Override
     public void init() throws Exception {

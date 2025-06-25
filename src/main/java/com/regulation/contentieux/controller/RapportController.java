@@ -184,9 +184,6 @@ public class RapportController implements Initializable {
         // CORRECTION : Un seul addAll au lieu de deux
         typeRapportComboBox.getItems().addAll(TypeRapport.values());
 
-        // SUPPRESSION DE LA LIGNE DUPLIQUÉE :
-        // typeRapportComboBox.getItems().addAll(TypeRapport.values());
-
         typeRapportComboBox.setConverter(new StringConverter<TypeRapport>() {
             @Override
             public String toString(TypeRapport type) {
@@ -326,7 +323,7 @@ public class RapportController implements Initializable {
             @Override
             protected Object call() throws Exception {
                 logger.debug("🔄 Chargement automatique des données pour: {}", typeRapport.getLibelle());
-                return genererDonneesSelon(typeRapport, finalDebut, finalFin);
+                return genererRapportParType(typeRapport, finalDebut, finalFin);
             }
 
             @Override
@@ -385,7 +382,13 @@ public class RapportController implements Initializable {
 
             // Utiliser le template engine pour générer le HTML
             if (rapportService != null) {
-                html = rapportService.genererHtml(typeRapport, debut, fin);
+                try {
+                    // Utiliser les méthodes existantes de génération HTML
+                    html = genererHtmlParType(typeRapport, debut, fin, donnees);
+                } catch (Exception e) {
+                    logger.warn("Méthode genererHtmlParType non disponible, utilisation du HTML basique", e);
+                    html = genererHtmlBasique(typeRapport, debut, fin, donnees);
+                }
             } else {
                 // Fallback : génération basique
                 html = genererHtmlBasique(typeRapport, debut, fin, donnees);

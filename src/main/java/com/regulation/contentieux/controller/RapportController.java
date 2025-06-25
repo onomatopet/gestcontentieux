@@ -10,6 +10,7 @@ import javafx.scene.control.TableView;
 
 import java.text.DecimalFormat;
 import java.time.LocalDateTime;
+import com.regulation.contentieux.service.RapportHtmlBuilder;
 import javafx.scene.control.Tooltip;
 
 import java.time.format.DateTimeFormatter;
@@ -279,7 +280,7 @@ public class RapportController implements Initializable {
             // Configurer la TableView selon le type
             configureTableViewForReport(typeSelectionne);
 
-            // AJOUT : Chargement automatique des données (évite le double chargement)
+            // AMÉLIORATION : Éviter le double chargement + meilleur état
             if (!typeSelectionne.equals(dernierTypeRapport)) {
                 chargerDonneesAutomatiquement(typeSelectionne);
                 dernierTypeRapport = typeSelectionne;
@@ -334,17 +335,21 @@ public class RapportController implements Initializable {
                         logger.debug("📦 Données automatiques chargées: {}",
                                 donnees != null ? donnees.getClass().getSimpleName() : "NULL");
 
+                        // Mettre à jour la TableView
                         updateTableViewData(donnees);
                         dernierRapportData = donnees;
 
-                        // Générer l'aperçu HTML
+                        // CORRECTION : Générer l'aperçu HTML avec Template Engine
                         genererApercuHtml(typeRapport, finalDebut, finalFin, donnees);
 
                         showProgressIndicator(false, "");
 
                         if (statusLabel != null) {
-                            statusLabel.setText("Données chargées automatiquement");
+                            statusLabel.setText("Données et aperçu chargés automatiquement");
                         }
+
+                        // Mettre à jour l'état des boutons
+                        updateButtonStates(true);
 
                     } catch (Exception e) {
                         logger.error("Erreur lors de la mise à jour automatique", e);
@@ -374,23 +379,26 @@ public class RapportController implements Initializable {
     }
 
     /**
-     * CORRECTION PROBLÈME 3 : Génération d'aperçu HTML automatique
+     * Génération d'aperçu HTML automatique
      */
     private void genererApercuHtml(TypeRapport typeRapport, LocalDate debut, LocalDate fin, Object donnees) {
         try {
             String html;
 
-            // Utiliser le template engine pour générer le HTML
+            // CORRECTION : Utiliser le Template Engine complet au lieu du HTML basique
             if (rapportService != null) {
+                // Essayer d'utiliser le RapportHtmlBuilder (Template Engine)
                 try {
-                    // Utiliser les méthodes existantes de génération HTML
-                    html = genererHtmlParType(typeRapport, debut, fin, donnees);
+                    RapportHtmlBuilder htmlBuilder = new RapportHtmlBuilder(rapportService);
+                    html = htmlBuilder.buildHtml(typeRapport, debut, fin);
+                    logger.debug("✅ HTML généré via Template Engine pour {}", typeRapport.getLibelle());
                 } catch (Exception e) {
-                    logger.warn("Méthode genererHtmlParType non disponible, utilisation du HTML basique", e);
-                    html = genererHtmlBasique(typeRapport, debut, fin, donnees);
+                    logger.warn("Template Engine non disponible, utilisation des méthodes RapportService", e);
+                    // Fallback : utiliser les méthodes de génération HTML du RapportService
+                    html = genererHtmlViaRapportService(typeRapport, debut, fin);
                 }
             } else {
-                // Fallback : génération basique
+                // Dernier fallback : HTML basique
                 html = genererHtmlBasique(typeRapport, debut, fin, donnees);
             }
 
@@ -410,6 +418,38 @@ public class RapportController implements Initializable {
             if (webEngine != null) {
                 webEngine.loadContent(errorHtml);
             }
+        }
+    }
+
+    /**
+     * NOUVEAU : Génération HTML via les méthodes existantes du RapportService
+     */
+    private String genererHtmlViaRapportService(TypeRapport typeRapport, LocalDate debut, LocalDate fin) {
+        try {
+            switch (typeRapport) {
+                case ETAT_REPARTITION_AFFAIRES:
+                    return rapportService.genererEtatRepartitionAffaires(debut, fin);
+                case ETAT_MANDATEMENT:
+                    return rapportService.genererEtatMandatement(debut, fin);
+                case CENTRE_REPARTITION:
+                    return rapportService.genererEtatCentreRepartition(debut, fin);
+                case INDICATEURS_REELS:
+                    return rapportService.genererEtatIndicateursReels(debut, fin);
+                case REPARTITION_PRODUIT:
+                    return rapportService.genererEtatRepartitionProduit(debut, fin);
+                case ETAT_CUMULE_AGENT:
+                    return rapportService.genererEtatCumuleParAgent(debut, fin);
+                case MANDATEMENT_AGENTS:
+                    return rapportService.genererEtatMandatementAgents(debut, fin);
+                case TABLEAU_AMENDES_SERVICE:
+                    return rapportService.genererTableauAmendesParServices(debut, fin);
+                default:
+                    // Fallback : HTML basique pour les types non supportés
+                    return genererHtmlBasique(typeRapport, debut, fin, null);
+            }
+        } catch (Exception e) {
+            logger.error("Erreur lors de la génération HTML via RapportService pour {}", typeRapport, e);
+            return genererHtmlBasique(typeRapport, debut, fin, null);
         }
     }
 

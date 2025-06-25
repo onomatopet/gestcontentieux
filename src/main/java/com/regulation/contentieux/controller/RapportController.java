@@ -856,7 +856,6 @@ public class RapportController implements Initializable {
     private String genererHtmlParType(TypeRapport type, LocalDate debut, LocalDate fin, Object rapportData) {
         try {
             switch (type) {
-                // Templates avec HTML direct
                 case ETAT_REPARTITION_AFFAIRES:
                     return rapportService.genererEtatRepartitionAffaires(debut, fin);
 
@@ -996,44 +995,37 @@ public class RapportController implements Initializable {
 
         try {
             switch (type) {
-                // Templates existants
+                // Template 1
                 case ETAT_REPARTITION_AFFAIRES:
                     return rapportService.genererDonneesEtatRepartitionAffaires(debut, fin);
 
-                case REPARTITION_RETROCESSION:
-                    return rapportService.genererRapportRepartition(debut, fin);
+                // Template 2
+                case ETAT_MANDATEMENT:
+                    return rapportService.genererDonneesEtatMandatement(debut, fin);
 
+                // Template 3
+                case CENTRE_REPARTITION:
+                    return rapportService.genererDonneesCentreRepartition(debut, fin);
+
+                // Template 4
+                case INDICATEURS_REELS:
+                    return rapportService.genererDonneesIndicateursReels(debut, fin);
+
+                // Template 5
+                case REPARTITION_PRODUIT:
+                    return rapportService.genererDonneesRepartitionProduit(debut, fin);
+
+                // Template 6
+                case ETAT_CUMULE_AGENT:
+                    return rapportService.genererDonneesCumuleParAgent(debut, fin);
+
+                // Template 7
                 case TABLEAU_AMENDES_SERVICE:
                     return rapportService.genererDonneesTableauAmendesParServices(debut, fin);
 
-                // NOUVEAUX TEMPLATES - Phase 3
-                case ETAT_MANDATEMENT: // Template 2
-                    return rapportService.genererDonneesEtatMandatement(debut, fin);
-
-                case CENTRE_REPARTITION: // Template 3
-                    return rapportService.genererDonneesCentreRepartition(debut, fin);
-
-                case INDICATEURS_REELS: // Template 4
-                    return rapportService.genererDonneesIndicateursReels(debut, fin);
-
-                case REPARTITION_PRODUIT: // Template 5
-                    return rapportService.genererDonneesRepartitionProduit(debut, fin);
-
-                case ETAT_CUMULE_AGENT: // Template 6
-                    return rapportService.genererDonneesEtatCumuleParAgent(debut, fin);
-
-                case MANDATEMENT_AGENTS: // Template 8
+                // Template 8
+                case MANDATEMENT_AGENTS:
                     return rapportService.genererDonneesMandatementAgents(debut, fin);
-
-                // Autres rapports
-                case SITUATION_GENERALE:
-                    return rapportService.genererSituationGenerale(debut, fin);
-
-                case ENCAISSEMENTS_PERIODE:
-                    return rapportService.genererRapportEncaissements(debut, fin);
-
-                case AFFAIRES_NON_SOLDEES:
-                    return rapportService.genererRapportAffairesNonSoldees(debut, fin);
 
                 default:
                     logger.warn("Type de rapport non supporté: {}", type);
@@ -1639,12 +1631,12 @@ public class RapportController implements Initializable {
                 case TABLEAU_AMENDES_SERVICE:
                     configureColumnsAmendesServices();
                     break;
+                // Pour les autres templates, utiliser les colonnes génériques en attendant l'implémentation
                 case CENTRE_REPARTITION:
                 case INDICATEURS_REELS:
                 case REPARTITION_PRODUIT:
                 case ETAT_CUMULE_AGENT:
                 case MANDATEMENT_AGENTS:
-                    // Pour l'instant, colonnes génériques en attendant l'implémentation
                     configureColumnsGeneric();
                     break;
                 default:
@@ -1656,6 +1648,20 @@ public class RapportController implements Initializable {
             logger.error("Erreur lors de la configuration des colonnes", e);
             configureColumnsGeneric();
         }
+    }
+
+    public static TypeRapport fromLibelle(String libelle) {
+        if (libelle == null) {
+            return null;
+        }
+
+        for (TypeRapport type : values()) {
+            if (type.libelle.equalsIgnoreCase(libelle)) {
+                return type;
+            }
+        }
+
+        throw new IllegalArgumentException("Type de rapport inconnu: " + libelle);
     }
 
     /**

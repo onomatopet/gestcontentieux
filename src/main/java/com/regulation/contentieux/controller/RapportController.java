@@ -637,11 +637,6 @@ public class RapportController implements Initializable {
 
     private void configurerFiltresSelonType(TypeRapport type) {
         // Afficher/masquer les filtres selon le type
-        boolean showBureauFilter = type == TypeRapport.REPARTITION_RETROCESSION ||
-                type == TypeRapport.ENCAISSEMENTS_PERIODE;
-
-        bureauFilterComboBox.setVisible(showBureauFilter);
-        bureauFilterComboBox.setManaged(showBureauFilter);
 
         boolean showServiceFilter = type == TypeRapport.TABLEAU_AMENDES_SERVICE ||
                 type == TypeRapport.MANDATEMENT_AGENTS;
@@ -1624,19 +1619,11 @@ public class RapportController implements Initializable {
                 case ETAT_REPARTITION_AFFAIRES:
                     configureColumnsRepartitionAffaires();
                     break;
-                case ETAT_MANDATEMENT:
+                case ETAT_MANDATEMENT: // NOUVEAU TEMPLATE 2
                     configureColumnsEtatMandatement();
                     break;
                 case TABLEAU_AMENDES_SERVICE:
                     configureColumnsAmendesServices();
-                    break;
-                // Pour les autres templates, utiliser les colonnes génériques en attendant l'implémentation
-                case CENTRE_REPARTITION:
-                case INDICATEURS_REELS:
-                case REPARTITION_PRODUIT:
-                case ETAT_CUMULE_AGENT:
-                case MANDATEMENT_AGENTS:
-                    configureColumnsGeneric();
                     break;
                 default:
                     configureColumnsGeneric();
@@ -1713,7 +1700,7 @@ public class RapportController implements Initializable {
                 new SimpleStringProperty(extractValue(data.getValue(), "observations")));
         observationsCol.setPrefWidth(150);
 
-        // Ajouter toutes les colonnes
+        // Ajouter toutes les colonnes dans l'ordre exact du template
         resultatsTableView.getColumns().addAll(
                 numeroEncCol, numeroAffCol, produitNetCol, chefsCol,
                 saisissantsCol, mutuelleCol, masseCommuneCol, interessementCol, observationsCol

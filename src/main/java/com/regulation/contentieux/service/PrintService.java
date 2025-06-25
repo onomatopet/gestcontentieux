@@ -136,16 +136,7 @@ public class PrintService {
         return success;
     }
 
-    /**
-     * Imprime du contenu HTML (méthode de commodité)
-     * Utilisée par RapportController pour l'impression directe
-     *
-     * @param htmlContent le contenu HTML à imprimer
-     * @return true si l'impression réussit, false sinon
-     */
-    public boolean printHtml(String htmlContent) {
-        return printHtmlContent(htmlContent, "Rapport Contentieux");
-    }
+
 
     /**
      * Imprime du contenu HTML

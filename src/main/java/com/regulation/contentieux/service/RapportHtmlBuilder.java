@@ -149,16 +149,34 @@ public class RapportHtmlBuilder {
             context.put("totalMontantMandatement", mandatement.getTotalMontantMandatement());
             context.put("nombreMandatements", mandatement.getMandatements() != null ? mandatement.getMandatements().size() : 0);
 
+            // Totaux spécifiques Template 2
+            context.put("totalProduitNet", mandatement.getTotalProduitNet());
+            context.put("totalChefs", mandatement.getTotalChefs());
+            context.put("totalSaisissants", mandatement.getTotalSaisissants());
+            context.put("totalMutuelleNationale", mandatement.getTotalMutuelleNationale());
+            context.put("totalMasseCommune", mandatement.getTotalMasseCommune());
+            context.put("totalInteressement", mandatement.getTotalInteressement());
+
         } else if (data instanceof RapportService.CentreRepartitionDTO centres) {
             // Template 3 - Centre de répartition
             context.put("centres", centres.getCentres());
             context.put("nombreCentres", centres.getCentres() != null ? centres.getCentres().size() : 0);
+
+            // Totaux spécifiques Template 3
+            context.put("totalRepartitionBase", centres.getTotalRepartitionBase());
+            context.put("totalRepartitionIndicateur", centres.getTotalRepartitionIndicateur());
+            context.put("totalPartCentre", centres.getTotalPartCentre());
+            context.put("totalGeneral", centres.getTotalGeneral());
 
         } else if (data instanceof RapportService.IndicateursReelsDTO indicateurs) {
             // Template 4 - Indicateurs réels
             context.put("indicateurs", indicateurs.getIndicateurs());
             context.put("services", indicateurs.getServicesData());
             context.put("nombreIndicateurs", indicateurs.getIndicateurs() != null ? indicateurs.getIndicateurs().size() : 0);
+
+            // Totaux spécifiques Template 4
+            context.put("totalEncaissement", indicateurs.getTotalEncaissement());
+            context.put("totalPartIndicateur", indicateurs.getTotalPartIndicateur());
 
         } else if (data instanceof RapportService.RepartitionProduitDTO produit) {
             // Template 5 - Répartition du produit

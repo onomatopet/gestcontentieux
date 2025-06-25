@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>{{titre}}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            margin: 20px;
+            line-height: 1.4;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        h1 {
+            margin-bottom: 10px;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        .periode {
+            margin-bottom: 20px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 11px;
+        }
+        th, td {
+            border: 1px solid #000;
+            padding: 6px;
+            text-align: left;
+            vertical-align: middle;
+        }
+        th {
+            background-color: #f0f0f0;
+            font-weight: bold;
+            text-align: center;
+            font-size: 10px;
+        }
+        .montant {
+            text-align: right;
+            font-family: monospace;
+        }
+        .total-row {
+            background-color: #e0e0e0;
+            font-weight: bold;
+        }
+        .centre-cell {
+            min-width: 200px;
+            font-weight: bold;
+        }
+        .footer {
+            margin-top: 30px;
+            font-size: 10px;
+            text-align: center;
+            color: #666;
+        }
+        .stats {
+            margin-top: 20px;
+            font-size: 11px;
+            background: #f8f9fa;
+            padding: 10px;
+            border: 1px solid #dee2e6;
+        }
+
+        /* Colonnes avec largeurs optimisées */
+        .col-centre { width: 40%; }
+        .col-base { width: 20%; }
+        .col-indicateur { width: 20%; }
+        .col-total { width: 20%; }
+
+        /* Styles pour les montants négatifs ou nuls */
+        .montant-nul {
+            color: #666;
+            font-style: italic;
+        }
+
+        .montant-positif {
+            color: #000;
+            font-weight: normal;
+        }
+    </style>
+</head>
+<body>
+<div class="header">
+    <h1>{{titre}}</h1>
+    <div class="periode">Période du {{dateDebut}} au {{dateFin}}</div>
+</div>
+
+{{#if centres}}
+<table>
+    <thead>
+    <tr>
+        <th rowspan="2" class="col-centre">Centre de répartition</th>
+        <th colspan="2">Part revenant au centre au titre de</th>
+        <th rowspan="2" class="col-total">Part centre</th>
+    </tr>
+    <tr>
+        <th class="col-base">Répartition de base</th>
+        <th class="col-indicateur">Répartition part indicateur</th>
+    </tr>
+    </thead>
+    <tbody>
+    {{#each centres}}
+    <tr>
+        <!-- Centre de répartition -->
+        <td class="centre-cell">{{nomCentre}}</td>
+
+        <!-- Répartition de base -->
+        <td class="montant {{#if repartitionBase}}montant-positif{{else}}montant-nul{{/if}}">
+            {{#if repartitionBase}}{{repartitionBase}}{{else}}-{{/if}}
+        </td>
+
+        <!-- Répartition part indicateur -->
+        <td class="montant {{#if repartitionIndicateur}}montant-positif{{else}}montant-nul{{/if}}">
+            {{#if repartitionIndicateur}}{{repartitionIndicateur}}{{else}}-{{/if}}
+        </td>
+
+        <!-- Part centre totale -->
+        <td class="montant montant-positif">{{partTotalCentre}}</td>
+    </tr>
+    {{/each}}
+
+    <!-- Ligne de totaux -->
+    <tr class="total-row">
+        <td class="centre-cell"><strong>TOTAUX</strong></td>
+        <td class="montant"><strong>{{totalRepartitionBase}}</strong></td>
+        <td class="montant"><strong>{{totalRepartitionIndicateur}}</strong></td>
+        <td class="montant"><strong>{{totalPartCentre}}</strong></td>
+    </tr>
+    </tbody>
+</table>
+
+<div class="stats">
+    <strong>Statistiques :</strong>
+    {{nombreCentres}} centre(s) de répartition •
+    Total réparti : {{totalPartCentre}} FCFA<br>
+    Répartition de base : {{totalRepartitionBase}} FCFA •
+    Répartition indicateur : {{totalRepartitionIndicateur}} FCFA
+</div>
+{{/if}}
+
+{{#if rapport}}
+{{#if rapport.centres}}
+<!-- Le tableau sera affiché via la condition centres ci-dessus -->
+{{/if}}
+{{/if}}
+
+<!-- Message si aucun centre -->
+{{#unless centres}}
+<div class="stats" style="background: #fff3cd; border-color: #ffeaa7;">
+    <strong>Aucun centre de répartition</strong> trouvé pour la période sélectionnée.
+</div>
+{{/unless}}
+
+<div class="footer">
+    <strong>Template 3</strong> - État cumulé par centre de répartition<br>
+    Généré le {{dateGeneration}} par le système de gestion contentieux<br>
+    <em>Répartition des parts par centre selon l'activité de la période</em>
+</div>
+</body>
+</html>

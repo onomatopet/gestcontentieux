@@ -154,8 +154,6 @@ public class RapportService {
         public void setPartTotaleAgent(BigDecimal partTotaleAgent) { this.partTotaleAgent = partTotaleAgent; }
     }
 
-
-
     /**
      * ENRICHISSEMENT : Méthode pour générer l'état cumulé par agent
      */
@@ -2081,254 +2079,6 @@ public class RapportService {
     }
 
     /**
-     * CORRECTION BUG : Méthode manquante genererEtatRepartitionAffaires()
-     * Génère le HTML pour l'état de répartition des affaires
-     */
-    public String genererEtatRepartitionAffaires(LocalDate dateDebut, LocalDate dateFin) {
-        logger.info("📋 Génération HTML - État de répartition des affaires");
-
-        // Utiliser la méthode de données existante
-        RapportRepartitionDTO donnees = genererDonneesEtatRepartitionAffaires(dateDebut, dateFin);
-
-        StringBuilder html = new StringBuilder();
-        html.append("<h1>ÉTAT DE RÉPARTITION DES AFFAIRES CONTENTIEUSES</h1>");
-        html.append("<p>Période : ").append(DateFormatter.format(dateDebut));
-        html.append(" au ").append(DateFormatter.format(dateFin)).append("</p>");
-
-        html.append("<table border='1'>");
-        html.append("<tr><th>N° Affaire</th><th>Date</th><th>Montant Encaissé</th><th>Part État</th><th>Part Collectivité</th></tr>");
-
-        for (AffaireRepartitionDTO affaire : donnees.getAffaires()) {
-            html.append("<tr>");
-            html.append("<td>").append(affaire.getNumeroAffaire()).append("</td>");
-            html.append("<td>").append(DateFormatter.format(affaire.getDateEncaissement())).append("</td>");
-            html.append("<td>").append(CurrencyFormatter.format(affaire.getMontantEncaisse())).append("</td>");
-            html.append("<td>").append(CurrencyFormatter.format(affaire.getPartEtat())).append("</td>");
-            html.append("<td>").append(CurrencyFormatter.format(affaire.getPartCollectivite())).append("</td>");
-            html.append("</tr>");
-        }
-
-        html.append("</table>");
-
-        return html.toString();
-    }
-
-    /**
-     * CORRECTION BUG : Méthode manquante genererEtatMandatement()
-     * Génère le HTML pour l'état de mandatement
-     */
-    public String genererEtatMandatement(LocalDate dateDebut, LocalDate dateFin) {
-        logger.info("📋 Génération HTML - État de mandatement");
-
-        // Utiliser la méthode de données existante
-        EtatMandatementDTO donnees = genererDonneesEtatMandatement(dateDebut, dateFin);
-
-        StringBuilder html = new StringBuilder();
-        html.append("<h1>ÉTAT DE MANDATEMENT</h1>");
-        html.append("<p>Période : ").append(DateFormatter.format(dateDebut));
-        html.append(" au ").append(DateFormatter.format(dateFin)).append("</p>");
-
-        html.append("<table border='1'>");
-        html.append("<tr><th>Référence</th><th>Date</th><th>Produit Net</th><th>Part Chefs</th><th>Part Saisissants</th><th>Part Mutuelle</th><th>Part DG</th><th>Part DD</th></tr>");
-
-        for (MandatementDTO mandatement : donnees.getMandatements()) {
-            html.append("<tr>");
-            html.append("<td>").append(mandatement.getReference()).append("</td>");
-            html.append("<td>").append(DateFormatter.format(mandatement.getDateEncaissement())).append("</td>");
-            html.append("<td>").append(CurrencyFormatter.format(mandatement.getProduitNet())).append("</td>");
-            html.append("<td>").append(CurrencyFormatter.format(mandatement.getPartChefs())).append("</td>");
-            html.append("<td>").append(CurrencyFormatter.format(mandatement.getPartSaisissants())).append("</td>");
-            html.append("<td>").append(CurrencyFormatter.format(mandatement.getPartMutuelle())).append("</td>");
-            html.append("<td>").append(CurrencyFormatter.format(mandatement.getPartDG())).append("</td>");
-            html.append("<td>").append(CurrencyFormatter.format(mandatement.getPartDD())).append("</td>");
-            html.append("</tr>");
-        }
-
-        html.append("</table>");
-
-        return html.toString();
-    }
-
-    /**
-     * CORRECTION BUG : Méthode manquante genererEtatCentreRepartition()
-     */
-    public String genererEtatCentreRepartition(LocalDate dateDebut, LocalDate dateFin) {
-        logger.info("📋 Génération HTML - État centre répartition");
-
-        CentreRepartitionDTO donnees = genererDonneesCentreRepartition(dateDebut, dateFin);
-
-        StringBuilder html = new StringBuilder();
-        html.append("<h1>ÉTAT CUMULÉ PAR CENTRE DE RÉPARTITION</h1>");
-        html.append("<p>Période : ").append(DateFormatter.format(dateDebut));
-        html.append(" au ").append(DateFormatter.format(dateFin)).append("</p>");
-
-        html.append("<table border='1'>");
-        html.append("<tr><th>Centre</th><th>Nb Affaires</th><th>Répartition Base</th><th>Répartition Indicateur</th><th>Total Centre</th></tr>");
-
-        for (CentreStatsDTO centre : donnees.getCentres()) {
-            html.append("<tr>");
-            html.append("<td>").append(centre.getCentre().getNomCentre()).append("</td>");
-            html.append("<td>").append(centre.getNombreAffaires()).append("</td>");
-            html.append("<td>").append(CurrencyFormatter.format(centre.getRepartitionBase())).append("</td>");
-            html.append("<td>").append(CurrencyFormatter.format(centre.getRepartitionIndicateur())).append("</td>");
-            html.append("<td>").append(CurrencyFormatter.format(centre.getPartTotalCentre())).append("</td>");
-            html.append("</tr>");
-        }
-
-        html.append("</table>");
-        return html.toString();
-    }
-
-    /**
-     * CORRECTION BUG : Méthode manquante genererEtatIndicateursReels()
-     */
-    public String genererEtatIndicateursReels(LocalDate dateDebut, LocalDate dateFin) {
-        logger.info("📋 Génération HTML - État indicateurs réels");
-
-        IndicateursReelsDTO donnees = genererDonneesIndicateursReels(dateDebut, dateFin);
-
-        StringBuilder html = new StringBuilder();
-        html.append("<h1>ÉTAT DE RÉPARTITION DES PARTS INDICATEURS RÉELS</h1>");
-        html.append("<p>Période : ").append(DateFormatter.format(dateDebut));
-        html.append(" au ").append(DateFormatter.format(dateFin)).append("</p>");
-
-        html.append("<table border='1'>");
-        html.append("<tr><th>N° Affaire</th><th>Date</th><th>Indicateur</th><th>Montant</th></tr>");
-
-        for (IndicateurReelDTO indicateur : donnees.getIndicateurs()) {
-            html.append("<tr>");
-            html.append("<td>").append(indicateur.getNumeroAffaire()).append("</td>");
-            html.append("<td>").append(DateFormatter.format(indicateur.getDateEncaissement())).append("</td>");
-            html.append("<td>").append(indicateur.getIndicateur() != null ? indicateur.getIndicateur().getNomComplet() : "").append("</td>");
-            html.append("<td>").append(CurrencyFormatter.format(indicateur.getMontant())).append("</td>");
-            html.append("</tr>");
-        }
-
-        html.append("</table>");
-        return html.toString();
-    }
-
-    /**
-     * CORRECTION BUG : Méthode manquante genererEtatRepartitionProduit()
-     */
-    public String genererEtatRepartitionProduit(LocalDate dateDebut, LocalDate dateFin) {
-        logger.info("📋 Génération HTML - État répartition produit");
-
-        RepartitionProduitDTO donnees = genererDonneesRepartitionProduit(dateDebut, dateFin);
-
-        StringBuilder html = new StringBuilder();
-        html.append("<h1>ÉTAT DE RÉPARTITION DU PRODUIT DES AFFAIRES</h1>");
-        html.append("<p>Période : ").append(DateFormatter.format(dateDebut));
-        html.append(" au ").append(DateFormatter.format(dateFin)).append("</p>");
-
-        html.append("<table border='1'>");
-        html.append("<tr><th>N° Encaissement</th><th>N° Affaire</th><th>Produit Disponible</th><th>Part FLCF</th><th>Part Trésor</th><th>Part Ayants Droits</th></tr>");
-
-        for (LigneRepartitionDTO ligne : donnees.getLignes()) {
-            html.append("<tr>");
-            html.append("<td>").append(ligne.getNumeroEncaissement()).append("</td>");
-            html.append("<td>").append(ligne.getNumeroAffaire()).append("</td>");
-            html.append("<td>").append(CurrencyFormatter.format(ligne.getProduitDisponible())).append("</td>");
-            html.append("<td>").append(CurrencyFormatter.format(ligne.getPartFLCF())).append("</td>");
-            html.append("<td>").append(CurrencyFormatter.format(ligne.getPartTresor())).append("</td>");
-            html.append("<td>").append(CurrencyFormatter.format(ligne.getPartAyantsDroits())).append("</td>");
-            html.append("</tr>");
-        }
-
-        html.append("</table>");
-        return html.toString();
-    }
-
-    /**
-     * CORRECTION BUG : Méthode manquante genererEtatCumuleParAgent()
-     */
-    public String genererEtatCumuleParAgent(LocalDate dateDebut, LocalDate dateFin) {
-        logger.info("📋 Génération HTML - État cumulé par agent");
-
-        EtatCumuleAgentDTO donnees = genererDonneesEtatCumuleParAgent(dateDebut, dateFin);
-
-        StringBuilder html = new StringBuilder();
-        html.append("<h1>ÉTAT CUMULÉ PAR AGENT</h1>");
-        html.append("<p>Période : ").append(DateFormatter.format(dateDebut));
-        html.append(" au ").append(DateFormatter.format(dateFin)).append("</p>");
-
-        html.append("<table border='1'>");
-        html.append("<tr><th>Agent</th><th>Nb Affaires</th><th>Part Chef</th><th>Part Saisissant</th><th>Part DG</th><th>Part DD</th><th>Total</th></tr>");
-
-        for (AgentStatsDTO agent : donnees.getAgents()) {
-            html.append("<tr>");
-            html.append("<td>").append(agent.getAgent().getNomComplet()).append("</td>");
-            html.append("<td>").append(agent.getNombreAffaires()).append("</td>");
-            html.append("<td>").append(CurrencyFormatter.format(agent.getPartEnTantQueChef())).append("</td>");
-            html.append("<td>").append(CurrencyFormatter.format(agent.getPartEnTantQueSaisissant())).append("</td>");
-            html.append("<td>").append(CurrencyFormatter.format(agent.getPartEnTantQueDG())).append("</td>");
-            html.append("<td>").append(CurrencyFormatter.format(agent.getPartEnTantQueDD())).append("</td>");
-            html.append("<td>").append(CurrencyFormatter.format(agent.getPartTotaleAgent())).append("</td>");
-            html.append("</tr>");
-        }
-
-        html.append("</table>");
-        return html.toString();
-    }
-
-    /**
-     * CORRECTION BUG : Méthode manquante genererEtatMandatementAgents()
-     */
-    public String genererEtatMandatementAgents(LocalDate dateDebut, LocalDate dateFin) {
-        logger.info("📋 Génération HTML - État mandatement agents");
-
-        EtatMandatementDTO donnees = genererDonneesMandatementAgents(dateDebut, dateFin);
-
-        StringBuilder html = new StringBuilder();
-        html.append("<h1>ÉTAT DE MANDATEMENT PAR AGENTS</h1>");
-        html.append("<p>Période : ").append(DateFormatter.format(dateDebut));
-        html.append(" au ").append(DateFormatter.format(dateFin)).append("</p>");
-
-        html.append("<table border='1'>");
-        html.append("<tr><th>Agent</th><th>Montant Total</th><th>Observations</th></tr>");
-
-        for (MandatementDTO mandatement : donnees.getMandatements()) {
-            html.append("<tr>");
-            html.append("<td>").append(mandatement.getAgent() != null ? mandatement.getAgent().getNomComplet() : "").append("</td>");
-            html.append("<td>").append(CurrencyFormatter.format(mandatement.getMontantTotal())).append("</td>");
-            html.append("<td>").append(mandatement.getObservations()).append("</td>");
-            html.append("</tr>");
-        }
-
-        html.append("</table>");
-        return html.toString();
-    }
-
-    /**
-     * CORRECTION BUG : Méthode manquante genererTableauAmendesParServices()
-     */
-    public String genererTableauAmendesParServices(LocalDate dateDebut, LocalDate dateFin) {
-        logger.info("📋 Génération HTML - Tableau amendes par services");
-
-        TableauAmendesParServicesDTO donnees = genererDonneesTableauAmendesParServices(dateDebut, dateFin);
-
-        StringBuilder html = new StringBuilder();
-        html.append("<h1>TABLEAU DES AMENDES PAR SERVICES</h1>");
-        html.append("<p>Période : ").append(DateFormatter.format(dateDebut));
-        html.append(" au ").append(DateFormatter.format(dateFin)).append("</p>");
-
-        html.append("<table border='1'>");
-        html.append("<tr><th>Service</th><th>Nb Affaires</th><th>Montant Total</th><th>Observations</th></tr>");
-
-        for (ServiceAmendeDTO service : donnees.getServices()) {
-            html.append("<tr>");
-            html.append("<td>").append(service.getNomService()).append("</td>");
-            html.append("<td>").append(service.getNombreAffaires()).append("</td>");
-            html.append("<td>").append(CurrencyFormatter.format(service.getMontantTotal())).append("</td>");
-            html.append("<td>").append(service.getObservations()).append("</td>");
-            html.append("</tr>");
-        }
-
-        html.append("</table>");
-        return html.toString();
-    }
-
-    /**
      * DTO pour l'état des mandatements par agents
      */
     public static class EtatMandatementAgentsDTO {
@@ -2376,11 +2126,15 @@ public class RapportService {
     }
 
     /**
-     * DTO pour une ligne de mandatement - CORRIGÉ avec toutes les méthodes
+     * CORRECTION BUG : DTO pour une ligne de mandatement - CORRIGÉ avec toutes les méthodes et attributs manquants
      */
     public static class MandatementDTO {
+        // CORRECTION : Ajout des attributs manquants
         private String reference;
+        private String numeroEncaissement;
+        private String numeroAffaire;
         private LocalDate dateEncaissement;
+        private LocalDate dateAffaire;
         private Agent agent;
         private BigDecimal produitNet = BigDecimal.ZERO;
         private BigDecimal partChefs = BigDecimal.ZERO;
@@ -2399,18 +2153,24 @@ public class RapportService {
                     .add(partDG).add(partDD);
         }
 
-        // Getters et setters
+        // CORRECTION : Getters et setters complets
+        public String getReference() { return reference; }
+        public void setReference(String reference) { this.reference = reference; }
+
         public String getNumeroEncaissement() { return numeroEncaissement; }
         public void setNumeroEncaissement(String numeroEncaissement) { this.numeroEncaissement = numeroEncaissement; }
-
-        public LocalDate getDateEncaissement() { return dateEncaissement; }
-        public void setDateEncaissement(LocalDate dateEncaissement) { this.dateEncaissement = dateEncaissement; }
 
         public String getNumeroAffaire() { return numeroAffaire; }
         public void setNumeroAffaire(String numeroAffaire) { this.numeroAffaire = numeroAffaire; }
 
+        public LocalDate getDateEncaissement() { return dateEncaissement; }
+        public void setDateEncaissement(LocalDate dateEncaissement) { this.dateEncaissement = dateEncaissement; }
+
         public LocalDate getDateAffaire() { return dateAffaire; }
         public void setDateAffaire(LocalDate dateAffaire) { this.dateAffaire = dateAffaire; }
+
+        public Agent getAgent() { return agent; }
+        public void setAgent(Agent agent) { this.agent = agent; }
 
         public BigDecimal getProduitNet() { return produitNet; }
         public void setProduitNet(BigDecimal produitNet) { this.produitNet = produitNet; }
@@ -2429,6 +2189,15 @@ public class RapportService {
 
         public BigDecimal getPartInteressement() { return partInteressement; }
         public void setPartInteressement(BigDecimal partInteressement) { this.partInteressement = partInteressement; }
+
+        public BigDecimal getPartDG() { return partDG; }
+        public void setPartDG(BigDecimal partDG) { this.partDG = partDG; }
+
+        public BigDecimal getPartDD() { return partDD; }
+        public void setPartDD(BigDecimal partDD) { this.partDD = partDD; }
+
+        public BigDecimal getMontantTotal() { return montantTotal; }
+        public void setMontantTotal(BigDecimal montantTotal) { this.montantTotal = montantTotal; }
 
         public String getObservations() { return observations; }
         public void setObservations(String observations) { this.observations = observations; }
@@ -2912,143 +2681,6 @@ public class RapportService {
 
     // ==================== AUTRES CLASSES DTO UTILITAIRES ====================
 
-    public static class TableauAmendesServiceDTO {
-        private LocalDate dateDebut;
-        private LocalDate dateFin;
-        private LocalDate dateGeneration;
-        private String periodeLibelle;
-        private String titreRapport;
-        private List<ServiceStatsDTO> services = new ArrayList<>();
-        private int totalAffaires = 0;
-        private BigDecimal totalMontant = BigDecimal.ZERO;
-        private int nombreServices = 0;
-
-        public TableauAmendesServiceDTO() {
-            this.dateGeneration = LocalDate.now();
-        }
-
-        // Getters et setters
-        public LocalDate getDateDebut() { return dateDebut; }
-        public void setDateDebut(LocalDate dateDebut) { this.dateDebut = dateDebut; }
-
-        public LocalDate getDateFin() { return dateFin; }
-        public void setDateFin(LocalDate dateFin) { this.dateFin = dateFin; }
-
-        public LocalDate getDateGeneration() { return dateGeneration; }
-        public void setDateGeneration(LocalDate dateGeneration) { this.dateGeneration = dateGeneration; }
-
-        public String getPeriodeLibelle() { return periodeLibelle; }
-        public void setPeriodeLibelle(String periodeLibelle) { this.periodeLibelle = periodeLibelle; }
-
-        public String getTitreRapport() { return titreRapport; }
-        public void setTitreRapport(String titreRapport) { this.titreRapport = titreRapport; }
-
-        public List<ServiceStatsDTO> getServices() { return services; }
-        public void setServices(List<ServiceStatsDTO> services) { this.services = services; }
-
-        public int getTotalAffaires() { return totalAffaires; }
-        public void setTotalAffaires(int totalAffaires) { this.totalAffaires = totalAffaires; }
-
-        public BigDecimal getTotalMontant() { return totalMontant; }
-        public void setTotalMontant(BigDecimal totalMontant) { this.totalMontant = totalMontant; }
-
-        public int getNombreServices() { return nombreServices; }
-        public void setNombreServices(int nombreServices) { this.nombreServices = nombreServices; }
-    }
-
-    public static class EtatRepartitionAffairesDTO {
-        private LocalDate dateDebut;
-        private LocalDate dateFin;
-        private LocalDate dateGeneration;
-        private String periodeLibelle;
-        private String titreRapport;
-        private List<AffaireRepartitionDTO> affaires = new ArrayList<>();
-        private BigDecimal totalMontantAmendes = BigDecimal.ZERO;
-        private BigDecimal totalMontantEncaisse = BigDecimal.ZERO;
-        private BigDecimal totalPartEtat = BigDecimal.ZERO;
-        private BigDecimal totalPartCollectivite = BigDecimal.ZERO;
-        private int nombreAffaires = 0;
-
-        public EtatRepartitionAffairesDTO() {
-            this.dateGeneration = LocalDate.now();
-        }
-
-        // Getters et setters
-        public LocalDate getDateDebut() { return dateDebut; }
-        public void setDateDebut(LocalDate dateDebut) { this.dateDebut = dateDebut; }
-
-        public LocalDate getDateFin() { return dateFin; }
-        public void setDateFin(LocalDate dateFin) { this.dateFin = dateFin; }
-
-        public LocalDate getDateGeneration() { return dateGeneration; }
-        public void setDateGeneration(LocalDate dateGeneration) { this.dateGeneration = dateGeneration; }
-
-        public String getPeriodeLibelle() { return periodeLibelle; }
-        public void setPeriodeLibelle(String periodeLibelle) { this.periodeLibelle = periodeLibelle; }
-
-        public String getTitreRapport() { return titreRapport; }
-        public void setTitreRapport(String titreRapport) { this.titreRapport = titreRapport; }
-
-        public List<AffaireRepartitionDTO> getAffaires() { return affaires; }
-        public void setAffaires(List<AffaireRepartitionDTO> affaires) { this.affaires = affaires; }
-
-        public BigDecimal getTotalMontantAmendes() { return totalMontantAmendes; }
-        public void setTotalMontantAmendes(BigDecimal totalMontantAmendes) { this.totalMontantAmendes = totalMontantAmendes; }
-
-        public BigDecimal getTotalMontantEncaisse() { return totalMontantEncaisse; }
-        public void setTotalMontantEncaisse(BigDecimal totalMontantEncaisse) { this.totalMontantEncaisse = totalMontantEncaisse; }
-
-        public BigDecimal getTotalPartEtat() { return totalPartEtat; }
-        public void setTotalPartEtat(BigDecimal totalPartEtat) { this.totalPartEtat = totalPartEtat; }
-
-        public BigDecimal getTotalPartCollectivite() { return totalPartCollectivite; }
-        public void setTotalPartCollectivite(BigDecimal totalPartCollectivite) { this.totalPartCollectivite = totalPartCollectivite; }
-
-        public int getNombreAffaires() { return nombreAffaires; }
-        public void setNombreAffaires(int nombreAffaires) { this.nombreAffaires = nombreAffaires; }
-    }
-
-    // CORRECTION : Classes DTO manquantes avec validation `hasActivite()`
-    public static class ProduitRepartitionDTO {
-        private String numeroEncaissement;
-        private String numeroAffaire;
-        private LocalDate dateEncaissement;
-        private BigDecimal montantEncaisse;
-        private BigDecimal produitDisponible;
-        private BigDecimal partTresor;
-        private BigDecimal partFLCF;
-        private BigDecimal partAyantsDroits;
-        private String nomContrevenant;
-
-        // Getters et setters
-        public String getNumeroEncaissement() { return numeroEncaissement; }
-        public void setNumeroEncaissement(String numeroEncaissement) { this.numeroEncaissement = numeroEncaissement; }
-
-        public String getNumeroAffaire() { return numeroAffaire; }
-        public void setNumeroAffaire(String numeroAffaire) { this.numeroAffaire = numeroAffaire; }
-
-        public LocalDate getDateEncaissement() { return dateEncaissement; }
-        public void setDateEncaissement(LocalDate dateEncaissement) { this.dateEncaissement = dateEncaissement; }
-
-        public BigDecimal getMontantEncaisse() { return montantEncaisse; }
-        public void setMontantEncaisse(BigDecimal montantEncaisse) { this.montantEncaisse = montantEncaisse; }
-
-        public BigDecimal getProduitDisponible() { return produitDisponible; }
-        public void setProduitDisponible(BigDecimal produitDisponible) { this.produitDisponible = produitDisponible; }
-
-        public BigDecimal getPartTresor() { return partTresor; }
-        public void setPartTresor(BigDecimal partTresor) { this.partTresor = partTresor; }
-
-        public BigDecimal getPartFLCF() { return partFLCF; }
-        public void setPartFLCF(BigDecimal partFLCF) { this.partFLCF = partFLCF; }
-
-        public BigDecimal getPartAyantsDroits() { return partAyantsDroits; }
-        public void setPartAyantsDroits(BigDecimal partAyantsDroits) { this.partAyantsDroits = partAyantsDroits; }
-
-        public String getNomContrevenant() { return nomContrevenant; }
-        public void setNomContrevenant(String nomContrevenant) { this.nomContrevenant = nomContrevenant; }
-    }
-
     /**
      * DTO pour les indicateurs par service
      */
@@ -3090,8 +2722,6 @@ public class RapportService {
                     .filter(Objects::nonNull)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
         }
-
-
     }
 
     /**

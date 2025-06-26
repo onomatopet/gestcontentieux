@@ -34,7 +34,6 @@
             border: 1px solid #000;
             padding: 4px;
             text-align: left;
-            vertical-align: top;
         }
         th {
             background-color: #f0f0f0;
@@ -63,19 +62,6 @@
             padding: 10px;
             border: 1px solid #dee2e6;
         }
-
-        /* CORRECTION BUG 1 : Style pour colonnes N° + Date */
-        .encaissement-affaire {
-            font-size: 9px;
-            min-width: 100px;
-            vertical-align: top;
-        }
-        .encaissement-affaire small {
-            display: block;
-            font-size: 8px;
-            color: #666;
-            margin-top: 2px;
-        }
     </style>
 </head>
 <body>
@@ -88,7 +74,6 @@
 <table>
     <thead>
     <tr>
-        <!-- CORRECTION BUG 1 : Conformité Template de Rapports - 14 colonnes exactes -->
         <th>N° encaissement et Date</th>
         <th>N° Affaire et Date</th>
         <th>Produit disponible</th>
@@ -108,15 +93,8 @@
     <tbody>
     {{#each affaires}}
     <tr>
-        <!-- CORRECTION BUG 1 : Format N° + Date sur une seule colonne -->
-        <td class="encaissement-affaire">
-            {{numeroEncaissement}}<br/>
-            <small>{{dateEncaissement}}</small>
-        </td>
-        <td class="encaissement-affaire">
-            {{numeroAffaire}}<br/>
-            <small>{{dateAffaire}}</small>
-        </td>
+        <td>{{numeroEncaissement}}<br/><small>{{dateEncaissement}}</small></td>
+        <td>{{numeroAffaire}}<br/><small>{{dateCreation}}</small></td>
         <td class="montant">{{produitDisponible}}</td>
         <td class="montant">{{partDD}}</td>
         <td class="montant">{{partIndicateur}}</td>
@@ -136,10 +114,10 @@
     <tr class="total-row">
         <td colspan="2"><strong>TOTAUX</strong></td>
         <td class="montant"><strong>{{totalProduitDisponible}}</strong></td>
-        <td class="montant"><strong>-</strong></td>
+        <td class="montant"><strong>{{totalPartDD}}</strong></td>
         <td class="montant"><strong>{{totalPartIndicateur}}</strong></td>
         <td class="montant"><strong>{{totalProduitNet}}</strong></td>
-        <td class="montant"><strong>{{totalPartFLCF}}</strong></td>
+        <td class="montant"><strong>{{totalPartFlcf}}</strong></td>
         <td class="montant"><strong>{{totalPartTresor}}</strong></td>
         <td class="montant"><strong>{{totalPartAyantsDroits}}</strong></td>
         <td class="montant"><strong>{{totalPartChefs}}</strong></td>
@@ -154,11 +132,7 @@
 <div class="stats">
     <strong>Statistiques :</strong>
     {{nombreAffaires}} affaire(s) •
-    Total encaissé : {{totalEncaisse}} FCFA
-</div>
-{{else}}
-<div class="stats">
-    <strong>⚠️ Aucune donnée disponible pour cette période</strong>
+    Total produit disponible : {{totalProduitDisponible}} FCFA
 </div>
 {{/if}}
 

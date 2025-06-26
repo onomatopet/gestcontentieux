@@ -19,6 +19,12 @@
             font-size: 16px;
             font-weight: bold;
         }
+        h3 {
+            margin-top: 20px;
+            margin-bottom: 10px;
+            font-size: 14px;
+            font-weight: bold;
+        }
         .periode {
             margin-bottom: 20px;
             font-weight: bold;
@@ -62,6 +68,10 @@
             padding: 10px;
             border: 1px solid #dee2e6;
         }
+        small {
+            font-size: 8px;
+            color: #666;
+        }
     </style>
 </head>
 <body>
@@ -71,7 +81,9 @@
 </div>
 
 {{#if mandatements}}
-<table>
+{{#each mandatements}}
+<h3>Bénéficiaire: {{agent.nom}} {{agent.prenom}}</h3>
+<table border="1">
     <thead>
     <tr>
         <th rowspan="2">N° encaissement et Date</th>
@@ -88,36 +100,30 @@
     </tr>
     </thead>
     <tbody>
-    {{#each mandatements}}
     <tr>
-        <td>{{reference}}<br/>{{dateEncaissement}}</td>
-        <td>{{numeroAffaire}}<br/>{{dateAffaire}}</td>
+        <td>{{reference}}<br/>
+            <small>{{dateEncaissement}}</small></td>
+        <td>{{numeroAffaire}}<br/>
+            <small>{{dateAffaire}}</small></td>
         <td class="montant">{{partChefs}}</td>
         <td class="montant">{{partSaisissants}}</td>
         <td class="montant">{{partMutuelle}}</td>
         <td class="montant">{{partDG}}</td>
         <td class="montant">{{partDD}}</td>
-        <td class="montant">{{partAgent}}</td>
-    </tr>
-    {{/each}}
-
-    <!-- Ligne de totaux -->
-    <tr class="total-row">
-        <td colspan="2"><strong>TOTAUX</strong></td>
-        <td class="montant"><strong>{{totalChefs}}</strong></td>
-        <td class="montant"><strong>{{totalSaisissants}}</strong></td>
-        <td class="montant"><strong>{{totalMutuelle}}</strong></td>
-        <td class="montant"><strong>{{totalDG}}</strong></td>
-        <td class="montant"><strong>{{totalDD}}</strong></td>
-        <td class="montant"><strong>{{totalPartAgent}}</strong></td>
+        <td class="montant">{{montantTotal}}</td>
     </tr>
     </tbody>
 </table>
+{{/each}}
 
 <div class="stats">
     <strong>Statistiques :</strong>
     {{nombreMandatements}} mandatement(s) •
-    Total part agents : {{totalPartAgent}} FCFA
+    Total part agents : {{totalMontantMandatement}} FCFA
+</div>
+{{else}}
+<div class="stats">
+    <p>Aucun mandatement d'agent trouvé pour cette période.</p>
 </div>
 {{/if}}
 

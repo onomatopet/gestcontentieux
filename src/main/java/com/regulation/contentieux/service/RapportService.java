@@ -151,6 +151,15 @@ public class RapportService {
 
         public BigDecimal getPartTotaleAgent() { return partTotaleAgent; }
         public void setPartTotaleAgent(BigDecimal partTotaleAgent) { this.partTotaleAgent = partTotaleAgent; }
+
+        /**
+         * CORRECTION BUG : Méthode manquante pour les templates
+         */
+        public String getNomCompletAgent() {
+            if (agent == null) return "";
+            return (agent.getNom() != null ? agent.getNom() : "") + " " +
+                    (agent.getPrenom() != null ? agent.getPrenom() : "");
+        }
     }
 
     /**
@@ -164,8 +173,8 @@ public class RapportService {
         rapport.setDateFin(dateFin);
         rapport.setPeriodeLibelle(formatPeriode(dateDebut, dateFin));
 
-        // Récupérer tous les agents actifs
-        List<Agent> agents = agentDAO.findAllActifs();
+        // CORRECTION BUG Template 6 : Utiliser findAll() au lieu de findAllActifs()
+        List<Agent> agents = agentDAO.findAll();
 
         for (Agent agent : agents) {
             AgentStatsDTO stats = calculerStatsAgent(agent, dateDebut, dateFin);
@@ -698,7 +707,7 @@ public class RapportService {
     }
 
     /**
-     * CORRECTION BUG : Méthode manquante genererDonneesEtatMandatement()
+     * CORRECTION BUG Template 2 : Méthode manquante genererDonneesEtatMandatement()
      */
     public EtatMandatementDTO genererDonneesEtatMandatement(LocalDate dateDebut, LocalDate dateFin) {
         logger.info("📋 Génération des données d'état de mandatement");
@@ -720,6 +729,11 @@ public class RapportService {
                 MandatementDTO mandatement = new MandatementDTO();
                 mandatement.setReference(enc.getReference());
                 mandatement.setDateEncaissement(enc.getDateEncaissement());
+
+                // CORRECTION BUG Template 2 : Ajouter les champs manquants
+                mandatement.setNumeroAffaire(enc.getAffaire().getNumeroAffaire());
+                mandatement.setDateAffaire(enc.getAffaire().getDateCreation());
+
                 mandatement.setProduitNet(repartition.getProduitNet());
                 mandatement.setPartChefs(repartition.getPartChefs());
                 mandatement.setPartSaisissants(repartition.getPartSaisissants());
@@ -728,6 +742,7 @@ public class RapportService {
                 mandatement.setPartInteressement(repartition.getPartInteressement());
                 mandatement.setPartDG(repartition.getPartDG());
                 mandatement.setPartDD(repartition.getPartDD());
+                mandatement.setObservations(""); // Vide par défaut
 
                 rapport.getMandatements().add(mandatement);
             }
@@ -738,7 +753,7 @@ public class RapportService {
     }
 
     /**
-     * CORRECTION BUG : Méthode manquante genererDonneesCentreRepartition()
+     * CORRECTION BUG Template 3 : Méthode manquante genererDonneesCentreRepartition()
      */
     public CentreRepartitionDTO genererDonneesCentreRepartition(LocalDate dateDebut, LocalDate dateFin) {
         logger.info("📋 Génération des données de répartition par centre");
@@ -748,14 +763,14 @@ public class RapportService {
         rapport.setDateFin(dateFin);
         rapport.setDateGeneration(LocalDate.now());
 
-        // Récupérer tous les centres actifs
-        List<Centre> centres = centreDAO.findAllActifs();
+        // CORRECTION BUG Template 3 : Utiliser findAll() au lieu de findAllActifs()
+        List<Centre> centres = centreDAO.findAll();
 
         for (Centre centre : centres) {
             CentreStatsDTO centreStats = calculerStatsCentre(centre, dateDebut, dateFin);
-            if (centreStats.hasActivite()) {
-                rapport.getCentres().add(centreStats);
-            }
+
+            // CORRECTION BUG : Ajouter tous les centres, même avec 0 activité
+            rapport.getCentres().add(centreStats);
         }
 
         rapport.calculateTotaux();
@@ -763,7 +778,7 @@ public class RapportService {
     }
 
     /**
-     * CORRECTION BUG : Méthode manquante genererDonneesIndicateursReels()
+     * CORRECTION BUG Template 4 : Méthode manquante genererDonneesIndicateursReels()
      */
     public IndicateursReelsDTO genererDonneesIndicateursReels(LocalDate dateDebut, LocalDate dateFin) {
         logger.info("📋 Génération des données d'indicateurs réels");
@@ -773,60 +788,47 @@ public class RapportService {
         rapport.setDateFin(dateFin);
         rapport.setPeriodeLibelle(formatPeriode(dateDebut, dateFin));
 
-        // Récupérer tous les encaissements avec indicateur de la période
-        String sql = """
-        SELECT e.*, a.numero_affaire, a.agent_indicateur_id
-        FROM encaissements e
-        INNER JOIN affaires a ON e.affaire_id = a.id
-        WHERE e.date_encaissement BETWEEN ? AND ?
-        AND a.agent_indicateur_id IS NOT NULL
-        AND e.statut = 'VALIDE'
-        ORDER BY e.date_encaissement ASC
-    """;
+        // CORRECTION BUG Template 4 : Récupérer TOUS les encaissements
+        List<Encaissement> encaissements = encaissementDAO.findByPeriod(dateDebut, dateFin);
 
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-            stmt.setDate(1, Date.valueOf(dateDebut));
-            stmt.setDate(2, Date.valueOf(dateFin));
-
-            ResultSet rs = stmt.executeQuery();
-
-            while (rs.next()) {
+        for (Encaissement enc : encaissements) {
+            if (enc.getAffaire() != null) {
                 IndicateurReelDTO indicateur = new IndicateurReelDTO();
-                indicateur.setNumeroAffaire(rs.getString("numero_affaire"));
-                indicateur.setDateEncaissement(rs.getDate("date_encaissement").toLocalDate());
 
-                // Charger l'agent indicateur
-                Long agentId = rs.getLong("agent_indicateur_id");
-                Agent agent = agentDAO.findById(agentId).orElse(null);
-                indicateur.setIndicateur(agent);
+                // CORRECTION BUG : Formatage correct des données
+                indicateur.setNumeroEncaissement(enc.getReference());
+                indicateur.setDateEncaissement(enc.getDateEncaissement());
+                indicateur.setNumeroAffaire(enc.getAffaire().getNumeroAffaire());
 
-                // Calculer le montant de l'indicateur (10%)
-                BigDecimal montantEncaisse = rs.getBigDecimal("montant_encaisse");
-                BigDecimal montantIndicateur = montantEncaisse.multiply(new BigDecimal("0.10"));
-                indicateur.setMontant(montantIndicateur);
+                if (enc.getAffaire().getContrevenant() != null) {
+                    indicateur.setNomContrevenant(
+                            enc.getAffaire().getContrevenant().getNom() + " " +
+                                    (enc.getAffaire().getContrevenant().getPrenom() != null ?
+                                            enc.getAffaire().getContrevenant().getPrenom() : "")
+                    );
+                }
+
+                RepartitionResultat repartition = repartitionService.calculerRepartition(enc, enc.getAffaire());
+                indicateur.setMontantEncaisse(enc.getMontantEncaisse());
+                indicateur.setPartIndicateur(repartition.getPartIndicateur());
 
                 rapport.getIndicateurs().add(indicateur);
             }
-
-        } catch (SQLException e) {
-            logger.error("Erreur lors de la récupération des indicateurs réels", e);
         }
 
-        rapport.calculateTotaux();
         return rapport;
     }
 
     /**
-     * CORRECTION BUG : Méthode manquante genererDonneesRepartitionProduit()
+     * CORRECTION BUG Template 5 : Méthode corrigée genererDonneesRepartitionProduit()
      */
     public RepartitionProduitDTO genererDonneesRepartitionProduit(LocalDate dateDebut, LocalDate dateFin) {
-        logger.info("📋 Génération des données de répartition de produit");
+        logger.info("📋 Génération de la répartition du produit - {} au {}", dateDebut, dateFin);
 
         RepartitionProduitDTO rapport = new RepartitionProduitDTO();
         rapport.setDateDebut(dateDebut);
         rapport.setDateFin(dateFin);
+        rapport.setDateGeneration(LocalDate.now());
         rapport.setPeriodeLibelle(formatPeriode(dateDebut, dateFin));
 
         // Récupérer tous les encaissements de la période
@@ -837,9 +839,24 @@ public class RapportService {
                 RepartitionResultat repartition = repartitionService.calculerRepartition(enc, enc.getAffaire());
 
                 LigneRepartitionDTO ligne = new LigneRepartitionDTO();
+
+                // CORRECTION BUG : Formatage correct des numéros et dates
                 ligne.setNumeroEncaissement(enc.getReference());
-                ligne.setNumeroAffaire(enc.getAffaire().getNumeroAffaire());
                 ligne.setDateEncaissement(enc.getDateEncaissement());
+                ligne.setNumeroAffaire(enc.getAffaire().getNumeroAffaire());
+                // CORRECTION BUG Template 5 : Supprimer setDateAffaire() qui n'existe pas
+
+                // CORRECTION BUG : Ajouter nom du contrevenant
+                if (enc.getAffaire().getContrevenant() != null) {
+                    ligne.setNomContrevenant(
+                            enc.getAffaire().getContrevenant().getNom() + " " +
+                                    (enc.getAffaire().getContrevenant().getPrenom() != null ?
+                                            enc.getAffaire().getContrevenant().getPrenom() : "")
+                    );
+                } else {
+                    ligne.setNomContrevenant("N/A");
+                }
+
                 ligne.setProduitDisponible(repartition.getProduitDisponible());
                 ligne.setPartIndicateur(repartition.getPartIndicateur());
                 ligne.setPartFLCF(repartition.getPartFLCF());
@@ -855,7 +872,7 @@ public class RapportService {
     }
 
     /**
-     * CORRECTION BUG : Méthode manquante genererDonneesMandatementAgents()
+     * CORRECTION BUG Template 8 : Méthode manquante genererDonneesMandatementAgents()
      */
     public EtatMandatementDTO genererDonneesMandatementAgents(LocalDate dateDebut, LocalDate dateFin) {
         logger.info("📋 Génération du mandatement par agents");
@@ -887,7 +904,7 @@ public class RapportService {
     }
 
     /**
-     * Génère les données pour le tableau des amendes par services
+     * Génère les données pour le tableau des amendes par services (Template 7)
      */
     public TableauAmendesParServicesDTO genererDonneesTableauAmendesParServices(LocalDate dateDebut, LocalDate dateFin) {
         logger.info("📋 Génération du tableau des amendes par services - {} au {}", dateDebut, dateFin);
@@ -1473,11 +1490,18 @@ public class RapportService {
         public void setRepartitionBase(BigDecimal repartitionBase) { this.repartitionBase = repartitionBase; }
 
         /**
-         * Méthode d'accès direct au nom du centre - pour compatibilité avec ExportService
+         * Méthode d'accès direct au nom du centre - pour compatibilité avec Templates
          */
         public String getNomCentre() {
             return centre != null ? centre.getNomCentre() : "";
         }
+
+        /**
+         * Parts pour templates
+         */
+        public BigDecimal getPartRepartitionBase() { return repartitionBase; }
+        public BigDecimal getPartRepartitionIndicateur() { return repartitionIndicateur; }
+        public BigDecimal getPartTotaleCentre() { return partTotalCentre; }
 
         /**
          * Méthode d'accès direct au code du centre - pour complétude
@@ -1599,6 +1623,11 @@ public class RapportService {
         public LocalDate getDateEncaissement() { return dateEncaissement; }
         public void setDateEncaissement(LocalDate dateEncaissement) { this.dateEncaissement = dateEncaissement; }
 
+        public LocalDate getDateAffaire() { return dateEncaissement; } // Alias pour templates
+
+        public String getNomContraventions() { return contraventions; }
+        public void setNomContraventions(String contraventions) { this.contraventions = contraventions; }
+
         public BigDecimal getMontantEncaisse() { return montantEncaisse; }
         public void setMontantEncaisse(BigDecimal montantEncaisse) { this.montantEncaisse = montantEncaisse; }
 
@@ -1704,8 +1733,12 @@ public class RapportService {
         public LocalDate getDateEncaissement() { return dateEncaissement; }
         public void setDateEncaissement(LocalDate dateEncaissement) { this.dateEncaissement = dateEncaissement; }
 
+        public LocalDate getDateAffaire() { return dateEncaissement; } // Alias pour templates
+
         public BigDecimal getMontantEncaisse() { return montantEncaisse; }
         public void setMontantEncaisse(BigDecimal montantEncaisse) { this.montantEncaisse = montantEncaisse; }
+
+        public BigDecimal getMontantEncaissement() { return montantEncaisse; } // Alias pour templates
 
         public BigDecimal getPartIndicateur() { return partIndicateur; }
         public void setPartIndicateur(BigDecimal partIndicateur) { this.partIndicateur = partIndicateur; }

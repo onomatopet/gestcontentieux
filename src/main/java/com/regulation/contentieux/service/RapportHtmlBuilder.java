@@ -68,10 +68,6 @@ public class RapportHtmlBuilder {
      */
     private Object getDataForType(TypeRapport type, LocalDate debut, LocalDate fin) {
         return switch(type) {
-            case ETAT_REPARTITION_AFFAIRES -> {
-                logger.debug("📊 Récupération données Template 1 - État répartition affaires");
-                yield rapportService.genererDonneesEtatRepartitionAffaires(debut, fin);
-            }
             case ETAT_MANDATEMENT -> {
                 logger.debug("📊 Récupération données Template 2 - État mandatement");
                 yield rapportService.genererDonneesEtatMandatement(debut, fin);
@@ -87,6 +83,10 @@ public class RapportHtmlBuilder {
             case REPARTITION_PRODUIT -> {
                 logger.debug("📊 Récupération données Template 5 - Répartition produit");
                 yield rapportService.genererDonneesRepartitionProduit(debut, fin);
+            }
+            case ETAT_REPARTITION_AFFAIRES -> {
+                logger.debug("📊 Récupération données Template 1 - État répartition affaires");
+                yield rapportService.genererDonneesEtatRepartitionAffaires(debut, fin);
             }
             case ETAT_CUMULE_AGENT -> {
                 logger.debug("📊 Récupération données Template 6 - Cumulé par agent");
@@ -197,6 +197,48 @@ public class RapportHtmlBuilder {
         }
 
         // Ajouter une variable de vérification
+        context.put("hasData", data != null);
+        context.put("dataType", data != null ? data.getClass().getSimpleName() : "null");
+    }
+
+    private void addDataToContext(Map<String, Object> context, Object data, TypeRapport type) {
+        if (data instanceof RapportService.RapportRepartitionDTO rapport) {
+            // Template 1 - État de répartition des affaires (fonctionne déjà)
+            context.put("affaires", rapport.getAffaires());
+            context.put("nombreAffaires", rapport.getAffaires() != null ? rapport.getAffaires().size() : 0);
+
+        } else if (data instanceof RapportService.EtatMandatementDTO mandatement) {
+            // CORRECTION Template 2 : Mapping correct des mandatements
+            context.put("mandatements", mandatement.getMandatements());
+            context.put("nombreMandatements", mandatement.getMandatements() != null ? mandatement.getMandatements().size() : 0);
+
+        } else if (data instanceof RapportService.CentreRepartitionDTO centres) {
+            // CORRECTION Template 3 : Mapping correct des centres
+            context.put("centres", centres.getCentres());
+            context.put("nombreCentres", centres.getCentres() != null ? centres.getCentres().size() : 0);
+
+        } else if (data instanceof RapportService.IndicateursReelsDTO indicateurs) {
+            // CORRECTION Template 4 : Mapping correct des indicateurs
+            context.put("indicateurs", indicateurs.getIndicateurs());
+            context.put("nombreIndicateurs", indicateurs.getIndicateurs() != null ? indicateurs.getIndicateurs().size() : 0);
+
+        } else if (data instanceof RapportService.RepartitionProduitDTO produit) {
+            // CORRECTION Template 5 : Mapping correct des lignes
+            context.put("lignes", produit.getLignes());
+            context.put("nombreLignes", produit.getLignes() != null ? produit.getLignes().size() : 0);
+
+        } else if (data instanceof RapportService.EtatCumuleAgentDTO cumuleAgent) {
+            // CORRECTION Template 6 : Mapping correct des agents
+            context.put("agents", cumuleAgent.getAgents());
+            context.put("nombreAgents", cumuleAgent.getAgents() != null ? cumuleAgent.getAgents().size() : 0);
+
+        } else if (data instanceof RapportService.TableauAmendesParServicesDTO amendes) {
+            // CORRECTION Template 7 : Mapping correct des services
+            context.put("services", amendes.getServices());
+            context.put("nombreServices", amendes.getServices() != null ? amendes.getServices().size() : 0);
+        }
+
+        // Variables communes - CORRECTION : retirer hasActualData() qui n'existe pas
         context.put("hasData", data != null);
         context.put("dataType", data != null ? data.getClass().getSimpleName() : "null");
     }

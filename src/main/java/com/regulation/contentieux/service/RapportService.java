@@ -789,9 +789,9 @@ public class RapportService {
         rapport.setDateFin(dateFin);
         rapport.setDateGeneration(LocalDate.now());
         rapport.setPeriodeLibelle(formatPeriode(dateDebut, dateFin));
+        rapport.setTitreRapport("ETAT CUMULE PAR CENTRE DE REPARTITION");
 
         try {
-            // CORRECTION : Utiliser centreDAO.findAll() (Centre existe, pas CentreRepartition)
             List<Centre> centres;
             try {
                 centres = centreDAO.findAll();
@@ -945,7 +945,7 @@ public class RapportService {
     /**
      * CORRECTION : Créer des centres simulés (Centre pas CentreRepartition)
      */
-    private List<Centre> creerCentresSimulesCorrects() {
+    private List<Centre> creerCentresSimules() {
         List<Centre> centresSimules = new ArrayList<>();
 
         String[] nomsCentres = {"Centre Ville", "Centre Nord", "Centre Sud", "Centre Est"};
@@ -953,9 +953,9 @@ public class RapportService {
         for (int i = 0; i < nomsCentres.length; i++) {
             Centre centre = new Centre();
             centre.setId((long) (i + 1));
-            // CORRECTION : Utiliser setNomCentre() (pas setNom())
-            centre.setNomCentre(nomsCentres[i]);
-            centre.setCodeCentre("C" + String.format("%03d", i + 1));
+            centre.setNomCentre(nomsCentres[i]); // CORRECTION: setNomCentre() au lieu de setNom()
+            centre.setCodeCentre("C" + String.format("%03d", i + 1)); // CORRECTION: setCodeCentre() au lieu de setCode()
+            centre.setActif(true);
             centresSimules.add(centre);
         }
 
@@ -966,29 +966,32 @@ public class RapportService {
      * CORRECTION : Créer des CentreStatsDTO simulés (pas CentreRepartitionData)
      */
     private List<CentreStatsDTO> creerCentresStatsSimules() {
-        List<CentreStatsDTO> centresStatsSimules = new ArrayList<>();
+        List<CentreStatsDTO> centresStats = new ArrayList<>();
 
         String[] nomsCentres = {"Centre Ville", "Centre Nord", "Centre Sud", "Centre Est"};
 
         for (int i = 0; i < nomsCentres.length; i++) {
-            CentreStatsDTO centreStats = new CentreStatsDTO();
+            CentreStatsDTO stats = new CentreStatsDTO();
 
+            // Créer l'entité Centre
             Centre centre = new Centre();
             centre.setId((long) (i + 1));
-            // CORRECTION : Utiliser setNomCentre() (pas setNom())
             centre.setNomCentre(nomsCentres[i]);
             centre.setCodeCentre("C" + String.format("%03d", i + 1));
+            centre.setActif(true);
 
-            centreStats.setCentre(centre);
-            centreStats.setRepartitionBase(BigDecimal.valueOf(200000 + i * 50000));
-            centreStats.setRepartitionIndicateur(BigDecimal.valueOf(75000 + i * 25000));
-            centreStats.setPartTotalCentre(centreStats.getRepartitionBase().add(centreStats.getRepartitionIndicateur()));
-            centreStats.setMontantTotal(centreStats.getPartTotalCentre());
+            // Assigner au DTO
+            stats.setCentre(centre);
+            stats.setNombreAffaires(5 + i * 2);
+            stats.setMontantTotal(BigDecimal.valueOf(300000 + i * 100000));
+            stats.setRepartitionBase(BigDecimal.valueOf(180000 + i * 60000)); // 60% du total
+            stats.setRepartitionIndicateur(BigDecimal.valueOf(30000 + i * 10000)); // 10% du total
+            stats.setPartTotalCentre(stats.getRepartitionBase().add(stats.getRepartitionIndicateur()));
 
-            centresStatsSimules.add(centreStats);
+            centresStats.add(stats);
         }
 
-        return centresStatsSimules;
+        return centresStats;
     }
 
     /**

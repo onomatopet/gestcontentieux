@@ -1,12 +1,10 @@
 package com.regulation.contentieux.service;
 
 import com.regulation.contentieux.dao.ContraventionDAO;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Date;
 
+import java.sql.*;
+
+import java.sql.Date;
 import java.util.stream.Collectors;
 import com.regulation.contentieux.config.DatabaseConfig;
 import com.regulation.contentieux.dao.*;
@@ -32,19 +30,19 @@ public class RapportService {
 
     private static final Logger logger = LoggerFactory.getLogger(RapportService.class);
 
-    // Pourcentages de répartition selon la réglementation
-    private static final BigDecimal POURCENTAGE_ETAT = new BigDecimal("60.00");
-    private static final BigDecimal POURCENTAGE_COLLECTIVITE = new BigDecimal("40.00");
-
     private AffaireDAO affaireDAO = new AffaireDAO();
     private EncaissementDAO encaissementDAO = new EncaissementDAO();
     private AgentDAO agentDAO = new AgentDAO();
     private ServiceDAO serviceDAO = new ServiceDAO();
-    private CentreDAO centreDAO = new CentreDAO();
-    private ContraventionDAO contraventionDAO; // CORRECTION : Variable manquante
+    private CentreDAO centreDAO = new CentreDAO();  // <-- CETTE LIGNE DOIT EXISTER
+    private ContraventionDAO contraventionDAO = new ContraventionDAO();
+    private AffaireCentreDAO affaireCentreDAO = new AffaireCentreDAO(); // <-- AJOUTER CETTE LIGNE
     private PrintService printService = new PrintService();
     private RepartitionService repartitionService = new RepartitionService();
 
+    // Pourcentages de répartition selon la réglementation
+    private static final BigDecimal POURCENTAGE_ETAT = new BigDecimal("60.00");
+    private static final BigDecimal POURCENTAGE_COLLECTIVITE = new BigDecimal("40.00");
 
     // CORRECTION : Définir les constantes de rôles spéciaux correctement
     private static final String ROLE_DG = "DG";
@@ -782,7 +780,7 @@ public class RapportService {
      * CORRECTION BUG Template 3 : Méthode manquante genererDonneesCentreRepartition()
      */
     public CentreRepartitionDTO genererDonneesCentreRepartition(LocalDate dateDebut, LocalDate dateFin) {
-        logger.info("📋 Génération des données de répartition par centre - {} au {}", dateDebut, dateFin);
+        logger.info("📋 Génération rapport centre avec nouveau DAO");
 
         CentreRepartitionDTO rapport = new CentreRepartitionDTO();
         rapport.setDateDebut(dateDebut);
@@ -791,100 +789,29 @@ public class RapportService {
         rapport.setPeriodeLibelle(formatPeriode(dateDebut, dateFin));
         rapport.setTitreRapport("ETAT CUMULE PAR CENTRE DE REPARTITION");
 
-        try {
-            // Récupérer tous les centres depuis la base
-            List<Centre> centres = centreDAO.findAll();
-            logger.info("🔍 Nombre de centres trouvés en base: {}", centres.size());
+        // Utiliser la méthode du DAO
+        List<AffaireCentreDAO.CentreRepartitionStat> stats =
+                affaireCentreDAO.getStatsByCentrePeriode(dateDebut, dateFin);
 
-            if (centres.isEmpty()) {
-                logger.warn("⚠️ Aucun centre trouvé en base de données");
-                rapport.setCentres(creerCentresStatsSimules());
-            } else {
-                // Pour chaque centre, calculer les statistiques réelles
-                for (Centre centre : centres) {
-                    try {
-                        CentreStatsDTO centreStats = new CentreStatsDTO();
-                        centreStats.setCentre(centre);
+        for (AffaireCentreDAO.CentreRepartitionStat stat : stats) {
+            CentreStatsDTO centreStats = new CentreStatsDTO();
 
-                        // Requête SQL pour récupérer les vraies données
-                        String sql = """
-                        SELECT 
-                            COUNT(DISTINCT a.id) as nombre_affaires,
-                            COALESCE(SUM(e.montant_encaisse), 0) as montant_total
-                        FROM affaires a
-                        LEFT JOIN encaissements e ON a.id = e.affaire_id
-                        WHERE a.centre_id = ? 
-                        AND e.date_encaissement BETWEEN ? AND ?
-                        AND e.statut = 'VALIDE'
-                    """;
+            // CORRECTION : "center" -> "centre"
+            Centre centre = centreDAO.findById(stat.getCentreId()).orElse(null);
+            if (centre != null) {  // <-- CORRECTION ICI
+                centreStats.setCentre(centre);
+                centreStats.setNombreAffaires(stat.getNombreAffaires());
+                centreStats.setMontantTotal(stat.getMontantTotal());
+                centreStats.setRepartitionBase(stat.getMontantBase());
+                centreStats.setRepartitionIndicateur(stat.getMontantIndicateur());
+                centreStats.setPartTotalCentre(stat.getMontantTotal());
 
-                        try (Connection conn = DatabaseConfig.getSQLiteConnection();
-                             PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-                            stmt.setLong(1, centre.getId());
-                            stmt.setDate(2, Date.valueOf(dateDebut));
-                            stmt.setDate(3, Date.valueOf(dateFin));
-
-                            try (ResultSet rs = stmt.executeQuery()) {
-                                if (rs.next()) {
-                                    int nombreAffaires = rs.getInt("nombre_affaires");
-                                    BigDecimal montantTotal = rs.getBigDecimal("montant_total");
-
-                                    if (montantTotal == null) montantTotal = BigDecimal.ZERO;
-
-                                    // Calcul des répartitions selon les règles métier
-                                    BigDecimal repartitionBase = montantTotal.multiply(new BigDecimal("0.60"));
-                                    BigDecimal repartitionIndicateur = montantTotal.multiply(new BigDecimal("0.10"));
-                                    BigDecimal partTotalCentre = repartitionBase.add(repartitionIndicateur);
-
-                                    centreStats.setNombreAffaires(nombreAffaires);
-                                    centreStats.setMontantTotal(montantTotal);
-                                    centreStats.setRepartitionBase(repartitionBase);
-                                    centreStats.setRepartitionIndicateur(repartitionIndicateur);
-                                    centreStats.setPartTotalCentre(partTotalCentre);
-
-                                    logger.debug("✅ Centre {} - Affaires: {}, Montant: {}",
-                                            centre.getNomCentre(), nombreAffaires, montantTotal);
-                                } else {
-                                    // Aucune donnée pour ce centre
-                                    centreStats.setNombreAffaires(0);
-                                    centreStats.setMontantTotal(BigDecimal.ZERO);
-                                    centreStats.setRepartitionBase(BigDecimal.ZERO);
-                                    centreStats.setRepartitionIndicateur(BigDecimal.ZERO);
-                                    centreStats.setPartTotalCentre(BigDecimal.ZERO);
-                                }
-                            }
-                        }
-
-                        rapport.getCentres().add(centreStats);
-
-                    } catch (Exception e) {
-                        logger.error("❌ Erreur pour le centre {}: {}", centre.getNomCentre(), e.getMessage());
-                        // En cas d'erreur, ajouter des données par défaut pour ce centre
-                        CentreStatsDTO centreDefaut = new CentreStatsDTO();
-                        centreDefaut.setCentre(centre);
-                        centreDefaut.setNombreAffaires(0);
-                        centreDefaut.setMontantTotal(BigDecimal.ZERO);
-                        centreDefaut.setRepartitionBase(BigDecimal.ZERO);
-                        centreDefaut.setRepartitionIndicateur(BigDecimal.ZERO);
-                        centreDefaut.setPartTotalCentre(BigDecimal.ZERO);
-                        rapport.getCentres().add(centreDefaut);
-                    }
-                }
+                rapport.getCentres().add(centreStats);
             }
-
-            // Calculer les totaux
-            rapport.calculateTotaux();
-            logger.info("✅ État centre répartition généré - {} centres avec données", rapport.getCentres().size());
-            return rapport;
-
-        } catch (Exception e) {
-            logger.error("❌ Erreur lors de la génération des données centre répartition", e);
-            // En cas d'erreur générale, retourner des données simulées
-            rapport.setCentres(creerCentresStatsSimules());
-            rapport.calculateTotaux();
-            return rapport;
         }
+
+        rapport.calculateTotaux();
+        return rapport;
     }
 
     private List<Centre> creerCentresSimules() {

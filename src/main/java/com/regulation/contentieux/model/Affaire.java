@@ -51,6 +51,25 @@ public class Affaire {
     private boolean deleted;
     private String deletedBy;
     private LocalDate deletedAt;
+    // Dans Affaire.java, ajouter :
+
+    private List<AffaireCentre> centresAssocies = new ArrayList<>();
+
+    public List<AffaireCentre> getCentresAssocies() {
+        return centresAssocies;
+    }
+
+    public void setCentresAssocies(List<AffaireCentre> centresAssocies) {
+        this.centresAssocies = centresAssocies;
+    }
+
+    // Méthode utilitaire
+    public Centre getCentrePrincipal() {
+        if (!centresAssocies.isEmpty()) {
+            return centresAssocies.get(0).getCentre();
+        }
+        return null;
+    }
 
     // Constructeurs
     public Affaire() {

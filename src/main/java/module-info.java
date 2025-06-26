@@ -42,6 +42,7 @@ module com.regulation.contentieux {
     requires bcrypt;
     requires jdk.jdi;
     requires html2pdf;
+    requires mysql.connector.j;
 
     // Exports pour FXML
     exports com.regulation.contentieux;

@@ -34,6 +34,7 @@
             border: 1px solid #000;
             padding: 4px;
             text-align: left;
+            vertical-align: top;
         }
         th {
             background-color: #f0f0f0;
@@ -62,6 +63,19 @@
             padding: 10px;
             border: 1px solid #dee2e6;
         }
+
+        /* CORRECTION BUG 1 : Style pour colonnes N° + Date */
+        .encaissement-affaire {
+            font-size: 9px;
+            min-width: 100px;
+            vertical-align: top;
+        }
+        .encaissement-affaire small {
+            display: block;
+            font-size: 8px;
+            color: #666;
+            margin-top: 2px;
+        }
     </style>
 </head>
 <body>
@@ -74,28 +88,35 @@
 <table>
     <thead>
     <tr>
-        <th>N° Affaire</th>
-        <th>Date Encaissement</th>
-        <th>N° Encaissement</th>
-        <th>Produit Disponible</th>
-        <th>Part DD</th>
-        <th>Part Indicateur</th>
-        <th>Produit Net</th>
-        <th>Part FLCF</th>
-        <th>Part Trésor</th>
-        <th>Part Ayants Droits</th>
-        <th>Part Chefs</th>
-        <th>Part Saisissants</th>
-        <th>Part Mutuelle</th>
-        <th>Part Intéressement</th>
+        <!-- CORRECTION BUG 1 : Conformité Template de Rapports - 14 colonnes exactes -->
+        <th>N° encaissement et Date</th>
+        <th>N° Affaire et Date</th>
+        <th>Produit disponible</th>
+        <th>Direction Départementale</th>
+        <th>Indicateur</th>
+        <th>Produit net</th>
+        <th>FLCF</th>
+        <th>Trésor</th>
+        <th>Produit net ayants droits</th>
+        <th>Chefs</th>
+        <th>Saisissants</th>
+        <th>Mutuelle nationale</th>
+        <th>Masse commune</th>
+        <th>Intéressement</th>
     </tr>
     </thead>
     <tbody>
     {{#each affaires}}
     <tr>
-        <td>{{numeroAffaire}}</td>
-        <td>{{dateEncaissement}}</td>
-        <td>{{numeroEncaissement}}</td>
+        <!-- CORRECTION BUG 1 : Format N° + Date sur une seule colonne -->
+        <td class="encaissement-affaire">
+            {{numeroEncaissement}}<br/>
+            <small>{{dateEncaissement}}</small>
+        </td>
+        <td class="encaissement-affaire">
+            {{numeroAffaire}}<br/>
+            <small>{{dateAffaire}}</small>
+        </td>
         <td class="montant">{{produitDisponible}}</td>
         <td class="montant">{{partDD}}</td>
         <td class="montant">{{partIndicateur}}</td>
@@ -106,24 +127,26 @@
         <td class="montant">{{partChefs}}</td>
         <td class="montant">{{partSaisissants}}</td>
         <td class="montant">{{partMutuelle}}</td>
+        <td class="montant">{{partMasseCommune}}</td>
         <td class="montant">{{partInteressement}}</td>
     </tr>
     {{/each}}
 
     <!-- Ligne de totaux -->
     <tr class="total-row">
-        <td colspan="3"><strong>TOTAUX</strong></td>
+        <td colspan="2"><strong>TOTAUX</strong></td>
         <td class="montant"><strong>{{totalProduitDisponible}}</strong></td>
         <td class="montant"><strong>-</strong></td>
         <td class="montant"><strong>{{totalPartIndicateur}}</strong></td>
-        <td class="montant"><strong>-</strong></td>
+        <td class="montant"><strong>{{totalProduitNet}}</strong></td>
         <td class="montant"><strong>{{totalPartFLCF}}</strong></td>
         <td class="montant"><strong>{{totalPartTresor}}</strong></td>
         <td class="montant"><strong>{{totalPartAyantsDroits}}</strong></td>
-        <td class="montant"><strong>-</strong></td>
-        <td class="montant"><strong>-</strong></td>
-        <td class="montant"><strong>-</strong></td>
-        <td class="montant"><strong>-</strong></td>
+        <td class="montant"><strong>{{totalPartChefs}}</strong></td>
+        <td class="montant"><strong>{{totalPartSaisissants}}</strong></td>
+        <td class="montant"><strong>{{totalPartMutuelle}}</strong></td>
+        <td class="montant"><strong>{{totalPartMasseCommune}}</strong></td>
+        <td class="montant"><strong>{{totalPartInteressement}}</strong></td>
     </tr>
     </tbody>
 </table>
@@ -133,12 +156,10 @@
     {{nombreAffaires}} affaire(s) •
     Total encaissé : {{totalEncaisse}} FCFA
 </div>
-{{/if}}
-
-{{#if rapport}}
-{{#if rapport.affaires}}
-<!-- Le tableau sera affiché via la condition affaires ci-dessus -->
-{{/if}}
+{{else}}
+<div class="stats">
+    <strong>⚠️ Aucune donnée disponible pour cette période</strong>
+</div>
 {{/if}}
 
 <div class="footer">

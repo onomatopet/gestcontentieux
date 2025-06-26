@@ -8,6 +8,17 @@ import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 
+import java.math.BigDecimal;
+import java.util.HashMap;
+import java.util.Map;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.Collection;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+
 import java.text.DecimalFormat;
 import java.time.LocalDateTime;
 import com.regulation.contentieux.service.RapportHtmlBuilder;
@@ -181,7 +192,6 @@ public class RapportController implements Initializable {
     }
 
     private void initializeTypeRapport() {
-        // CORRECTION : Un seul addAll au lieu de deux
         typeRapportComboBox.getItems().addAll(TypeRapport.values());
 
         typeRapportComboBox.setConverter(new StringConverter<TypeRapport>() {
@@ -204,7 +214,7 @@ public class RapportController implements Initializable {
             }
         });
 
-        // CORRECTION PROBLÈME 2 : Gestionnaire de changement amélioré avec chargement automatique
+        // CORRECTION : Gestionnaire de changement avec chargement automatique ET mise à jour aperçu
         typeRapportComboBox.setOnAction(e -> {
             TypeRapport selected = typeRapportComboBox.getValue();
             if (selected != null) {
@@ -216,7 +226,7 @@ public class RapportController implements Initializable {
                 // Configurer les colonnes
                 configureTableViewForReport(selected);
 
-                // AJOUT : Charger automatiquement les données pour le template sélectionné
+                // CORRECTION : Charger automatiquement les données ET l'aperçu
                 chargerDonneesAutomatiquement(selected);
 
                 logger.debug("Type de rapport changé: {}", selected.getLibelle());
@@ -226,6 +236,7 @@ public class RapportController implements Initializable {
         // Sélection par défaut
         typeRapportComboBox.getSelectionModel().selectFirst();
     }
+
 
     /**
      * Configuration des gestionnaires d'événements
@@ -279,7 +290,7 @@ public class RapportController implements Initializable {
             // Configurer la TableView selon le type
             configureTableViewForReport(typeSelectionne);
 
-            // AMÉLIORATION : Éviter le double chargement + meilleur état
+            // CORRECTION : Éviter le double chargement + meilleur état
             if (!typeSelectionne.equals(dernierTypeRapport)) {
                 chargerDonneesAutomatiquement(typeSelectionne);
                 dernierTypeRapport = typeSelectionne;
@@ -334,12 +345,12 @@ public class RapportController implements Initializable {
                         logger.debug("📦 Données automatiques chargées: {}",
                                 donnees != null ? donnees.getClass().getSimpleName() : "NULL");
 
-                        // Mettre à jour la TableView AVEC SUPPORT COMPLET
+                        // Mettre à jour la TableView
                         updateTableViewData(donnees);
                         dernierRapportData = donnees;
 
-                        // CORRECTION : Générer l'aperçu HTML avec mise à jour dernierRapportGenere
-                        genererApercuHtml(typeRapport, finalDebut, finalFin, donnees);
+                        // CORRECTION : Générer et mettre à jour l'aperçu HTML automatiquement
+                        genererApercuHtmlAutomatique(typeRapport, finalDebut, finalFin, donnees);
 
                         showProgressIndicator(false, "");
 
@@ -378,31 +389,15 @@ public class RapportController implements Initializable {
     }
 
     /**
-     * Génération d'aperçu HTML automatique
+     * CORRECTION : Génération automatique de l'aperçu HTML
      */
-    private void genererApercuHtml(TypeRapport typeRapport, LocalDate debut, LocalDate fin, Object donnees) {
+    private void genererApercuHtmlAutomatique(TypeRapport typeRapport, LocalDate debut, LocalDate fin, Object donnees) {
         try {
-            String html;
+            // Générer le HTML via RapportService
+            String html = genererHtmlViaRapportService(typeRapport, debut, fin);
 
-            // CORRECTION : Utiliser le Template Engine complet au lieu du HTML basique
-            if (rapportService != null) {
-                // Essayer d'utiliser le RapportHtmlBuilder (Template Engine)
-                try {
-                    RapportHtmlBuilder htmlBuilder = new RapportHtmlBuilder(rapportService);
-                    html = htmlBuilder.buildHtml(typeRapport, debut, fin);
-                    logger.debug("✅ HTML généré via Template Engine pour {}", typeRapport.getLibelle());
-                } catch (Exception e) {
-                    logger.warn("Template Engine non disponible, utilisation des méthodes RapportService", e);
-                    // Fallback : utiliser les méthodes de génération HTML du RapportService
-                    html = genererHtmlViaRapportService(typeRapport, debut, fin);
-                }
-            } else {
-                // Dernier fallback : HTML basique
-                html = genererHtmlBasique(typeRapport, debut, fin, donnees);
-            }
-
-            // Afficher l'aperçu
-            if (webEngine != null && html != null) {
+            // Mettre à jour l'aperçu
+            if (webEngine != null) {
                 webEngine.loadContent(html);
                 dernierRapportGenere = html;
             }
@@ -410,7 +405,35 @@ public class RapportController implements Initializable {
             logger.debug("✅ Aperçu HTML généré automatiquement pour {}", typeRapport.getLibelle());
 
         } catch (Exception e) {
-            logger.error("Erreur lors de la génération automatique de l'aperçu HTML", e);
+            logger.error("Erreur génération aperçu HTML automatique", e);
+
+            // Afficher un message d'erreur dans l'aperçu
+            String errorHtml = genererHtmlErreur(typeRapport, e);
+            if (webEngine != null) {
+                webEngine.loadContent(errorHtml);
+            }
+        }
+    }
+
+
+    /**
+     * Génération d'aperçu HTML automatique
+     */
+    private void genererApercuHtml(TypeRapport typeRapport, LocalDate debut, LocalDate fin, Object donnees) {
+        try {
+            // Générer le HTML via RapportService
+            String html = genererHtmlViaRapportService(typeRapport, debut, fin);
+
+            // Mettre à jour l'aperçu
+            if (webEngine != null) {
+                webEngine.loadContent(html);
+                dernierRapportGenere = html;
+            }
+
+            logger.debug("✅ Aperçu HTML généré automatiquement pour {}", typeRapport.getLibelle());
+
+        } catch (Exception e) {
+            logger.error("Erreur génération aperçu HTML automatique", e);
 
             // Afficher un message d'erreur dans l'aperçu
             String errorHtml = genererHtmlErreur(typeRapport, e);
@@ -1258,19 +1281,37 @@ public class RapportController implements Initializable {
                 case ETAT_MANDATEMENT:
                     return rapportService.genererDonneesEtatMandatement(debut, fin);
 
-                // Template 3
+                // Template 3 - CORRECTION : Instanciation directe de classe statique
                 case CENTRE_REPARTITION:
-                    return rapportService.genererDonneesCentreRepartition(debut, fin);
+                    try {
+                        return rapportService.genererDonneesCentreRepartition(debut, fin);
+                    } catch (Exception e) {
+                        logger.error("❌ Erreur Template 3 - Centre Répartition: {}", e.getMessage());
+                        // CORRECTION : Instanciation directe sans qualifier
+                        RapportService.CentreRepartitionDTO dtoVide = new RapportService.CentreRepartitionDTO();
+                        dtoVide.setDateDebut(debut);
+                        dtoVide.setDateFin(fin);
+                        return dtoVide;
+                    }
 
-                // Template 4
+                    // Template 4
                 case INDICATEURS_REELS:
                     return rapportService.genererDonneesIndicateursReels(debut, fin);
 
-                // Template 5
+                // Template 5 - CORRECTION : Instanciation directe de classe statique
                 case REPARTITION_PRODUIT:
-                    return rapportService.genererDonneesRepartitionProduit(debut, fin);
+                    try {
+                        return rapportService.genererDonneesRepartitionProduit(debut, fin);
+                    } catch (Exception e) {
+                        logger.error("❌ Erreur Template 5 - Répartition Produit: {}", e.getMessage());
+                        // CORRECTION : Instanciation directe sans qualifier
+                        RapportService.RepartitionProduitDTO dtoVide = new RapportService.RepartitionProduitDTO();
+                        dtoVide.setDateDebut(debut);
+                        dtoVide.setDateFin(fin);
+                        return dtoVide;
+                    }
 
-                // Template 6 - CORRIGER LE NOM DE MÉTHODE
+                    // Template 6
                 case ETAT_CUMULE_AGENT:
                     return rapportService.genererDonneesEtatCumuleParAgent(debut, fin);
 
@@ -1921,23 +1962,21 @@ public class RapportController implements Initializable {
      * Configure les colonnes pour le Template 2 : État par séries de mandatement
      */
     private void configureColumnsEtatMandatement() {
-        // 1. N° encaissement et Date - CORRIGÉ avec format HTML
+        // 1. N° encaissement et Date
         TableColumn<Object, String> numeroEncCol = new TableColumn<>("N° encaissement et Date");
         numeroEncCol.setCellValueFactory(data -> {
             Object item = data.getValue();
             String numero = extractValue(item, "numeroEncaissement");
             String date = extractValue(item, "dateEncaissement");
 
-            if (numero != null && date != null) {
+            if (numero != null && !numero.isEmpty() && date != null && !date.isEmpty()) {
                 return new SimpleStringProperty(numero + "\n" + date);
-            } else if (numero != null) {
+            } else if (numero != null && !numero.isEmpty()) {
                 return new SimpleStringProperty(numero);
             }
             return new SimpleStringProperty("");
         });
         numeroEncCol.setPrefWidth(140);
-
-        // Configuration pour affichage multi-ligne
         numeroEncCol.setCellFactory(col -> new TableCell<Object, String>() {
             @Override
             protected void updateItem(String item, boolean empty) {
@@ -1951,23 +1990,21 @@ public class RapportController implements Initializable {
             }
         });
 
-        // 2. N° Affaire et Date - CORRIGÉ avec format HTML
+        // 2. N° Affaire et Date - CORRECTION BUG 2
         TableColumn<Object, String> numeroAffCol = new TableColumn<>("N° Affaire et Date");
         numeroAffCol.setCellValueFactory(data -> {
             Object item = data.getValue();
             String numero = extractValue(item, "numeroAffaire");
             String date = extractValue(item, "dateAffaire");
 
-            if (numero != null && date != null) {
+            if (numero != null && !numero.isEmpty() && date != null && !date.isEmpty()) {
                 return new SimpleStringProperty(numero + "\n" + date);
-            } else if (numero != null) {
+            } else if (numero != null && !numero.isEmpty()) {
                 return new SimpleStringProperty(numero);
             }
             return new SimpleStringProperty("");
         });
-        numeroAffCol.setPrefWidth(130);
-
-        // Configuration pour affichage multi-ligne
+        numeroAffCol.setPrefWidth(120);
         numeroAffCol.setCellFactory(col -> new TableCell<Object, String>() {
             @Override
             protected void updateItem(String item, boolean empty) {
@@ -2029,7 +2066,7 @@ public class RapportController implements Initializable {
                 new SimpleStringProperty(extractValue(data.getValue(), "observations")));
         observationsCol.setPrefWidth(150);
 
-        // Ajouter toutes les colonnes dans l'ordre exact du template
+        // Ajouter toutes les colonnes dans l'ordre du Template 2
         resultatsTableView.getColumns().addAll(
                 numeroEncCol, numeroAffCol, produitNetCol, chefsCol,
                 saisissantsCol, mutuelleCol, masseCommuneCol, interessementCol, observationsCol
@@ -2057,23 +2094,67 @@ public class RapportController implements Initializable {
      * AMÉLIORÉ: Support natif des AffaireRepartitionDTO
      */
     private void configureColumnsRepartitionAffaires() {
-        // 1. N° encaissement et Date
+        // 1. N° encaissement et Date - CORRECTION BUG 1
         TableColumn<Object, String> numeroEncCol = new TableColumn<>("N° encaissement et Date");
-        numeroEncCol.setCellValueFactory(data ->
-                new SimpleStringProperty(extractValue(data.getValue(), "numeroEncaissement")));
+        numeroEncCol.setCellValueFactory(data -> {
+            Object item = data.getValue();
+            String numero = extractValue(item, "numeroEncaissement");
+            String date = extractValue(item, "dateEncaissement");
+
+            if (numero != null && !numero.isEmpty() && date != null && !date.isEmpty()) {
+                return new SimpleStringProperty(numero + "\n" + date);
+            } else if (numero != null && !numero.isEmpty()) {
+                return new SimpleStringProperty(numero);
+            }
+            return new SimpleStringProperty("");
+        });
         numeroEncCol.setPrefWidth(140);
+        numeroEncCol.setCellFactory(col -> new TableCell<Object, String>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText(item);
+                    setWrapText(true);
+                }
+            }
+        });
 
         // 2. N° Affaire et Date
         TableColumn<Object, String> numeroAffCol = new TableColumn<>("N° Affaire et Date");
-        numeroAffCol.setCellValueFactory(data ->
-                new SimpleStringProperty(extractValue(data.getValue(), "numeroAffaire")));
-        numeroAffCol.setPrefWidth(130);
+        numeroAffCol.setCellValueFactory(data -> {
+            Object item = data.getValue();
+            String numero = extractValue(item, "numeroAffaire");
+            String date = extractValue(item, "dateAffaire");
+
+            if (numero != null && !numero.isEmpty() && date != null && !date.isEmpty()) {
+                return new SimpleStringProperty(numero + "\n" + date);
+            } else if (numero != null && !numero.isEmpty()) {
+                return new SimpleStringProperty(numero);
+            }
+            return new SimpleStringProperty("");
+        });
+        numeroAffCol.setPrefWidth(120);
+        numeroAffCol.setCellFactory(col -> new TableCell<Object, String>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText(item);
+                    setWrapText(true);
+                }
+            }
+        });
 
         // 3. Produit disponible
         TableColumn<Object, String> produitDispCol = new TableColumn<>("Produit disponible");
         produitDispCol.setCellValueFactory(data ->
                 new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "produitDisponible"))));
-        produitDispCol.setPrefWidth(120);
+        produitDispCol.setPrefWidth(110);
         produitDispCol.getStyleClass().add("montant-column");
 
         // 4. Direction Départementale
@@ -2083,7 +2164,7 @@ public class RapportController implements Initializable {
         directionDDCol.setPrefWidth(140);
         directionDDCol.getStyleClass().add("montant-column");
 
-        // 5. Indicateur - CORRIGÉ
+        // 5. Indicateur
         TableColumn<Object, String> indicateurCol = new TableColumn<>("Indicateur");
         indicateurCol.setCellValueFactory(data ->
                 new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "partIndicateur"))));
@@ -2111,12 +2192,12 @@ public class RapportController implements Initializable {
         tresorCol.setPrefWidth(80);
         tresorCol.getStyleClass().add("montant-column");
 
-        // 9. Produit net ayants droits - CORRIGÉ
-        TableColumn<Object, String> produitNetDroitsCol = new TableColumn<>("Produit net ayants droits");
-        produitNetDroitsCol.setCellValueFactory(data ->
+        // 9. Produit net ayants droits
+        TableColumn<Object, String> produitNetAyantsDroitsCol = new TableColumn<>("Produit net ayants droits");
+        produitNetAyantsDroitsCol.setCellValueFactory(data ->
                 new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "partAyantsDroits"))));
-        produitNetDroitsCol.setPrefWidth(160);
-        produitNetDroitsCol.getStyleClass().add("montant-column");
+        produitNetAyantsDroitsCol.setPrefWidth(140);
+        produitNetAyantsDroitsCol.getStyleClass().add("montant-column");
 
         // 10. Chefs
         TableColumn<Object, String> chefsCol = new TableColumn<>("Chefs");
@@ -2153,10 +2234,10 @@ public class RapportController implements Initializable {
         interessementCol.setPrefWidth(110);
         interessementCol.getStyleClass().add("montant-column");
 
-        // Ajouter toutes les colonnes dans l'ordre exact du template
+        // Ajouter toutes les colonnes dans l'ordre du Template 1
         resultatsTableView.getColumns().addAll(
                 numeroEncCol, numeroAffCol, produitDispCol, directionDDCol, indicateurCol,
-                produitNetCol, flcfCol, tresorCol, produitNetDroitsCol, chefsCol,
+                produitNetCol, flcfCol, tresorCol, produitNetAyantsDroitsCol, chefsCol,
                 saisissantsCol, mutuelleCol, masseCommuneCol, interessementCol
         );
 
@@ -2341,16 +2422,16 @@ public class RapportController implements Initializable {
      * AJOUT Template 5 : Configuration des colonnes pour Répartition du Produit
      */
     private void configureColumnsRepartitionProduit() {
-        // 1. N° encaissement et Date - CORRIGÉ avec format complet
+        // 1. N° encaissement et Date
         TableColumn<Object, String> numeroEncCol = new TableColumn<>("N° encaissement et Date");
         numeroEncCol.setCellValueFactory(data -> {
             Object item = data.getValue();
             String numero = extractValue(item, "numeroEncaissement");
             String date = extractValue(item, "dateEncaissement");
 
-            if (numero != null && date != null) {
+            if (numero != null && !numero.isEmpty() && date != null && !date.isEmpty()) {
                 return new SimpleStringProperty(numero + "\n" + date);
-            } else if (numero != null) {
+            } else if (numero != null && !numero.isEmpty()) {
                 return new SimpleStringProperty(numero);
             }
             return new SimpleStringProperty("");
@@ -2369,16 +2450,16 @@ public class RapportController implements Initializable {
             }
         });
 
-        // 2. N° Affaire et Date - CORRIGÉ avec format complet
+        // 2. N° Affaire et Date
         TableColumn<Object, String> numeroAffCol = new TableColumn<>("N° Affaire et Date");
         numeroAffCol.setCellValueFactory(data -> {
             Object item = data.getValue();
             String numero = extractValue(item, "numeroAffaire");
             String date = extractValue(item, "dateAffaire");
 
-            if (numero != null && date != null) {
+            if (numero != null && !numero.isEmpty() && date != null && !date.isEmpty()) {
                 return new SimpleStringProperty(numero + "\n" + date);
-            } else if (numero != null) {
+            } else if (numero != null && !numero.isEmpty()) {
                 return new SimpleStringProperty(numero);
             }
             return new SimpleStringProperty("");
@@ -2397,13 +2478,13 @@ public class RapportController implements Initializable {
             }
         });
 
-        // 3. Noms des contrevenants - CORRIGÉ
+        // 3. Noms des contrevenants - CORRECTION BUG 5
         TableColumn<Object, String> contrevenantsCol = new TableColumn<>("Noms des contrevenants");
         contrevenantsCol.setCellValueFactory(data ->
                 new SimpleStringProperty(extractValue(data.getValue(), "nomContrevenant")));
         contrevenantsCol.setPrefWidth(130);
 
-        // 4. Noms des contraventions - CORRIGÉ
+        // 4. Noms des contraventions - CORRECTION BUG 5
         TableColumn<Object, String> contraventionsCol = new TableColumn<>("Noms des contraventions");
         contraventionsCol.setCellValueFactory(data ->
                 new SimpleStringProperty(extractValue(data.getValue(), "nomContravention")));
@@ -2423,7 +2504,7 @@ public class RapportController implements Initializable {
         partIndicCol.setPrefWidth(100);
         partIndicCol.getStyleClass().add("montant-column");
 
-        // 7. Part Direction contentieux - CORRIGÉ
+        // 7. Part Direction contentieux
         TableColumn<Object, String> partDirectionCol = new TableColumn<>("Part Direction contentieux");
         partDirectionCol.setCellValueFactory(data ->
                 new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "partDirectionContentieux"))));
@@ -2437,30 +2518,32 @@ public class RapportController implements Initializable {
         partIndic2Col.setPrefWidth(100);
         partIndic2Col.getStyleClass().add("montant-column");
 
-        // 9. FLCF - CORRIGÉ
+        // 9. FLCF
         TableColumn<Object, String> flcfCol = new TableColumn<>("FLCF");
         flcfCol.setCellValueFactory(data ->
-                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "partFLCF"))));
+                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "partFlcf"))));
         flcfCol.setPrefWidth(80);
         flcfCol.getStyleClass().add("montant-column");
 
-        // 10. Montant Trésor - CORRIGÉ
+        // 10. Montant Trésor
         TableColumn<Object, String> tresorCol = new TableColumn<>("Montant Trésor");
         tresorCol.setCellValueFactory(data ->
                 new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "montantTresor"))));
-        tresorCol.setPrefWidth(110);
+        tresorCol.setPrefWidth(100);
         tresorCol.getStyleClass().add("montant-column");
 
-        // 11. Montant Global ayants droits - CORRIGÉ
+        // 11. Montant Global ayants droits
         TableColumn<Object, String> ayantsDroitsCol = new TableColumn<>("Montant Global ayants droits");
         ayantsDroitsCol.setCellValueFactory(data ->
                 new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "montantGlobalAyantsDroits"))));
-        ayantsDroitsCol.setPrefWidth(150);
+        ayantsDroitsCol.setPrefWidth(140);
         ayantsDroitsCol.getStyleClass().add("montant-column");
 
+        // Ajouter toutes les colonnes dans l'ordre du Template 5
         resultatsTableView.getColumns().addAll(
-                numeroEncCol, numeroAffCol, contrevenantsCol, contraventionsCol, produitDispCol,
-                partIndicCol, partDirectionCol, partIndic2Col, flcfCol, tresorCol, ayantsDroitsCol
+                numeroEncCol, numeroAffCol, contrevenantsCol, contraventionsCol,
+                produitDispCol, partIndicCol, partDirectionCol, partIndic2Col,
+                flcfCol, tresorCol, ayantsDroitsCol
         );
 
         logger.debug("✅ Colonnes Template 5 configurées : 11 colonnes exactes");
@@ -2668,8 +2751,6 @@ public class RapportController implements Initializable {
             return;
         }
 
-        logger.debug("📊 Nombre de colonnes actuelles: {}", resultatsTableView.getColumns().size());
-
         List<Object> itemsToDisplay = new ArrayList<>();
 
         try {
@@ -2677,78 +2758,76 @@ public class RapportController implements Initializable {
                 logger.debug("🔍 Type de données reçues: {}", rapportData.getClass().getName());
 
                 if (rapportData instanceof RapportService.RapportRepartitionDTO) {
-                    // Template 1 - Fonctionne déjà
+                    // Template 1
                     RapportService.RapportRepartitionDTO rapport = (RapportService.RapportRepartitionDTO) rapportData;
-                    logger.debug("📋 Traitement RapportRepartitionDTO");
-                    if (rapport.getAffaires() != null) {
+                    if (rapport.getAffaires() != null && !rapport.getAffaires().isEmpty()) {
                         itemsToDisplay.addAll(rapport.getAffaires());
                         logger.debug("✅ Ajouté {} affaires de répartition", rapport.getAffaires().size());
                     }
 
                 } else if (rapportData instanceof RapportService.EtatMandatementDTO) {
-                    // Template 2 - CORRECTION : Utiliser des données simulées si la liste est vide
+                    // Template 2
                     RapportService.EtatMandatementDTO mandatement = (RapportService.EtatMandatementDTO) rapportData;
-                    logger.debug("📋 Traitement EtatMandatementDTO");
                     if (mandatement.getMandatements() != null && !mandatement.getMandatements().isEmpty()) {
                         itemsToDisplay.addAll(mandatement.getMandatements());
                         logger.debug("✅ Ajouté {} éléments de mandatement", mandatement.getMandatements().size());
                     } else {
-                        // CORRECTION : Créer des données simulées pour l'affichage
-                        logger.warn("⚠️ Aucun mandatement dans le DTO, création de données simulées");
+                        logger.warn("⚠️ Aucun mandatement, création de données simulées");
                         itemsToDisplay.addAll(creerDonneesSimuleesTemplate2());
                     }
 
-                } else {
-                    // Pour tous les autres templates, créer des données simulées
-                    logger.debug("📋 Traitement objet unique: {}", rapportData.getClass().getSimpleName());
-
-                    // CORRECTION : Créer des données simulées selon le template
-                    TypeRapport typeActuel = typeRapportComboBox.getValue();
-                    if (typeActuel != null) {
-                        itemsToDisplay.addAll(creerDonneesSimuleesSelon(typeActuel));
-                        logger.debug("✅ Ajouté {} éléments simulés pour {}", itemsToDisplay.size(), typeActuel.getLibelle());
+                } else if (rapportData instanceof RapportService.CentreRepartitionDTO) {
+                    // Template 3
+                    RapportService.CentreRepartitionDTO centres = (RapportService.CentreRepartitionDTO) rapportData;
+                    if (centres.getCentres() != null && !centres.getCentres().isEmpty()) {
+                        itemsToDisplay.addAll(centres.getCentres());
+                        logger.debug("✅ Ajouté {} centres", centres.getCentres().size());
                     } else {
+                        logger.warn("⚠️ Aucun centre, création de données simulées");
+                        itemsToDisplay.addAll(creerDonneesSimuleesTemplate3());
+                    }
+
+                } else if (rapportData instanceof RapportService.RepartitionProduitDTO) {
+                    // Template 5
+                    RapportService.RepartitionProduitDTO produit = (RapportService.RepartitionProduitDTO) rapportData;
+                    if (produit.getLignes() != null && !produit.getLignes().isEmpty()) {
+                        itemsToDisplay.addAll(produit.getLignes());
+                        logger.debug("✅ Ajouté {} lignes de répartition", produit.getLignes().size());
+                    } else {
+                        logger.warn("⚠️ Aucune ligne, création de données simulées");
+                        itemsToDisplay.addAll(creerDonneesSimuleesTemplate5());
+                    }
+
+                } else {
+                    // Autres templates - extraction générique
+                    logger.debug("📋 Traitement DTO générique: {}", rapportData.getClass().getSimpleName());
+                    List<Object> extracted = extraireDonneesGeneriques(rapportData);
+                    if (!extracted.isEmpty()) {
+                        itemsToDisplay.addAll(extracted);
+                        logger.debug("✅ Ajouté {} éléments génériques", extracted.size());
+                    } else {
+                        // Fallback : ajouter l'objet lui-même
                         itemsToDisplay.add(rapportData);
-                        logger.debug("✅ Ajouté objet unique");
+                        logger.debug("✅ Ajouté l'objet rapport lui-même");
                     }
                 }
             }
 
-            // Mettre à jour l'interface
-            logger.debug("🎯 Préparation mise à jour UI avec {} éléments", itemsToDisplay.size());
+            // Mise à jour de la TableView
+            logger.debug("📊 Mise à jour TableView avec {} éléments", itemsToDisplay.size());
+            resultatsTableView.getItems().clear();
+            resultatsTableView.getItems().addAll(itemsToDisplay);
 
-            Platform.runLater(() -> {
-                try {
-                    logger.debug("🎭 Exécution sur JavaFX Thread");
-                    resultatsTableView.getItems().clear();
-                    resultatsTableView.getItems().addAll(itemsToDisplay);
+            // Mise à jour du compteur
+            updateNombreResultats(itemsToDisplay.size());
 
-                    logger.debug("🎯 TableView mise à jour terminée:");
-                    logger.debug("- Éléments dans la TableView: {}", resultatsTableView.getItems().size());
-                    logger.debug("- Colonnes: {}", resultatsTableView.getColumns().size());
-                    logger.debug("- Visible: {}", resultatsTableView.isVisible());
-
-                    if (!itemsToDisplay.isEmpty()) {
-                        logger.debug("🔍 Premier élément type: {}", itemsToDisplay.get(0).getClass().getSimpleName());
-                    }
-
-                    updateNombreResultats(itemsToDisplay.size());
-
-                } catch (Exception e) {
-                    logger.error("❌ Erreur lors de la mise à jour UI", e);
-                }
-            });
+            logger.debug("✅ TableView mise à jour avec {} éléments", itemsToDisplay.size());
 
         } catch (Exception e) {
-            logger.error("❌ Erreur lors du traitement des données TableView", e);
-            Platform.runLater(() -> {
-                updateNombreResultats(0);
-                AlertUtil.showWarningAlert("Données", "Erreur d'affichage",
-                        "Impossible d'afficher les données: " + e.getMessage());
-            });
+            logger.error("❌ Erreur lors de la mise à jour des données", e);
+            resultatsTableView.getItems().clear();
+            updateNombreResultats(0);
         }
-
-        logger.debug("=== FIN updateTableViewData ===");
     }
 
     /**
@@ -2757,23 +2836,157 @@ public class RapportController implements Initializable {
     private List<Object> creerDonneesSimuleesTemplate2() {
         List<Object> donneesSimulees = new ArrayList<>();
 
-        for (int i = 1; i <= 5; i++) {
-            Map<String, Object> item = new HashMap<>();
-            item.put("numeroEncaissement", "2505R000" + i);
-            item.put("dateEncaissement", "25/05/2025");
-            item.put("numeroAffaire", "25050000" + i);
-            item.put("dateAffaire", "20/05/2025");
-            item.put("produitNet", new BigDecimal(150000 * i));
-            item.put("partChefs", new BigDecimal(15000 * i));
-            item.put("partSaisissants", new BigDecimal(25000 * i));
-            item.put("partMutuelle", new BigDecimal(5000 * i));
-            item.put("partMasseCommune", new BigDecimal(8000 * i));
-            item.put("partInteressement", new BigDecimal(12000 * i));
-            item.put("observations", "Simulation " + i);
-            donneesSimulees.add(item);
+        for (int i = 1; i <= 3; i++) {
+            Map<String, Object> mandatement = new HashMap<>();
+            mandatement.put("numeroEncaissement", "2025R000" + i);
+            mandatement.put("dateEncaissement", LocalDate.now().minusDays(i));
+            mandatement.put("numeroAffaire", "AF2025-00" + i);
+            mandatement.put("dateAffaire", LocalDate.now().minusDays(i + 5));
+            mandatement.put("produitNet", new BigDecimal(100000 * i));
+            mandatement.put("partChefs", new BigDecimal(20000 * i));
+            mandatement.put("partSaisissants", new BigDecimal(15000 * i));
+            mandatement.put("partMutuelle", new BigDecimal(5000 * i));
+            mandatement.put("partMasseCommune", new BigDecimal(3000 * i));
+            mandatement.put("partInteressement", new BigDecimal(2000 * i));
+            mandatement.put("observations", "Données de test - Template 2");
+
+            donneesSimulees.add(mandatement);
         }
 
         return donneesSimulees;
+    }
+
+    private List<Object> creerDonneesSimuleesTemplate3() {
+        List<Object> donneesSimulees = new ArrayList<>();
+
+        String[] centres = {"Centre Nord", "Centre Sud", "Centre Est"};
+        for (int i = 0; i < centres.length; i++) {
+            Map<String, Object> centre = new HashMap<>();
+            centre.put("nomCentre", centres[i]);
+            centre.put("repartitionBase", new BigDecimal(500000 + (i * 100000)));
+            centre.put("repartitionIndicateur", new BigDecimal(200000 + (i * 50000)));
+            centre.put("partCentre", new BigDecimal(700000 + (i * 150000)));
+            centre.put("nombreAffaires", 10 + (i * 5));
+
+            donneesSimulees.add(centre);
+        }
+
+        return donneesSimulees;
+    }
+
+    /**
+     * CORRECTION : Crée des données simulées pour Template 5
+     */
+    private List<Object> creerDonneesSimuleesTemplate5() {
+        List<Object> donneesSimulees = new ArrayList<>();
+
+        for (int i = 1; i <= 3; i++) {
+            Map<String, Object> ligne = new HashMap<>();
+            ligne.put("numeroEncaissement", "2025R000" + i);
+            ligne.put("dateEncaissement", LocalDate.now().minusDays(i));
+            ligne.put("numeroAffaire", "AF2025-00" + i);
+            ligne.put("dateAffaire", LocalDate.now().minusDays(i + 5));
+            ligne.put("nomContrevenant", "Contrevenant Test " + i);
+            ligne.put("nomContravention", "Contravention Type " + i);
+            ligne.put("produitDisponible", new BigDecimal(150000 * i));
+            ligne.put("partIndicateur", new BigDecimal(30000 * i));
+            ligne.put("partDirectionContentieux", new BigDecimal(25000 * i));
+            ligne.put("partFlcf", new BigDecimal(20000 * i));
+            ligne.put("montantTresor", new BigDecimal(35000 * i));
+            ligne.put("montantGlobalAyantsDroits", new BigDecimal(40000 * i));
+
+            donneesSimulees.add(ligne);
+        }
+
+        return donneesSimulees;
+    }
+
+    /**
+     * Extrait les données d'un DTO générique par réflexion
+     */
+    private List<Object> extraireDonneesGeneriques(Object rapportData) {
+        List<Object> donnees = new ArrayList<>();
+
+        try {
+            // Essayer de trouver des collections dans le DTO via les champs
+            Field[] fields = rapportData.getClass().getDeclaredFields();
+            for (Field field : fields) {
+                field.setAccessible(true);
+                Object value = field.get(rapportData);
+
+                if (value instanceof Collection) {
+                    Collection<?> collection = (Collection<?>) value;
+                    donnees.addAll(collection);
+                    logger.debug("✅ Collection trouvée via champ: {} ({} éléments)",
+                            field.getName(), collection.size());
+                    break; // Prendre la première collection trouvée
+                }
+            }
+
+            // Si aucune collection trouvée, essayer les getters
+            if (donnees.isEmpty()) {
+                Method[] methods = rapportData.getClass().getMethods();
+                for (Method method : methods) {
+                    if (method.getName().startsWith("get") &&
+                            method.getParameterCount() == 0 &&
+                            Collection.class.isAssignableFrom(method.getReturnType())) {
+
+                        Object value = method.invoke(rapportData);
+                        if (value instanceof Collection) {
+                            Collection<?> collection = (Collection<?>) value;
+                            donnees.addAll(collection);
+                            logger.debug("✅ Collection trouvée via getter: {} ({} éléments)",
+                                    method.getName(), collection.size());
+                            break;
+                        }
+                    }
+                }
+            }
+
+        } catch (Exception e) {
+            logger.debug("Extraction générique impossible: {}", e.getMessage());
+        }
+
+        return donnees;
+    }
+
+    /**
+     * CORRECTION : Vérifie si un objet DTO a des données
+     */
+    private boolean hasDonnees(Object dto) {
+        if (dto == null) return false;
+
+        try {
+            // Vérifier via réflexion s'il y a des collections non vides
+            Field[] fields = dto.getClass().getDeclaredFields();
+            for (Field field : fields) {
+                field.setAccessible(true);
+                Object value = field.get(dto);
+
+                if (value instanceof Collection && !((Collection<?>) value).isEmpty()) {
+                    return true;
+                }
+            }
+
+            // Vérifier via les getters
+            Method[] methods = dto.getClass().getMethods();
+            for (Method method : methods) {
+                if (method.getName().startsWith("get") &&
+                        method.getParameterCount() == 0 &&
+                        Collection.class.isAssignableFrom(method.getReturnType())) {
+
+                    Object value = method.invoke(dto);
+                    if (value instanceof Collection && !((Collection<?>) value).isEmpty()) {
+                        return true;
+                    }
+                }
+            }
+
+        } catch (Exception e) {
+            logger.debug("Erreur vérification données: {}", e.getMessage());
+        }
+
+        return false;
     }
 
     /**
@@ -2994,6 +3207,35 @@ public class RapportController implements Initializable {
         }
 
         try {
+            // Gestion spéciale pour les colonnes composées N° + Date
+            if (fieldName.equals("numeroEncaissementEtDate")) {
+                String numero = extractValue(obj, "numeroEncaissement");
+                String date = extractValue(obj, "dateEncaissement");
+
+                if (numero != null && !numero.isEmpty() && date != null && !date.isEmpty()) {
+                    return numero + "\n" + date;
+                } else if (numero != null && !numero.isEmpty()) {
+                    return numero;
+                } else if (date != null && !date.isEmpty()) {
+                    return date;
+                }
+                return "";
+            }
+
+            if (fieldName.equals("numeroAffaireEtDate")) {
+                String numero = extractValue(obj, "numeroAffaire");
+                String date = extractValue(obj, "dateAffaire");
+
+                if (numero != null && !numero.isEmpty() && date != null && !date.isEmpty()) {
+                    return numero + "\n" + date;
+                } else if (numero != null && !numero.isEmpty()) {
+                    return numero;
+                } else if (date != null && !date.isEmpty()) {
+                    return date;
+                }
+                return "";
+            }
+
             // Essayer getter d'abord
             String getterName = "get" + fieldName.substring(0, 1).toUpperCase() + fieldName.substring(1);
             java.lang.reflect.Method getter = obj.getClass().getMethod(getterName);

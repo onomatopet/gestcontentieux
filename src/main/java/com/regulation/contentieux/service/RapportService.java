@@ -791,10 +791,10 @@ public class RapportService {
         rapport.setPeriodeLibelle(formatPeriode(dateDebut, dateFin));
 
         try {
-            // CORRECTION : Utiliser findAll() et créer CentreStatsDTO (pas CentreRepartitionData)
+            // CORRECTION : Utiliser centreDAO.findAll() (Centre existe, pas CentreRepartition)
             List<Centre> centres;
             try {
-                centres = centreDAO.findAll(); // Utiliser centreDAO pas centreRepartitionDAO
+                centres = centreDAO.findAll();
             } catch (Exception e) {
                 logger.warn("DAO centreDAO non disponible, création de données simulées");
                 centres = creerCentresSimulesCorrects();
@@ -804,7 +804,7 @@ public class RapportService {
 
             for (Centre centre : centres) {
                 try {
-                    // CORRECTION : Utiliser CentreStatsDTO (classe qui existe vraiment)
+                    // CORRECTION : Utiliser CentreStatsDTO (qui existe vraiment)
                     CentreStatsDTO centreStats = new CentreStatsDTO();
                     centreStats.setCentre(centre);
 
@@ -818,16 +818,18 @@ public class RapportService {
                     centreStats.setPartTotalCentre(partTotalCentre);
                     centreStats.setMontantTotal(partTotalCentre);
 
-                    // CORRECTION : Utiliser setCentres() qui attend List<CentreStatsDTO>
                     rapport.getCentres().add(centreStats);
-                    logger.debug("✅ Centre ajouté: {} - Part: {}", centre.getNom(), partTotalCentre);
+                    // CORRECTION : Utiliser getNomCentre() (pas getNom())
+                    logger.debug("✅ Centre ajouté: {} - Part: {}", centre.getNomCentre(), partTotalCentre);
 
                 } catch (Exception e) {
-                    logger.warn("⚠️ Erreur pour le centre {}: {}", centre.getNom(), e.getMessage());
+                    // CORRECTION : Utiliser getNomCentre() (pas getNom())
+                    logger.warn("⚠️ Erreur pour le centre {}: {}", centre.getNomCentre(), e.getMessage());
                     // Ajouter centre avec données par défaut
                     CentreStatsDTO centreDefaut = new CentreStatsDTO();
                     Centre centreEntity = new Centre();
-                    centreEntity.setNom(centre.getNom() != null ? centre.getNom() : "Centre " + centre.getId());
+                    // CORRECTION : Utiliser setNomCentre() (pas setNom())
+                    centreEntity.setNomCentre(centre.getNomCentre() != null ? centre.getNomCentre() : "Centre " + centre.getId());
                     centreDefaut.setCentre(centreEntity);
                     centreDefaut.setRepartitionBase(BigDecimal.valueOf(100000));
                     centreDefaut.setRepartitionIndicateur(BigDecimal.valueOf(50000));
@@ -951,8 +953,9 @@ public class RapportService {
         for (int i = 0; i < nomsCentres.length; i++) {
             Centre centre = new Centre();
             centre.setId((long) (i + 1));
-            centre.setNom(nomsCentres[i]);
-            centre.setCode("C" + String.format("%03d", i + 1));
+            // CORRECTION : Utiliser setNomCentre() (pas setNom())
+            centre.setNomCentre(nomsCentres[i]);
+            centre.setCodeCentre("C" + String.format("%03d", i + 1));
             centresSimules.add(centre);
         }
 
@@ -972,8 +975,9 @@ public class RapportService {
 
             Centre centre = new Centre();
             centre.setId((long) (i + 1));
-            centre.setNom(nomsCentres[i]);
-            centre.setCode("C" + String.format("%03d", i + 1));
+            // CORRECTION : Utiliser setNomCentre() (pas setNom())
+            centre.setNomCentre(nomsCentres[i]);
+            centre.setCodeCentre("C" + String.format("%03d", i + 1));
 
             centreStats.setCentre(centre);
             centreStats.setRepartitionBase(BigDecimal.valueOf(200000 + i * 50000));
@@ -995,12 +999,11 @@ public class RapportService {
     }
 
     /**
-     * CORRECTION : Calcul simulé de la répartition indicateur pour un centre
+     * CORRECTION : Calcul simulé avec Centre (vraie classe)
      */
     private BigDecimal calculerRepartitionIndicateurCentreSimulee(Centre centre, LocalDate debut, LocalDate fin) {
         return BigDecimal.valueOf(50000 + (centre.getId() * 15000));
     }
-
 
     /**
      * CORRECTION BUG Template 5 : Méthode corrigée genererDonneesRepartitionProduit()

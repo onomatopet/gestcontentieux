@@ -8,6 +8,10 @@ import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 
+import com.regulation.contentieux.model.Agent;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
@@ -1796,6 +1800,30 @@ public class RapportController implements Initializable {
                     fin.getMonth().getDisplayName(java.time.format.TextStyle.SHORT,
                             java.util.Locale.FRENCH),
                     fin.getYear());
+        }
+    }
+
+    /**
+     * CORRECTION : Méthode utilitaire manquante pour extraire les valeurs des champs via réflexion
+     */
+    private Object getFieldValue(Object obj, String fieldName) {
+        if (obj == null) return null;
+
+        try {
+            // Essayer d'abord avec getter
+            String getterName = "get" + fieldName.substring(0, 1).toUpperCase() + fieldName.substring(1);
+            Method getter = obj.getClass().getMethod(getterName);
+            return getter.invoke(obj);
+        } catch (Exception e) {
+            // Fallback : accès direct au champ
+            try {
+                Field field = obj.getClass().getDeclaredField(fieldName);
+                field.setAccessible(true);
+                return field.get(obj);
+            } catch (Exception ex) {
+                logger.debug("Impossible d'extraire le champ {}: {}", fieldName, ex.getMessage());
+                return null;
+            }
         }
     }
 

@@ -804,11 +804,9 @@ public class RapportService {
 
             for (Centre centre : centres) {
                 try {
-                    // CORRECTION : Utiliser CentreStatsDTO (qui existe vraiment)
                     CentreStatsDTO centreStats = new CentreStatsDTO();
                     centreStats.setCentre(centre);
 
-                    // CORRECTION : Calculer les parts avec les vraies méthodes CentreStatsDTO
                     BigDecimal repartitionBase = calculerRepartitionBaseCentreSimulee(centre, dateDebut, dateFin);
                     BigDecimal repartitionIndicateur = calculerRepartitionIndicateurCentreSimulee(centre, dateDebut, dateFin);
                     BigDecimal partTotalCentre = repartitionBase.add(repartitionIndicateur);
@@ -819,16 +817,12 @@ public class RapportService {
                     centreStats.setMontantTotal(partTotalCentre);
 
                     rapport.getCentres().add(centreStats);
-                    // CORRECTION : Utiliser getNomCentre() (pas getNom())
                     logger.debug("✅ Centre ajouté: {} - Part: {}", centre.getNomCentre(), partTotalCentre);
 
                 } catch (Exception e) {
-                    // CORRECTION : Utiliser getNomCentre() (pas getNom())
                     logger.warn("⚠️ Erreur pour le centre {}: {}", centre.getNomCentre(), e.getMessage());
-                    // Ajouter centre avec données par défaut
                     CentreStatsDTO centreDefaut = new CentreStatsDTO();
                     Centre centreEntity = new Centre();
-                    // CORRECTION : Utiliser setNomCentre() (pas setNom())
                     centreEntity.setNomCentre(centre.getNomCentre() != null ? centre.getNomCentre() : "Centre " + centre.getId());
                     centreDefaut.setCentre(centreEntity);
                     centreDefaut.setRepartitionBase(BigDecimal.valueOf(100000));
@@ -838,7 +832,6 @@ public class RapportService {
                 }
             }
 
-            // CORRECTION : S'assurer qu'il y a au moins des données
             if (rapport.getCentres().isEmpty()) {
                 logger.warn("Aucun centre trouvé, création de centres simulés");
                 rapport.setCentres(creerCentresStatsSimules());
@@ -850,11 +843,14 @@ public class RapportService {
 
         } catch (Exception e) {
             logger.error("❌ Erreur lors de la génération des données centre répartition", e);
-            // CORRECTION : Retourner des données simulées au lieu de lever une exception
             rapport.setCentres(creerCentresStatsSimules());
             rapport.calculateTotaux();
             return rapport;
         }
+    }
+
+    private List<Centre> creerCentresSimulesCorrects() {
+        return creerCentresSimules();
     }
 
     /**
@@ -923,22 +919,32 @@ public class RapportService {
     /**
      * CORRECTION : Créer des données de centres simulées pour éviter les aperçus vides
      */
-    private List<CentreRepartitionData> creerCentresDataSimules() {
-        List<CentreRepartitionData> centresDataSimules = new ArrayList<>();
+    private List<CentreStatsDTO> creerCentresStatsSimules() {
+        List<CentreStatsDTO> centresStats = new ArrayList<>();
 
         String[] nomsCentres = {"Centre Ville", "Centre Nord", "Centre Sud", "Centre Est"};
 
         for (int i = 0; i < nomsCentres.length; i++) {
-            CentreRepartitionData centreData = new CentreRepartitionData();
-            centreData.setNomCentre(nomsCentres[i]);
-            centreData.setRepartitionBase(BigDecimal.valueOf(200000 + i * 50000));
-            centreData.setRepartitionIndicateur(BigDecimal.valueOf(75000 + i * 25000));
-            centreData.setPartCentre(centreData.getRepartitionBase().add(centreData.getRepartitionIndicateur()));
+            CentreStatsDTO stats = new CentreStatsDTO();
 
-            centresDataSimules.add(centreData);
+            Centre centre = new Centre();
+            centre.setId((long) (i + 1));
+            centre.setNomCentre(nomsCentres[i]);
+            centre.setCodeCentre("C" + String.format("%03d", i + 1));
+            centre.setActif(true);
+
+            stats.setCentre(centre);
+            stats.setNombreAffaires(5 + i * 2);
+            stats.setMontantTotal(BigDecimal.valueOf(300000 + i * 100000));
+            stats.setRepartitionBase(BigDecimal.valueOf(180000 + i * 60000));
+            stats.setRepartitionIndicateur(BigDecimal.valueOf(30000 + i * 10000));
+            stats.setPartTotalCentre(stats.getRepartitionBase().add(stats.getRepartitionIndicateur()));
+
+            centresStats.add(stats);
         }
 
-        return centresDataSimules;
+        return centresStats;
+    }
     }
     // === MÉTHODES UTILITAIRES AVEC VRAIES SIGNATURES ===
 
@@ -953,8 +959,8 @@ public class RapportService {
         for (int i = 0; i < nomsCentres.length; i++) {
             Centre centre = new Centre();
             centre.setId((long) (i + 1));
-            centre.setNomCentre(nomsCentres[i]); // CORRECTION: setNomCentre() au lieu de setNom()
-            centre.setCodeCentre("C" + String.format("%03d", i + 1)); // CORRECTION: setCodeCentre() au lieu de setCode()
+            centre.setNomCentre(nomsCentres[i]);
+            centre.setCodeCentre("C" + String.format("%03d", i + 1));
             centre.setActif(true);
             centresSimules.add(centre);
         }
@@ -973,19 +979,17 @@ public class RapportService {
         for (int i = 0; i < nomsCentres.length; i++) {
             CentreStatsDTO stats = new CentreStatsDTO();
 
-            // Créer l'entité Centre
             Centre centre = new Centre();
             centre.setId((long) (i + 1));
             centre.setNomCentre(nomsCentres[i]);
             centre.setCodeCentre("C" + String.format("%03d", i + 1));
             centre.setActif(true);
 
-            // Assigner au DTO
             stats.setCentre(centre);
             stats.setNombreAffaires(5 + i * 2);
             stats.setMontantTotal(BigDecimal.valueOf(300000 + i * 100000));
-            stats.setRepartitionBase(BigDecimal.valueOf(180000 + i * 60000)); // 60% du total
-            stats.setRepartitionIndicateur(BigDecimal.valueOf(30000 + i * 10000)); // 10% du total
+            stats.setRepartitionBase(BigDecimal.valueOf(180000 + i * 60000));
+            stats.setRepartitionIndicateur(BigDecimal.valueOf(30000 + i * 10000));
             stats.setPartTotalCentre(stats.getRepartitionBase().add(stats.getRepartitionIndicateur()));
 
             centresStats.add(stats);

@@ -849,6 +849,23 @@ public class RapportService {
         }
     }
 
+    private List<Centre> creerCentresSimules() {
+        List<Centre> centresSimules = new ArrayList<>();
+
+        String[] nomsCentres = {"Centre Ville", "Centre Nord", "Centre Sud", "Centre Est"};
+
+        for (int i = 0; i < nomsCentres.length; i++) {
+            Centre centre = new Centre();
+            centre.setId((long) (i + 1));
+            centre.setNomCentre(nomsCentres[i]);
+            centre.setCodeCentre("C" + String.format("%03d", i + 1));
+            centre.setActif(true);
+            centresSimules.add(centre);
+        }
+
+        return centresSimules;
+    }
+
     private List<Centre> creerCentresSimulesCorrects() {
         return creerCentresSimules();
     }
@@ -895,78 +912,7 @@ public class RapportService {
         return rapport;
     }
 
-// === MÉTHODES UTILITAIRES CORRIGÉES ===
-
-    /**
-     * CORRECTION : Créer des centres simulés pour éviter les erreurs
-     */
-    private List<CentreRepartition> creerCentresSimules() {
-        List<CentreRepartition> centresSimules = new ArrayList<>();
-
-        String[] nomsCentres = {"Centre Ville", "Centre Nord", "Centre Sud", "Centre Est"};
-
-        for (int i = 0; i < nomsCentres.length; i++) {
-            CentreRepartition centre = new CentreRepartition();
-            centre.setId((long) (i + 1));
-            centre.setNom(nomsCentres[i]);
-            centre.setCode("C" + String.format("%03d", i + 1));
-            centresSimules.add(centre);
-        }
-
-        return centresSimules;
-    }
-
-    /**
-     * CORRECTION : Créer des données de centres simulées pour éviter les aperçus vides
-     */
-    private List<CentreStatsDTO> creerCentresStatsSimules() {
-        List<CentreStatsDTO> centresStats = new ArrayList<>();
-
-        String[] nomsCentres = {"Centre Ville", "Centre Nord", "Centre Sud", "Centre Est"};
-
-        for (int i = 0; i < nomsCentres.length; i++) {
-            CentreStatsDTO stats = new CentreStatsDTO();
-
-            Centre centre = new Centre();
-            centre.setId((long) (i + 1));
-            centre.setNomCentre(nomsCentres[i]);
-            centre.setCodeCentre("C" + String.format("%03d", i + 1));
-            centre.setActif(true);
-
-            stats.setCentre(centre);
-            stats.setNombreAffaires(5 + i * 2);
-            stats.setMontantTotal(BigDecimal.valueOf(300000 + i * 100000));
-            stats.setRepartitionBase(BigDecimal.valueOf(180000 + i * 60000));
-            stats.setRepartitionIndicateur(BigDecimal.valueOf(30000 + i * 10000));
-            stats.setPartTotalCentre(stats.getRepartitionBase().add(stats.getRepartitionIndicateur()));
-
-            centresStats.add(stats);
-        }
-
-        return centresStats;
-    }
-    }
     // === MÉTHODES UTILITAIRES AVEC VRAIES SIGNATURES ===
-
-    /**
-     * CORRECTION : Créer des centres simulés (Centre pas CentreRepartition)
-     */
-    private List<Centre> creerCentresSimules() {
-        List<Centre> centresSimules = new ArrayList<>();
-
-        String[] nomsCentres = {"Centre Ville", "Centre Nord", "Centre Sud", "Centre Est"};
-
-        for (int i = 0; i < nomsCentres.length; i++) {
-            Centre centre = new Centre();
-            centre.setId((long) (i + 1));
-            centre.setNomCentre(nomsCentres[i]);
-            centre.setCodeCentre("C" + String.format("%03d", i + 1));
-            centre.setActif(true);
-            centresSimules.add(centre);
-        }
-
-        return centresSimules;
-    }
 
     /**
      * CORRECTION : Créer des CentreStatsDTO simulés (pas CentreRepartitionData)

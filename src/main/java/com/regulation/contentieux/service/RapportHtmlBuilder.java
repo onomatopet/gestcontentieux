@@ -257,53 +257,96 @@ public class RapportHtmlBuilder {
         context.put("dataType", data != null ? data.getClass().getSimpleName() : "null");
     }
 
+    // CORRECTION BUG TEMPLATE 3 - Mapping des totaux dans RapportHtmlBuilder
+// Fichier: src/main/java/com/regulation/contentieux/service/RapportHtmlBuilder.java
+// Remplacer la méthode addDataToContext par cette version corrigée :
+
     private void addDataToContext(Map<String, Object> context, Object data, TypeRapport type) {
         if (data instanceof RapportService.RapportRepartitionDTO rapport) {
             // Template 1 - État de répartition des affaires (fonctionne déjà)
             context.put("affaires", rapport.getAffaires());
             context.put("nombreAffaires", rapport.getAffaires() != null ? rapport.getAffaires().size() : 0);
 
-            RapportService.CentreRepartitionDTO centres = new RapportService.CentreRepartitionDTO();
-            context.put("centres", centres.getCentres());
-            context.put("nombreCentres", centres.getCentres() != null ? centres.getCentres().size() : 0);
-
             // Ajouter les totaux
-            context.put("totalRepartitionBase", centres.getTotalRepartitionBase());
-            context.put("totalRepartitionIndicateur", centres.getTotalRepartitionIndicateur());
-            context.put("totalPartCentre", centres.getTotalPartCentre());
+            context.put("totalEncaisse", rapport.getTotalEncaisse());
+            context.put("totalProduitDisponible", rapport.getTotalProduitDisponible());
+            context.put("totalProduitNet", rapport.getTotalProduitNet());
+            context.put("totalPartFLCF", rapport.getTotalPartFLCF());
+            context.put("totalPartTresor", rapport.getTotalPartTresor());
+            context.put("totalPartAyantsDroits", rapport.getTotalPartAyantsDroits());
+            context.put("totalPartChefs", rapport.getTotalPartChefs());
+            context.put("totalPartSaisissants", rapport.getTotalPartSaisissants());
+            context.put("totalPartMutuelle", rapport.getTotalPartMutuelle());
+            context.put("totalPartMasseCommune", rapport.getTotalPartMasseCommune());
+            context.put("totalPartInteressement", rapport.getTotalPartInteressement());
 
         } else if (data instanceof RapportService.EtatMandatementDTO mandatement) {
-            // CORRECTION Template 2 : Mapping correct des mandatements
+            // Template 2 - État de mandatement
             context.put("mandatements", mandatement.getMandatements());
             context.put("nombreMandatements", mandatement.getMandatements() != null ? mandatement.getMandatements().size() : 0);
 
+            // Ajouter les totaux
+            context.put("totalProduitNet", mandatement.getTotalProduitNet());
+            context.put("totalChefs", mandatement.getTotalChefs());
+            context.put("totalSaisissants", mandatement.getTotalSaisissants());
+            context.put("totalMutuelleNationale", mandatement.getTotalMutuelleNationale());
+            context.put("totalMasseCommune", mandatement.getTotalMasseCommune());
+            context.put("totalInteressement", mandatement.getTotalInteressement());
+
         } else if (data instanceof RapportService.CentreRepartitionDTO centres) {
-            // CORRECTION Template 3 : Mapping correct des centres
+            // Template 3 - Centre de répartition (CORRECTION PRINCIPALE)
             context.put("centres", centres.getCentres());
             context.put("nombreCentres", centres.getCentres() != null ? centres.getCentres().size() : 0);
 
+            // CORRECTION BUG : Ajouter les totaux manquants
+            context.put("totalRepartitionBase", centres.getTotalRepartitionBase());
+            context.put("totalRepartitionIndicateur", centres.getTotalRepartitionIndicateur());
+            context.put("totalPartCentre", centres.getTotalPartCentre());
+            context.put("totalGeneral", centres.getTotalGeneral());
+
         } else if (data instanceof RapportService.IndicateursReelsDTO indicateurs) {
-            // CORRECTION Template 4 : Mapping correct des indicateurs
+            // Template 4 - Indicateurs réels
             context.put("indicateurs", indicateurs.getIndicateurs());
+            context.put("services", indicateurs.getServicesData());
             context.put("nombreIndicateurs", indicateurs.getIndicateurs() != null ? indicateurs.getIndicateurs().size() : 0);
 
+            // Totaux spécifiques Template 4
+            context.put("totalEncaissement", indicateurs.getTotalEncaissement());
+            context.put("totalPartIndicateur", indicateurs.getTotalPartIndicateur());
+
         } else if (data instanceof RapportService.RepartitionProduitDTO produit) {
-            // CORRECTION Template 5 : Mapping correct des lignes
+            // Template 5 - Répartition du produit
             context.put("lignes", produit.getLignes());
             context.put("nombreLignes", produit.getLignes() != null ? produit.getLignes().size() : 0);
 
+            // Totaux spécifiques Template 5
+            context.put("totalProduitDisponible", produit.getTotalProduitDisponible());
+            context.put("totalPartIndicateur", produit.getTotalIndicateur());
+            context.put("totalPartFLCF", produit.getTotalFLCF());
+            context.put("totalPartTresor", produit.getTotalTresor());
+            context.put("totalPartAyantsDroits", produit.getTotalAyantsDroits());
+
         } else if (data instanceof RapportService.EtatCumuleAgentDTO cumuleAgent) {
-            // CORRECTION Template 6 : Mapping correct des agents
+            // Template 6 - Cumulé par agent
             context.put("agents", cumuleAgent.getAgents());
             context.put("nombreAgents", cumuleAgent.getAgents() != null ? cumuleAgent.getAgents().size() : 0);
 
+            // Totaux spécifiques Template 6
+            context.put("totalChefs", cumuleAgent.getTotalChefs());
+            context.put("totalSaisissants", cumuleAgent.getTotalSaisissants());
+            context.put("totalDG", cumuleAgent.getTotalDG());
+            context.put("totalDD", cumuleAgent.getTotalDD());
+            context.put("totalGeneral", cumuleAgent.getTotalGeneral());
+
         } else if (data instanceof RapportService.TableauAmendesParServicesDTO amendes) {
-            // CORRECTION Template 7 : Mapping correct des services
+            // Template 7 - Amendes par services
             context.put("services", amendes.getServices());
             context.put("nombreServices", amendes.getServices() != null ? amendes.getServices().size() : 0);
+            context.put("totalGeneral", amendes.getTotalGeneral());
+            context.put("nombreTotalAffaires", amendes.getNombreTotalAffaires());
         }
 
-        // Variables communes - CORRECTION : retirer hasActualData() qui n'existe pas
+        // Ajouter une variable de vérification
         context.put("hasData", data != null);
         context.put("dataType", data != null ? data.getClass().getSimpleName() : "null");
     }

@@ -5,6 +5,7 @@ import com.regulation.contentieux.dao.ContraventionDAO;
 import java.sql.*;
 
 import java.sql.Date;
+import java.time.format.DateTimeFormatter;
 import java.util.stream.Collectors;
 import com.regulation.contentieux.config.DatabaseConfig;
 import com.regulation.contentieux.dao.*;
@@ -163,6 +164,10 @@ public class RapportService {
     /**
      * ENRICHISSEMENT : Méthode pour générer l'état cumulé par agent
      */
+    /**
+     * CORRECTION BUG Template 6 : Méthode complète genererDonneesEtatCumuleParAgent()
+     * Fichier: src/main/java/com/regulation/contentieux/service/RapportService.java
+     */
     public EtatCumuleAgentDTO genererDonneesEtatCumuleParAgent(LocalDate dateDebut, LocalDate dateFin) {
         logger.info("📋 Génération de l'état cumulé par agent - {} au {}", dateDebut, dateFin);
 
@@ -171,41 +176,125 @@ public class RapportService {
         rapport.setDateFin(dateFin);
         rapport.setDateGeneration(LocalDate.now());
         rapport.setPeriodeLibelle(formatPeriode(dateDebut, dateFin));
+        rapport.setTitreRapport("ETAT CUMULE PAR AGENT");
 
         try {
-            // CORRECTION : Utiliser findAll() au lieu de findAllActifs() qui peut être vide
+            // Récupérer tous les agents actifs
             List<Agent> agents = agentDAO.findAll();
             logger.debug("🔍 Agents trouvés: {}", agents.size());
 
             for (Agent agent : agents) {
-                try {
-                    AgentStatsDTO stats = calculerStatsAgent(agent, dateDebut, dateFin);
-                    // CORRECTION : Toujours ajouter l'agent, même avec activité=0 pour l'affichage
-                    if (stats != null) {
-                        rapport.getAgents().add(stats);
-                        logger.debug("✅ Agent ajouté: {} - Activité: {}",
-                                agent.getNom(), stats.hasActivite());
+                AgentStatsDTO stats = new AgentStatsDTO(agent);
+
+                // Récupérer toutes les affaires de la période où l'agent est impliqué
+                List<Affaire> affaires = getAffairesByAgentAndPeriod(agent.getId(), dateDebut, dateFin);
+
+                // Pour chaque affaire, calculer les parts selon le rôle
+                for (Affaire affaire : affaires) {
+                    List<Encaissement> encaissements = encaissementDAO.findByAffaireId(affaire.getId());
+
+                    for (Encaissement enc : encaissements) {
+                        if (enc.getStatut() == StatutEncaissement.VALIDE &&
+                                !enc.getDateEncaissement().isBefore(dateDebut) &&
+                                !enc.getDateEncaissement().isAfter(dateFin)) {
+
+                            RepartitionResultat repartition = repartitionService.calculerRepartition(enc, affaire);
+
+                            // CORRECTION BUG : Calculer les parts selon le rôle de l'agent
+                            for (AffaireActeur acteur : affaire.getActeurs()) {
+                                if (acteur.getAgent().getId().equals(agent.getId())) {
+                                    String role = acteur.getRoleSurAffaire();
+
+                                    switch (role) {
+                                        case "CHEF":
+                                            // Part chef = part totale des chefs divisée par le nombre de chefs
+                                            long nbChefs = affaire.getActeurs().stream()
+                                                    .filter(a -> "CHEF".equals(a.getRoleSurAffaire()))
+                                                    .count();
+                                            if (nbChefs > 0) {
+                                                BigDecimal partParChef = repartition.getPartChefs()
+                                                        .divide(BigDecimal.valueOf(nbChefs), 2, RoundingMode.HALF_UP);
+                                                stats.setPartEnTantQueChef(
+                                                        stats.getPartEnTantQueChef().add(partParChef)
+                                                );
+                                            }
+                                            break;
+
+                                        case "SAISISSANT":
+                                            // Part saisissant = part totale des saisissants divisée par le nombre de saisissants
+                                            long nbSaisissants = affaire.getActeurs().stream()
+                                                    .filter(a -> "SAISISSANT".equals(a.getRoleSurAffaire()))
+                                                    .count();
+                                            if (nbSaisissants > 0) {
+                                                BigDecimal partParSaisissant = repartition.getPartSaisissants()
+                                                        .divide(BigDecimal.valueOf(nbSaisissants), 2, RoundingMode.HALF_UP);
+                                                stats.setPartEnTantQueSaisissant(
+                                                        stats.getPartEnTantQueSaisissant().add(partParSaisissant)
+                                                );
+                                            }
+                                            break;
+
+                                        case "DG":
+                                            stats.setPartEnTantQueDG(
+                                                    stats.getPartEnTantQueDG().add(repartition.getPartDG())
+                                            );
+                                            break;
+
+                                        case "DD":
+                                            stats.setPartEnTantQueDD(
+                                                    stats.getPartEnTantQueDD().add(repartition.getPartDD())
+                                            );
+                                            break;
+                                    }
+
+                                    stats.setNombreAffaires(stats.getNombreAffaires() + 1);
+                                }
+                            }
+                        }
                     }
-                } catch (Exception e) {
-                    logger.warn("⚠️ Erreur pour l'agent {}: {}", agent.getNom(), e.getMessage());
-                    // Créer des stats par défaut pour éviter les lignes vides
-                    AgentStatsDTO statsDefaut = new AgentStatsDTO();
-                    statsDefaut.setAgent(agent);
-                    statsDefaut.setNombreAffaires(0);
-                    statsDefaut.setMontantTotal(BigDecimal.ZERO);
-                    statsDefaut.setObservations("Aucune activité");
-                    rapport.getAgents().add(statsDefaut);
+                }
+
+                // Vérifier aussi si l'agent est DG ou DD (ils reçoivent toujours leur part)
+                if (agent.getRole() != null) {
+                    if ("DG".equals(agent.getRole())) {
+                        // Le DG reçoit sa part sur TOUTES les affaires de la période
+                        List<Encaissement> tousEncaissements = encaissementDAO.findByPeriod(dateDebut, dateFin);
+                        for (Encaissement enc : tousEncaissements) {
+                            if (enc.getStatut() == StatutEncaissement.VALIDE && enc.getAffaire() != null) {
+                                RepartitionResultat rep = repartitionService.calculerRepartition(enc, enc.getAffaire());
+                                stats.setPartEnTantQueDG(stats.getPartEnTantQueDG().add(rep.getPartDG()));
+                            }
+                        }
+                    } else if ("DD".equals(agent.getRole())) {
+                        // Le DD reçoit sa part sur TOUTES les affaires de la période
+                        List<Encaissement> tousEncaissements = encaissementDAO.findByPeriod(dateDebut, dateFin);
+                        for (Encaissement enc : tousEncaissements) {
+                            if (enc.getStatut() == StatutEncaissement.VALIDE && enc.getAffaire() != null) {
+                                RepartitionResultat rep = repartitionService.calculerRepartition(enc, enc.getAffaire());
+                                stats.setPartEnTantQueDD(stats.getPartEnTantQueDD().add(rep.getPartDD()));
+                            }
+                        }
+                    }
+                }
+
+                // Calculer la part totale
+                stats.calculerPartTotale();
+
+                // Ajouter seulement si l'agent a une activité
+                if (stats.hasActivite()) {
+                    rapport.getAgents().add(stats);
                 }
             }
 
+            // Calculer les totaux
             rapport.calculateTotaux();
-            logger.info("✅ État cumulé par agent généré - {} agents", rapport.getAgents().size());
+
+            logger.info("✅ État cumulé par agent généré - {} agents avec activité", rapport.getAgents().size());
             return rapport;
 
         } catch (Exception e) {
-            logger.error("❌ Erreur lors de la génération des données cumul agent", e);
-            // Retourner un rapport avec des données simulées pour éviter l'erreur
-            rapport.setAgents(creerAgentsSimules());
+            logger.error("❌ Erreur génération état cumulé par agent", e);
+            // Retourner un rapport vide
             return rapport;
         }
     }
@@ -864,48 +953,6 @@ public class RapportService {
         return creerCentresSimules();
     }
 
-    /**
-     * CORRECTION BUG Template 4 : Méthode manquante genererDonneesIndicateursReels()
-     */
-    public IndicateursReelsDTO genererDonneesIndicateursReels(LocalDate dateDebut, LocalDate dateFin) {
-        logger.info("📋 Génération des données d'indicateurs réels");
-
-        IndicateursReelsDTO rapport = new IndicateursReelsDTO();
-        rapport.setDateDebut(dateDebut);
-        rapport.setDateFin(dateFin);
-        rapport.setPeriodeLibelle(formatPeriode(dateDebut, dateFin));
-
-        // CORRECTION BUG Template 4 : Récupérer TOUS les encaissements
-        List<Encaissement> encaissements = encaissementDAO.findByPeriod(dateDebut, dateFin);
-
-        for (Encaissement enc : encaissements) {
-            if (enc.getAffaire() != null) {
-                IndicateurReelDTO indicateur = new IndicateurReelDTO();
-
-                // CORRECTION BUG : Formatage correct des données
-                indicateur.setNumeroEncaissement(enc.getReference());
-                indicateur.setDateEncaissement(enc.getDateEncaissement());
-                indicateur.setNumeroAffaire(enc.getAffaire().getNumeroAffaire());
-
-                if (enc.getAffaire().getContrevenant() != null) {
-                    indicateur.setNomContrevenant(
-                            enc.getAffaire().getContrevenant().getNom() + " " +
-                                    (enc.getAffaire().getContrevenant().getPrenom() != null ?
-                                            enc.getAffaire().getContrevenant().getPrenom() : "")
-                    );
-                }
-
-                RepartitionResultat repartition = repartitionService.calculerRepartition(enc, enc.getAffaire());
-                indicateur.setMontantEncaisse(enc.getMontantEncaisse());
-                indicateur.setPartIndicateur(repartition.getPartIndicateur());
-
-                rapport.getIndicateurs().add(indicateur);
-            }
-        }
-
-        return rapport;
-    }
-
     // === MÉTHODES UTILITAIRES AVEC VRAIES SIGNATURES ===
 
     /**
@@ -1002,45 +1049,46 @@ public class RapportService {
                             }
                             ligne.setNomContrevenant(nomComplet);
                         } else {
-                            ligne.setNomContrevenant("N/A");
+                            ligne.setNomContrevenant("Non spécifié");
                         }
 
-                        // CORRECTION BUG 5 : Traiter les contraventions avec gestion d'erreur
-                        // L'affaire n'a PAS de méthode getContravention() directe
-                        // Utiliser la liste des contraventions
-                        if (enc.getAffaire().getContraventions() != null && !enc.getAffaire().getContraventions().isEmpty()) {
-                            // Prendre la première contravention ou toutes les contraventions
+                        // CORRECTION BUG 5 : Ajouter nom des contraventions
+                        if (!enc.getAffaire().getContraventions().isEmpty()) {
                             String contraventions = enc.getAffaire().getContraventions().stream()
-                                    .map(Contravention::getLibelle)
+                                    .map(ac -> ac.getContravention().getLibelle())
                                     .collect(Collectors.joining(", "));
-                            ligne.setContraventions(contraventions); // CORRECTION : méthode existante
+                            ligne.setContraventions(contraventions);
                         } else {
                             ligne.setContraventions("Non spécifiée");
                         }
 
-                        // Montants de répartition - utiliser les méthodes existantes
+                        // CORRECTION BUG 5 : Remplir TOUTES les colonnes avec les vraies valeurs
                         ligne.setProduitDisponible(enc.getMontantEncaisse());
                         ligne.setPartIndicateur(repartition.getPartIndicateur());
-                        // CORRECTION : Supprimer getPartDirectionContentieux() et getPartIndicateur2() inexistants
-                        ligne.setPartFLCF(repartition.getPartFLCF()); // CORRECTION : méthode existante
-                        ligne.setPartTresor(repartition.getPartTresor()); // CORRECTION : méthode existante
-                        ligne.setPartAyantsDroits(repartition.getProduitNetAyantsDroits()); // CORRECTION : méthode existante
+                        // Note: "Part Direction contentieux" dans le template correspond à partDirectionContentieux
+                        // mais cette valeur n'existe pas dans RepartitionResultat, donc on met 0
+                        ligne.setPartDirectionContentieux(BigDecimal.ZERO);
+                        ligne.setPartFLCF(repartition.getPartFLCF());
+                        ligne.setPartTresor(repartition.getPartTresor());
+                        ligne.setPartAyantsDroits(repartition.getProduitNetAyantsDroits());
 
                         rapport.getLignes().add(ligne);
 
                     } catch (Exception e) {
-                        logger.error("Erreur traitement encaissement {}: {}", enc.getReference(), e.getMessage());
-                        // Continuer avec les autres encaissements
+                        logger.warn("⚠️ Erreur traitement encaissement {}: {}", enc.getReference(), e.getMessage());
                     }
                 }
             }
 
-            logger.info("✅ Répartition du produit générée - {} lignes", rapport.getLignes().size());
+            // Calculer les totaux
+            rapport.calculateTotaux();
+
+            logger.info("✅ Rapport répartition produit généré - {} lignes", rapport.getLignes().size());
             return rapport;
 
         } catch (Exception e) {
-            logger.error("❌ ERREUR géneration répartition produit", e);
-            // Retourner un rapport vide au lieu de lever une exception
+            logger.error("❌ Erreur génération répartition produit", e);
+            // Retourner rapport vide au lieu de lever une exception
             rapport.getLignes().clear();
             return rapport;
         }
@@ -1185,6 +1233,12 @@ public class RapportService {
             rapport.setServices(creerServicesSimules());
             return rapport;
         }
+    }
+
+    // Méthode helper pour formater les montants
+    private String formatMontant(BigDecimal montant) {
+        if (montant == null) return "0";
+        return String.format("%,.0f", montant);
     }
 
     // ==================== MÉTHODES UTILITAIRES ====================
@@ -2062,6 +2116,7 @@ public class RapportService {
         private BigDecimal montantEncaisse;
         private BigDecimal produitDisponible;
         private BigDecimal partIndicateur;
+        private BigDecimal partDirectionContentieux; // AJOUTER
         private BigDecimal partFLCF;
         private BigDecimal partTresor;
         private BigDecimal partAyantsDroits;
@@ -2078,11 +2133,6 @@ public class RapportService {
         public LocalDate getDateEncaissement() { return dateEncaissement; }
         public void setDateEncaissement(LocalDate dateEncaissement) { this.dateEncaissement = dateEncaissement; }
 
-        public LocalDate getDateAffaire() { return dateEncaissement; } // Alias pour templates
-
-        public String getNomContraventions() { return contraventions; }
-        public void setNomContraventions(String contraventions) { this.contraventions = contraventions; }
-
         public BigDecimal getMontantEncaisse() { return montantEncaisse; }
         public void setMontantEncaisse(BigDecimal montantEncaisse) { this.montantEncaisse = montantEncaisse; }
 
@@ -2091,6 +2141,10 @@ public class RapportService {
 
         public BigDecimal getPartIndicateur() { return partIndicateur; }
         public void setPartIndicateur(BigDecimal partIndicateur) { this.partIndicateur = partIndicateur; }
+
+        // AJOUTER CE GETTER/SETTER
+        public BigDecimal getPartDirectionContentieux() { return partDirectionContentieux; }
+        public void setPartDirectionContentieux(BigDecimal partDirectionContentieux) { this.partDirectionContentieux = partDirectionContentieux; }
 
         public BigDecimal getPartFLCF() { return partFLCF; }
         public void setPartFLCF(BigDecimal partFLCF) { this.partFLCF = partFLCF; }
@@ -2108,6 +2162,11 @@ public class RapportService {
         public void setContraventions(String contraventions) { this.contraventions = contraventions; }
     }
 
+    /**
+     * DTO complet pour l'état cumulé par agent (Template 6)
+     * Fichier: src/main/java/com/regulation/contentieux/service/RapportService.java
+     * Classe interne dans RapportService
+     */
     public static class EtatCumuleAgentDTO {
         private LocalDate dateDebut;
         private LocalDate dateFin;
@@ -2118,49 +2177,170 @@ public class RapportService {
         private BigDecimal totalGeneral = BigDecimal.ZERO;
         private int nombreAgents = 0;
 
+        // CORRECTION : Ajout des totaux par type de part
+        private BigDecimal totalChefs = BigDecimal.ZERO;
+        private BigDecimal totalSaisissants = BigDecimal.ZERO;
+        private BigDecimal totalDG = BigDecimal.ZERO;
+        private BigDecimal totalDD = BigDecimal.ZERO;
+
         // Constructeur
         public EtatCumuleAgentDTO() {
             this.dateGeneration = LocalDate.now();
+            this.agents = new ArrayList<>();
         }
 
+        /**
+         * CORRECTION : Méthode pour calculer tous les totaux
+         */
         public void calculateTotaux() {
-            totalGeneral = agents.stream()
-                    .map(AgentStatsDTO::getPartTotaleAgent)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            // Réinitialiser les totaux
+            totalChefs = BigDecimal.ZERO;
+            totalSaisissants = BigDecimal.ZERO;
+            totalDG = BigDecimal.ZERO;
+            totalDD = BigDecimal.ZERO;
+            totalGeneral = BigDecimal.ZERO;
+
+            // Calculer les totaux à partir des agents
+            for (AgentStatsDTO agent : agents) {
+                totalChefs = totalChefs.add(agent.getPartEnTantQueChef());
+                totalSaisissants = totalSaisissants.add(agent.getPartEnTantQueSaisissant());
+                totalDG = totalDG.add(agent.getPartEnTantQueDG());
+                totalDD = totalDD.add(agent.getPartEnTantQueDD());
+                totalGeneral = totalGeneral.add(agent.getPartTotaleAgent());
+            }
+
             nombreAgents = agents.size();
+
+            logger.debug("📊 Totaux calculés - Chefs: {}, Saisissants: {}, DG: {}, DD: {}, Total: {}",
+                    totalChefs, totalSaisissants, totalDG, totalDD, totalGeneral);
         }
 
         // Getters et setters
-        public LocalDate getDateDebut() { return dateDebut; }
-        public void setDateDebut(LocalDate dateDebut) { this.dateDebut = dateDebut; }
-
-        public LocalDate getDateFin() { return dateFin; }
-        public void setDateFin(LocalDate dateFin) { this.dateFin = dateFin; }
-
-        public LocalDate getPeriodeDebut() {
+        public LocalDate getDateDebut() {
             return dateDebut;
         }
-        public LocalDate getPeriodeFin() {
+
+        public void setDateDebut(LocalDate dateDebut) {
+            this.dateDebut = dateDebut;
+        }
+
+        public LocalDate getDateFin() {
             return dateFin;
         }
 
-        public LocalDate getDateGeneration() { return dateGeneration; }
-        public void setDateGeneration(LocalDate dateGeneration) { this.dateGeneration = dateGeneration; }
+        public void setDateFin(LocalDate dateFin) {
+            this.dateFin = dateFin;
+        }
 
-        public String getPeriodeLibelle() { return periodeLibelle; }
-        public void setPeriodeLibelle(String periodeLibelle) { this.periodeLibelle = periodeLibelle; }
+        public LocalDate getDateGeneration() {
+            return dateGeneration;
+        }
 
-        public String getTitreRapport() { return titreRapport; }
-        public void setTitreRapport(String titreRapport) { this.titreRapport = titreRapport; }
+        public void setDateGeneration(LocalDate dateGeneration) {
+            this.dateGeneration = dateGeneration;
+        }
 
-        public List<AgentStatsDTO> getAgents() { return agents; }
-        public void setAgents(List<AgentStatsDTO> agents) { this.agents = agents; }
+        public String getPeriodeLibelle() {
+            return periodeLibelle;
+        }
 
-        public BigDecimal getTotalGeneral() { return totalGeneral; }
-        public void setTotalGeneral(BigDecimal totalGeneral) { this.totalGeneral = totalGeneral; }
+        public void setPeriodeLibelle(String periodeLibelle) {
+            this.periodeLibelle = periodeLibelle;
+        }
 
-        public int getNombreAgents() { return nombreAgents; }
-        public void setNombreAgents(int nombreAgents) { this.nombreAgents = nombreAgents; }
+        public String getTitreRapport() {
+            return titreRapport;
+        }
+
+        public void setTitreRapport(String titreRapport) {
+            this.titreRapport = titreRapport;
+        }
+
+        public List<AgentStatsDTO> getAgents() {
+            return agents;
+        }
+
+        public void setAgents(List<AgentStatsDTO> agents) {
+            this.agents = agents;
+        }
+
+        public BigDecimal getTotalGeneral() {
+            return totalGeneral;
+        }
+
+        public void setTotalGeneral(BigDecimal totalGeneral) {
+            this.totalGeneral = totalGeneral;
+        }
+
+        public int getNombreAgents() {
+            return nombreAgents;
+        }
+
+        public void setNombreAgents(int nombreAgents) {
+            this.nombreAgents = nombreAgents;
+        }
+
+        // CORRECTION : Getters pour les totaux par type
+        public BigDecimal getTotalChefs() {
+            return totalChefs;
+        }
+
+        public void setTotalChefs(BigDecimal totalChefs) {
+            this.totalChefs = totalChefs;
+        }
+
+        public BigDecimal getTotalSaisissants() {
+            return totalSaisissants;
+        }
+
+        public void setTotalSaisissants(BigDecimal totalSaisissants) {
+            this.totalSaisissants = totalSaisissants;
+        }
+
+        public BigDecimal getTotalDG() {
+            return totalDG;
+        }
+
+        public void setTotalDG(BigDecimal totalDG) {
+            this.totalDG = totalDG;
+        }
+
+        public BigDecimal getTotalDD() {
+            return totalDD;
+        }
+
+        public void setTotalDD(BigDecimal totalDD) {
+            this.totalDD = totalDD;
+        }
+
+        /**
+         * Méthode helper pour vérifier si le rapport a des données
+         */
+        public boolean hasData() {
+            return agents != null && !agents.isEmpty();
+        }
+
+        /**
+         * Méthode pour obtenir le nombre d'agents avec activité
+         */
+        public int getNombreAgentsAvecActivite() {
+            return (int) agents.stream()
+                    .filter(AgentStatsDTO::hasActivite)
+                    .count();
+        }
+
+        /**
+         * Méthode pour formater la période d'affichage
+         */
+        public String getPeriodeAffichage() {
+            if (dateDebut != null && dateFin != null) {
+                return String.format("du %s au %s",
+                        dateDebut.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                        dateFin.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                );
+            }
+            return periodeLibelle != null ? periodeLibelle : "";
+        }
     }
 
     /**

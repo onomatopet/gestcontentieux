@@ -109,7 +109,6 @@
     <div class="periode">Période du {{dateDebut}} au {{dateFin}}</div>
 </div>
 
-{{#if centres}}
 <table>
     <thead>
     <tr>
@@ -119,35 +118,37 @@
     </tr>
     <tr>
         <th>Répartition de base</th>
-        <th>Répartition part indicateur</th>
+        <th>Répartition part indic. fictif</th>
     </tr>
     </thead>
     <tbody>
     {{#each centres}}
     <tr>
-        <td>{{nomCentre}}</td>
+        <td class="center-name">{{nomCentre}}</td>
         <td class="montant">{{repartitionBase}}</td>
         <td class="montant">{{repartitionIndicateur}}</td>
-        <td class="montant">{{partCentre}}</td>
+        <td class="montant">{{partTotalCentre}}</td>
     </tr>
     {{/each}}
 
-    <!-- Ligne de totaux -->
+    {{#if centres}}
     <tr class="total-row">
-        <td><strong>TOTAUX</strong></td>
-        <td class="montant"><strong>{{totalRepartitionBase}}</strong></td>
-        <td class="montant"><strong>{{totalRepartitionIndicateur}}</strong></td>
-        <td class="montant"><strong>{{totalPartCentre}}</strong></td>
+        <td>TOTAL</td>
+        <td class="montant">{{totalRepartitionBase}}</td>
+        <td class="montant">{{totalRepartitionIndicateur}}</td>
+        <td class="montant">{{totalPartCentre}}</td>
     </tr>
+    {{/if}}
     </tbody>
 </table>
 
-<div class="stats">
-    <strong>Statistiques :</strong>
-    {{nombreCentres}} centre(s) •
-    Total part centres : {{totalPartCentre}} FCFA
-</div>
-{{/if}}
+<table class="resume">
+    <tr>
+        <td>
+            <p>Arrêté le présent à la somme nette de : {{totalProduitDisponible}} FCFA</p>
+        </td>
+    </tr>
+</table>
 
 <div>
     <table class="signature">

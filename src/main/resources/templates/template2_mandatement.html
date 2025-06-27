@@ -156,11 +156,21 @@
     </tbody>
 </table>
 
-<div class="stats">
-    <strong>Statistiques :</strong>
-    {{nombreMandatements}} mandatement(s) •
-    Total produit net : {{totalProduitNet}} FCFA
-</div>
+<table class="resume">
+    <tr>
+        <td>
+            <p>Arrêté le présent à la somme nette de : {{totalProduitDisponible}} FCFA</p>
+        </td>
+        <td style="align-items: right;width:35%">
+            <div class="stats">
+                <strong>Statistiques :</strong>
+                {{nombreMandatements}} mandatement(s) •
+                Total produit net : {{totalProduitNet}} FCFA
+            </div>
+        </td>
+    </tr>
+</table>
+
 {{/if}}
 
 <div>

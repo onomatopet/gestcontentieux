@@ -2350,15 +2350,61 @@ public class RapportController implements Initializable {
     private void configureColumnsIndicateursReels() {
         // 1. N° encaissement et Date
         TableColumn<Object, String> numeroEncCol = new TableColumn<>("N° encaissement et Date");
-        numeroEncCol.setCellValueFactory(data ->
-                new SimpleStringProperty(extractValue(data.getValue(), "numeroEncaissement")));
+        numeroEncCol.setCellValueFactory(data -> {
+            Object item = data.getValue();
+            String numero = extractValue(item, "numeroEncaissement");
+            String date = extractValue(item, "dateEncaissement");
+
+            if (numero != null && date != null) {
+                return new SimpleStringProperty(numero + "\n" + date);
+            } else if (numero != null) {
+                return new SimpleStringProperty(numero);
+            }
+            return new SimpleStringProperty("");
+        });
         numeroEncCol.setPrefWidth(140);
+        numeroEncCol.setCellFactory(col -> new TableCell<Object, String>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText(item);
+                    setWrapText(true);
+                    setTextAlignment(TextAlignment.CENTER);
+                }
+            }
+        });
 
         // 2. N° Affaire et Date
         TableColumn<Object, String> numeroAffCol = new TableColumn<>("N° Affaire et Date");
-        numeroAffCol.setCellValueFactory(data ->
-                new SimpleStringProperty(extractValue(data.getValue(), "numeroAffaire")));
+        numeroAffCol.setCellValueFactory(data -> {
+            Object item = data.getValue();
+            String numero = extractValue(item, "numeroAffaire");
+            String date = extractValue(item, "dateAffaire");
+
+            if (numero != null && date != null) {
+                return new SimpleStringProperty(numero + "\n" + date);
+            } else if (numero != null) {
+                return new SimpleStringProperty(numero);
+            }
+            return new SimpleStringProperty("");
+        });
         numeroAffCol.setPrefWidth(130);
+        numeroAffCol.setCellFactory(col -> new TableCell<Object, String>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText(item);
+                    setWrapText(true);
+                    setTextAlignment(TextAlignment.CENTER);
+                }
+            }
+        });
 
         // 3. Noms des contrevenants
         TableColumn<Object, String> contrevenantsCol = new TableColumn<>("Noms des contrevenants");
@@ -2369,13 +2415,13 @@ public class RapportController implements Initializable {
         // 4. Contraventions
         TableColumn<Object, String> contraventionsCol = new TableColumn<>("Contraventions");
         contraventionsCol.setCellValueFactory(data ->
-                new SimpleStringProperty(extractValue(data.getValue(), "typeContravention")));
+                new SimpleStringProperty(extractValue(data.getValue(), "contraventions")));
         contraventionsCol.setPrefWidth(120);
 
         // 5. Montant encaissement
         TableColumn<Object, String> montantEncCol = new TableColumn<>("Montant encaissement");
         montantEncCol.setCellValueFactory(data ->
-                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "montantEncaissement"))));
+                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "montantEncaisse"))));
         montantEncCol.setPrefWidth(130);
         montantEncCol.getStyleClass().add("montant-column");
 

@@ -361,6 +361,27 @@ public class RapportService {
                     indicateur.setMontantEncaisse(enc.getMontantEncaisse());
                     indicateur.setPartIndicateur(repartition.getPartIndicateur());
 
+                    // Ajouter le nom du contrevenant
+                    if (enc.getAffaire().getContrevenant() != null) {
+                        String nomComplet = enc.getAffaire().getContrevenant().getNom();
+                        if (enc.getAffaire().getContrevenant().getPrenom() != null) {
+                            nomComplet += " " + enc.getAffaire().getContrevenant().getPrenom();
+                        }
+                        indicateur.setNomContrevenant(nomComplet);
+                    } else {
+                        indicateur.setNomContrevenant("Non spécifié");
+                    }
+
+                    // Ajouter les contraventions
+                    if (enc.getAffaire().getContraventions() != null && !enc.getAffaire().getContraventions().isEmpty()) {
+                        String contraventions = enc.getAffaire().getContraventions().stream()
+                                .map(Contravention::getLibelle)
+                                .collect(Collectors.joining(", "));
+                        indicateur.setContraventions(contraventions);
+                    } else {
+                        indicateur.setContraventions("Non spécifiée");
+                    }
+
                     // Centre si disponible
                     if (enc.getAffaire().getCentresAssocies() != null && !enc.getAffaire().getCentresAssocies().isEmpty()) {
                         Centre centre = enc.getAffaire().getCentresAssocies().get(0).getCentre();

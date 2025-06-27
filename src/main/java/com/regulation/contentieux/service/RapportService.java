@@ -352,39 +352,61 @@ public class RapportService {
 
             for (Encaissement enc : encaissements) {
                 if (enc.getStatut() == StatutEncaissement.VALIDE && enc.getAffaire() != null) {
-                    RepartitionResultat repartition = repartitionService.calculerRepartition(enc, enc.getAffaire());
+                    // Recharger l'affaire complète avec toutes ses relations
+                    Optional<Affaire> affaireOpt = affaireDAO.findById(enc.getAffaire().getId());
+                    if (!affaireOpt.isPresent()) {
+                        continue;
+                    }
+                    Affaire affaire = affaireOpt.get();
+
+                    RepartitionResultat repartition = repartitionService.calculerRepartition(enc, affaire);
 
                     IndicateurReelDTO indicateur = new IndicateurReelDTO();
                     indicateur.setNumeroEncaissement(enc.getReference());
                     indicateur.setDateEncaissement(enc.getDateEncaissement());
-                    indicateur.setNumeroAffaire(enc.getAffaire().getNumeroAffaire());
+                    indicateur.setNumeroAffaire(affaire.getNumeroAffaire());
                     indicateur.setMontantEncaisse(enc.getMontantEncaisse());
                     indicateur.setPartIndicateur(repartition.getPartIndicateur());
 
-                    // Ajouter le nom du contrevenant
-                    if (enc.getAffaire().getContrevenant() != null) {
-                        String nomComplet = enc.getAffaire().getContrevenant().getNom();
-                        if (enc.getAffaire().getContrevenant().getPrenom() != null) {
-                            nomComplet += " " + enc.getAffaire().getContrevenant().getPrenom();
+                    // Récupérer le contrevenant
+                    if (affaire.getContrevenant() != null) {
+                        String nomComplet = "";
+                        if (affaire.getContrevenant().getNom() != null) {
+                            nomComplet = affaire.getContrevenant().getNom();
                         }
-                        indicateur.setNomContrevenant(nomComplet);
+                        if (affaire.getContrevenant().getPrenom() != null && !affaire.getContrevenant().getPrenom().isEmpty()) {
+                            nomComplet += " " + affaire.getContrevenant().getPrenom();
+                        }
+                        indicateur.setNomContrevenant(nomComplet.trim().isEmpty() ? "Non spécifié" : nomComplet.trim());
                     } else {
-                        indicateur.setNomContrevenant("Non spécifié");
+                        // Si pas de contrevenant sur l'affaire, essayer de récupérer depuis la description
+                        if (affaire.getDescription() != null && !affaire.getDescription().isEmpty()) {
+                            indicateur.setNomContrevenant(affaire.getDescription());
+                        } else {
+                            indicateur.setNomContrevenant("Non spécifié");
+                        }
                     }
 
-                    // Ajouter les contraventions
-                    if (enc.getAffaire().getContraventions() != null && !enc.getAffaire().getContraventions().isEmpty()) {
-                        String contraventions = enc.getAffaire().getContraventions().stream()
-                                .map(Contravention::getLibelle)
+                    // Récupérer les contraventions
+                    List<Contravention> contraventions = getContraventionsByAffaire(affaire.getId());
+                    if (contraventions != null && !contraventions.isEmpty()) {
+                        String libelleContraventions = contraventions.stream()
+                                .map(c -> c.getLibelle() != null ? c.getLibelle() : c.getCode())
+                                .filter(s -> s != null && !s.isEmpty())
                                 .collect(Collectors.joining(", "));
-                        indicateur.setContraventions(contraventions);
+                        indicateur.setContraventions(libelleContraventions.isEmpty() ? "Non spécifiée" : libelleContraventions);
                     } else {
-                        indicateur.setContraventions("Non spécifiée");
+                        // Si pas de contraventions liées, utiliser la description de l'affaire
+                        if (affaire.getDescription() != null && !affaire.getDescription().isEmpty()) {
+                            indicateur.setContraventions(affaire.getDescription());
+                        } else {
+                            indicateur.setContraventions("Non spécifiée");
+                        }
                     }
 
                     // Centre si disponible
-                    if (enc.getAffaire().getCentresAssocies() != null && !enc.getAffaire().getCentresAssocies().isEmpty()) {
-                        Centre centre = enc.getAffaire().getCentresAssocies().get(0).getCentre();
+                    if (affaire.getCentresAssocies() != null && !affaire.getCentresAssocies().isEmpty()) {
+                        Centre centre = affaire.getCentresAssocies().get(0).getCentre();
                         indicateur.setCentre(centre);
                     }
 
@@ -394,6 +416,8 @@ public class RapportService {
 
             rapport.setIndicateurs(indicateurs);
             rapport.calculateTotaux();
+
+            logger.info("✅ Indicateurs réels générés - {} indicateurs", indicateurs.size());
 
         } catch (Exception e) {
             logger.error("Erreur lors de la génération des indicateurs réels", e);

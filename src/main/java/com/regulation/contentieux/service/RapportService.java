@@ -979,7 +979,7 @@ public class RapportService {
                 centreStats.setMontantTotal(stat.getMontantTotal());
                 centreStats.setRepartitionBase(stat.getMontantBase());
                 centreStats.setRepartitionIndicateur(BigDecimal.ZERO);
-                centreStats.setPartTotalCentre(stat.getMontantBase());
+                centreStats.setPartTotalCentre(stat.getMontantBase()); // Part centre = base - indicateur (0) = base
 
                 rapport.getCentres().add(centreStats);
             }
@@ -1061,10 +1061,10 @@ public class RapportService {
             BigDecimal repartitionBase = BigDecimal.valueOf(180000 + i * 60000);
             stats.setRepartitionBase(repartitionBase);
 
-            // CORRECTION : Répartition indicateur fictif = TOUJOURS 0
+            // Répartition indicateur fictif = TOUJOURS 0
             stats.setRepartitionIndicateur(BigDecimal.ZERO);
 
-            // CORRECTION : Part centre = répartition base (car indicateur = 0)
+            // Part centre = répartition base car indicateur = 0
             stats.setPartTotalCentre(repartitionBase);
 
             centresStats.add(stats);

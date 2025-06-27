@@ -1497,11 +1497,11 @@ public class RapportController implements Initializable {
      */
     private String formatMontant(BigDecimal montant) {
         if (montant == null) {
-            return ""; // Changement : chaîne vide au lieu de "0"
+            return "0";
         }
 
         if (montant.compareTo(BigDecimal.ZERO) == 0) {
-            return ""; // Changement : chaîne vide au lieu de "0" pour les zéros aussi
+            return "0";
         }
 
         DecimalFormat formatter = new DecimalFormat("#,##0.00");
@@ -2336,7 +2336,7 @@ public class RapportController implements Initializable {
         // 4. Part centre
         TableColumn<Object, String> partCentreCol = new TableColumn<>("Part centre");
         partCentreCol.setCellValueFactory(data ->
-                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "partCentre"))));
+                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "partTotalCentre"))));
         partCentreCol.setPrefWidth(120);
         partCentreCol.getStyleClass().add("montant-column");
 

@@ -1219,3 +1219,22 @@
 2025-06-27 14:16:46.903 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ TableView mise à jour avec 267 éléments
 2025-06-27 14:16:47.773 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Aperçu HTML généré automatiquement pour ETAT DE REPARTITION DES PART DES INDICATEURS REELS
 2025-06-27 14:16:48.203 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Nombre de résultats affiché: 267
+2025-06-27 14:20:52.915 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🎯 === DÉBUT GÉNÉRATION RAPPORT ===
+2025-06-27 14:20:52.916 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Génération rapport: ETAT DE REPARTITION DES PART DES INDICATEURS REELS
+2025-06-27 14:20:52.916 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📅 Période: 2025-05-01 - 2025-05-31
+2025-06-27 14:20:52.923 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Colonnes Template 4 configurées : 7 colonnes exactes
+2025-06-27 14:20:52.927 [Thread-6] DEBUG c.r.c.controller.RapportController - 🔄 Début génération asynchrone...
+2025-06-27 14:20:53.675 [Thread-6] DEBUG c.r.c.controller.RapportController - ✅ Données générées: IndicateursReelsDTO
+2025-06-27 14:20:53.675 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🎉 Génération réussie
+2025-06-27 14:20:53.675 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📦 Données récupérées: IndicateursReelsDTO
+2025-06-27 14:20:53.675 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - === DÉBUT updateTableViewData ===
+2025-06-27 14:20:53.676 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Paramètres reçus:
+2025-06-27 14:20:53.676 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - - resultatsTableView: EXISTS
+2025-06-27 14:20:53.676 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - - rapportData: IndicateursReelsDTO
+2025-06-27 14:20:53.676 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🔍 Type de données reçues: com.regulation.contentieux.service.RapportService$IndicateursReelsDTO
+2025-06-27 14:20:53.676 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📋 Traitement DTO générique: IndicateursReelsDTO
+2025-06-27 14:20:53.676 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Collection trouvée via champ: indicateurs (267 éléments)
+2025-06-27 14:20:53.676 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Ajouté 267 éléments génériques
+2025-06-27 14:20:53.676 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Mise à jour TableView avec 267 éléments
+2025-06-27 14:20:53.677 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ TableView mise à jour avec 267 éléments
+2025-06-27 14:20:54.424 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Nombre de résultats affiché: 267

@@ -130,19 +130,21 @@ public class SimpleTemplateEngine implements TemplateEngine {
             String listName = matcher.group(1);
             String loopTemplate = matcher.group(2);
 
+            logger.debug("Processing loop for: {}", listName);
+
             Object listObj = context.get(listName);
             StringBuilder loopResult = new StringBuilder();
 
             if (listObj instanceof Collection<?> collection) {
+                logger.debug("Found collection {} with {} items", listName, collection.size());
+
                 int index = 0;
                 for (Object item : collection) {
                     Map<String, Object> itemContext = new HashMap<>(context);
                     itemContext.put("this", item);
                     itemContext.put("index", index);
-                    itemContext.put("isFirst", index == 0);
-                    itemContext.put("isLast", index == collection.size() - 1);
 
-                    // Ajouter les propriétés de l'objet au contexte
+                    // Ajouter les propriétés de l'objet
                     if (item != null) {
                         addObjectProperties(itemContext, item);
                     }
@@ -151,6 +153,8 @@ public class SimpleTemplateEngine implements TemplateEngine {
                     loopResult.append(renderedItem);
                     index++;
                 }
+            } else {
+                logger.warn("No collection found for: {}", listName);
             }
 
             matcher.appendReplacement(result, Matcher.quoteReplacement(loopResult.toString()));

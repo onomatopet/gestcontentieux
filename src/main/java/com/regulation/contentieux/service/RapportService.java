@@ -790,7 +790,6 @@ public class RapportService {
         rapport.setTitreRapport("ETAT CUMULE PAR CENTRE DE REPARTITION");
 
         try {
-            // Utiliser directement la méthode du DAO qui retourne les stats
             List<AffaireCentreDAO.CentreRepartitionStat> stats =
                     affaireCentreDAO.getStatsByCentrePeriode(dateDebut, dateFin);
 
@@ -799,7 +798,6 @@ public class RapportService {
             for (AffaireCentreDAO.CentreRepartitionStat stat : stats) {
                 CentreStatsDTO centreStats = new CentreStatsDTO();
 
-                // Créer un objet Centre minimal sans passer par findById
                 Centre centre = new Centre();
                 centre.setId(stat.getCentreId());
                 centre.setCodeCentre(stat.getCodeCentre());
@@ -809,27 +807,14 @@ public class RapportService {
                 centreStats.setCentre(centre);
                 centreStats.setNombreAffaires(stat.getNombreAffaires());
                 centreStats.setMontantTotal(stat.getMontantTotal());
-
-                // CORRECTION : Répartition de base = montant de base récupéré
                 centreStats.setRepartitionBase(stat.getMontantBase());
-
-                // CORRECTION : Répartition indicateur fictif = TOUJOURS 0
                 centreStats.setRepartitionIndicateur(BigDecimal.ZERO);
-
-                // CORRECTION : Part centre = Répartition base - Répartition indicateur (qui est 0)
-                // Donc Part centre = Répartition base
                 centreStats.setPartTotalCentre(stat.getMontantBase());
 
                 rapport.getCentres().add(centreStats);
-
-                logger.debug("Centre {} : {} affaires, répartition base: {}, part indicateur: 0, part centre: {}",
-                        stat.getNomCentre(),
-                        stat.getNombreAffaires(),
-                        stat.getMontantBase(),
-                        stat.getMontantBase());
             }
 
-            // Si aucune donnée, utiliser des données simulées
+            // IMPORTANT : Si aucune donnée, ajouter des données de test
             if (rapport.getCentres().isEmpty()) {
                 logger.warn("⚠️ Aucune donnée trouvée, utilisation de données simulées");
                 rapport.setCentres(creerCentresStatsSimules());
@@ -837,6 +822,16 @@ public class RapportService {
 
             rapport.calculateTotaux();
             logger.info("✅ Rapport généré avec {} centres", rapport.getCentres().size());
+
+            // DEBUG : Afficher le contenu
+            for (CentreStatsDTO c : rapport.getCentres()) {
+                logger.info("Centre: {} - Base: {} - Indicateur: {} - Total: {}",
+                        c.getCentre().getNomCentre(),
+                        c.getRepartitionBase(),
+                        c.getRepartitionIndicateur(),
+                        c.getPartTotalCentre());
+            }
+
             return rapport;
 
         } catch (Exception e) {
@@ -3350,8 +3345,29 @@ public class RapportService {
     /**
      * Template 3 - État cumulé par centre de répartition
      */
-    public String genererEtatCentreRepartition(LocalDate debut, LocalDate fin) {
-        return htmlBuilder.buildHtml(TypeRapport.CENTRE_REPARTITION, debut, fin);
+    public String genererEtatCentreRepartition(LocalDate dateDebut, LocalDate dateFin) {
+        logger.info("🌐 Génération HTML état centre répartition");
+
+        try {
+            // Générer les données
+            CentreRepartitionDTO data = genererDonneesCentreRepartition(dateDebut, dateFin);
+
+            // DEBUG : Vérifier les données
+            logger.info("Données générées : {} centres", data.getCentres().size());
+
+            // Générer le HTML
+            String html = htmlBuilder.buildHtml(TypeRapport.CENTRE_REPARTITION, dateDebut, dateFin);
+
+            // DEBUG : Vérifier le HTML
+            logger.info("HTML généré (premiers 200 caractères) : {}",
+                    html.length() > 200 ? html.substring(0, 200) : html);
+
+            return html;
+
+        } catch (Exception e) {
+            logger.error("Erreur génération HTML centre répartition", e);
+            return "<html><body><h1>Erreur</h1><p>" + e.getMessage() + "</p></body></html>";
+        }
     }
 
     /**

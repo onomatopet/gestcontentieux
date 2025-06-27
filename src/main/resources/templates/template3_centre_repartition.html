@@ -14,6 +14,18 @@
             text-align: center;
             margin-bottom: 30px;
         }
+        .table-header td{
+	    vertical-align: top;
+            border: 0px solid #000;
+            padding: 0px 4px;
+            text-align: center;
+
+        }
+	.centrer{
+            padding: 4px;
+            text-align: center;
+	    width: 60%;
+	}
         h1 {
             margin-bottom: 10px;
             font-size: 16px;
@@ -49,14 +61,28 @@
             background-color: #e0e0e0;
             font-weight: bold;
         }
+	.resume td {
+	    border: 0px solid #fff;
+            margin-top: 20px;
+	}
+
+	.signature td {
+	    border: 0px solid #fff;
+	    text-align: center;
+	}
+	.up td {
+	    vertical-align: top;
+            margin-top: 0px;
+            padding-top: 0px;
+
+	}
         .footer {
-            margin-top: 30px;
+            margin-top: 70px;
             font-size: 10px;
-            text-align: center;
-            color: #666;
+            text-align: left;
+            color: #999;
         }
         .stats {
-            margin-top: 20px;
             font-size: 11px;
             background: #f8f9fa;
             padding: 10px;
@@ -66,6 +92,19 @@
 </head>
 <body>
 <div class="header">
+    <div>
+        <table class="table-header">
+            <tr>
+                <td class="entetes">
+                    <h3>Ministère des Finances, du Budget et Portefeuille Public</h3>
+                    <h3>Direction Générale des Douanes <br/>et des Droits Indirects</h3>
+                    <h3>Direction Départementale des Douanes <br/>et des Droits Indirects de Pointe-Noire</h3>
+                </td>
+                <td class="centrer"></td>
+                <td class="devise">Républic du Congo<br/>Unité * Travail * Progrès</td>
+            </tr>
+        </table>
+    </div>
     <h1>{{titre}}</h1>
     <div class="periode">Période du {{dateDebut}} au {{dateFin}}</div>
 </div>
@@ -110,6 +149,22 @@
 </div>
 {{/if}}
 
+<div>
+    <table class="signature">
+        <tr>
+            <td class="up">
+                <p></p><h3>La Cheffe de Service Finances</h3></p>
+            </td>
+            <td>
+                <p>&nbsp;</p>
+                <p></p><h3>Le Directeur Départemental des Douanes<br/>et des Droits Indirects de Pointe-Noire</h3></p>
+            </td>
+            <td class="up">
+                <p></p><h3>La Cheffe de Section Contentieux</h3></p>
+            </td>
+        </tr>
+    </table>
+</div>
 <div class="footer">
     <strong>Template 3</strong> - État cumulé par centre de répartition<br>
     Généré le {{dateGeneration}} par le système de gestion contentieux

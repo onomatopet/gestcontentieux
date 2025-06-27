@@ -1,6 +1,7 @@
 package com.regulation.contentieux.service;
 
 import com.regulation.contentieux.model.enums.TypeRapport;
+import com.regulation.contentieux.util.DateFormatter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,31 +36,86 @@ public class RapportHtmlBuilder {
     /**
      * Génère le HTML pour un type de rapport donné
      *
-     * @param type type de rapport à générer
-     * @param debut date de début
-     * @param fin date de fin
+     * @param 'type' type de rapport à générer
+     * @param 'debut' date de début
+     * @param 'fin' date de fin
      * @return HTML généré
      */
-    public String buildHtml(TypeRapport type, LocalDate debut, LocalDate fin) {
+    public String buildHtml(TypeRapport type, LocalDate dateDebut, LocalDate dateFin) {
+        logger.info("🔨 Construction HTML pour {}", type);
+
         try {
-            logger.info("🎨 Génération HTML pour {} (période {} - {})", type.getLibelle(), debut, fin);
+            Object data = null;
+            String templateName = "";
 
-            // 1. Récupérer les données via les méthodes existantes
-            Object data = getDataForType(type, debut, fin);
+            switch (type) {
+                case ETAT_REPARTITION_AFFAIRES:
+                    data = rapportService.genererDonneesEtatRepartitionAffaires(dateDebut, dateFin);
+                    templateName = "template1_repartition_affaires";
+                    break;
 
-            // 2. Créer le contexte pour le template
-            Map<String, Object> context = createContext(data, type, debut, fin);
+                case ETAT_MANDATEMENT:
+                    data = rapportService.genererDonneesEtatMandatement(dateDebut, dateFin); // <-- Avec "Donnees" et "Etat"
+                    templateName = "template2_mandatement";
+                    break;
 
-            // 3. Générer le HTML via le template
-            String templateName = getTemplateNameForType(type);
+                case CENTRE_REPARTITION:
+                    data = rapportService.genererDonneesCentreRepartition(dateDebut, dateFin);
+                    templateName = "template3_centre_repartition";
+                    break;
+
+                case INDICATEURS_REELS:
+                    data = rapportService.genererDonneesIndicateursReels(dateDebut, dateFin);
+                    templateName = "template4_indicateurs_reels";
+                    break;
+
+                case REPARTITION_PRODUIT:
+                    data = rapportService.genererDonneesRepartitionProduit(dateDebut, dateFin);
+                    templateName = "template5_repartition_produit";
+                    break;
+
+                case ETAT_CUMULE_AGENT:
+                    data = rapportService.genererDonneesEtatCumuleParAgent(dateDebut, dateFin); // <-- genererDonneesCumuleParAgent
+                    templateName = "template6_cumule_agent";
+                    break;
+
+                case TABLEAU_AMENDES_SERVICE:
+                    data = rapportService.genererTableauAmendesParServices(dateDebut, dateFin); // <-- genererTableauAmendesParServices
+                    templateName = "template7_amendes_services";
+                    break;
+
+                case MANDATEMENT_AGENTS:
+                    data = rapportService.genererDonneesMandatementAgents(dateDebut, dateFin);
+                    templateName = "template8_mandatement_agents";
+                    break;
+
+                default:
+                    logger.error("Type de rapport non géré: {}", type);
+                    return "<html><body><h1>Type de rapport non supporté</h1></body></html>";
+            }
+
+            if (data == null) {
+                logger.error("❌ Aucune donnée générée pour {}", type);
+                return "<html><body><h1>Aucune donnée disponible</h1></body></html>";
+            }
+
+            // Créer le contexte
+            Map<String, Object> context = createContext(data, type, dateDebut, dateFin);
+
+            // Générer le HTML
             String html = templateEngine.render(templateName, context);
 
-            logger.info("✅ HTML généré avec succès pour {} ({} caractères)", type.getLibelle(), html.length());
+            if (html == null || html.isEmpty()) {
+                logger.error("❌ HTML vide généré pour {}", type);
+                return generateErrorHtml(type, dateDebut, dateFin, new Exception("Template vide"));
+            }
+
+            logger.info("✅ HTML généré: {} caractères pour {}", html.length(), type);
             return html;
 
         } catch (Exception e) {
-            logger.error("❌ Erreur lors de la génération HTML pour {}", type.getLibelle(), e);
-            return generateErrorHtml(type, debut, fin, e);
+            logger.error("❌ Erreur génération HTML pour {}", type, e);
+            return generateErrorHtml(type, dateDebut, dateFin, e);
         }
     }
 

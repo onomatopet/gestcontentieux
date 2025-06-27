@@ -347,6 +347,7 @@ public class RapportService {
         try {
             // Récupérer tous les encaissements de la période
             List<Encaissement> encaissements = encaissementDAO.findByPeriod(dateDebut, dateFin);
+            logger.debug("Nombre d'encaissements trouvés: {}", encaissements.size());
 
             List<IndicateurReelDTO> indicateurs = new ArrayList<>();
 
@@ -355,9 +356,14 @@ public class RapportService {
                     // Recharger l'affaire complète avec toutes ses relations
                     Optional<Affaire> affaireOpt = affaireDAO.findById(enc.getAffaire().getId());
                     if (!affaireOpt.isPresent()) {
+                        logger.debug("Affaire {} non trouvée", enc.getAffaire().getId());
                         continue;
                     }
                     Affaire affaire = affaireOpt.get();
+                    logger.debug("Affaire {}: contrevenant={}, description={}",
+                            affaire.getNumeroAffaire(),
+                            affaire.getContrevenant() != null ? "OUI" : "NON",
+                            affaire.getDescription());
 
                     RepartitionResultat repartition = repartitionService.calculerRepartition(enc, affaire);
 
@@ -377,8 +383,10 @@ public class RapportService {
                         if (affaire.getContrevenant().getPrenom() != null && !affaire.getContrevenant().getPrenom().isEmpty()) {
                             nomComplet += " " + affaire.getContrevenant().getPrenom();
                         }
+                        logger.debug("Contrevenant trouvé: {}", nomComplet);
                         indicateur.setNomContrevenant(nomComplet.trim().isEmpty() ? "Non spécifié" : nomComplet.trim());
                     } else {
+                        logger.debug("Pas de contrevenant pour l'affaire {}", affaire.getNumeroAffaire());
                         // Si pas de contrevenant sur l'affaire, essayer de récupérer depuis la description
                         if (affaire.getDescription() != null && !affaire.getDescription().isEmpty()) {
                             indicateur.setNomContrevenant(affaire.getDescription());
@@ -389,13 +397,21 @@ public class RapportService {
 
                     // Récupérer les contraventions
                     List<Contravention> contraventions = getContraventionsByAffaire(affaire.getId());
+                    logger.debug("Nombre de contraventions trouvées pour l'affaire {}: {}",
+                            affaire.getNumeroAffaire(), contraventions.size());
+
                     if (contraventions != null && !contraventions.isEmpty()) {
                         String libelleContraventions = contraventions.stream()
-                                .map(c -> c.getLibelle() != null ? c.getLibelle() : c.getCode())
+                                .map(c -> {
+                                    String libelle = c.getLibelle() != null ? c.getLibelle() : c.getCode();
+                                    logger.debug("Contravention: code={}, libelle={}", c.getCode(), c.getLibelle());
+                                    return libelle;
+                                })
                                 .filter(s -> s != null && !s.isEmpty())
                                 .collect(Collectors.joining(", "));
                         indicateur.setContraventions(libelleContraventions.isEmpty() ? "Non spécifiée" : libelleContraventions);
                     } else {
+                        logger.debug("Pas de contraventions pour l'affaire {}", affaire.getNumeroAffaire());
                         // Si pas de contraventions liées, utiliser la description de l'affaire
                         if (affaire.getDescription() != null && !affaire.getDescription().isEmpty()) {
                             indicateur.setContraventions(affaire.getDescription());
@@ -421,6 +437,7 @@ public class RapportService {
 
         } catch (Exception e) {
             logger.error("Erreur lors de la génération des indicateurs réels", e);
+            e.printStackTrace();
         }
 
         return rapport;

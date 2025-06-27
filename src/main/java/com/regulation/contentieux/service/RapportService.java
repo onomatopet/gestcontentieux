@@ -161,6 +161,39 @@ public class RapportService {
         }
     }
 
+    private List<AffaireActeur> getActeursByAffaire(Long affaireId) {
+        List<AffaireActeur> acteurs = new ArrayList<>();
+
+        String sql = """
+        SELECT * FROM affaire_acteurs 
+        WHERE affaire_id = ?
+    """;
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setLong(1, affaireId);
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                AffaireActeur acteur = new AffaireActeur();
+                acteur.setAffaireId(rs.getLong("affaire_id"));
+                acteur.setAgentId(rs.getLong("agent_id"));
+                acteur.setRoleSurAffaire(rs.getString("role_sur_affaire"));
+
+                // Charger l'agent si nécessaire
+                agentDAO.findById(acteur.getAgentId()).ifPresent(acteur::setAgent);
+
+                acteurs.add(acteur);
+            }
+
+        } catch (SQLException e) {
+            logger.error("Erreur récupération acteurs affaire {}", affaireId, e);
+        }
+
+        return acteurs;
+    }
+
     /**
      * ENRICHISSEMENT : Méthode pour générer l'état cumulé par agent
      */
@@ -201,7 +234,8 @@ public class RapportService {
                             RepartitionResultat repartition = repartitionService.calculerRepartition(enc, affaire);
 
                             // CORRECTION BUG : Calculer les parts selon le rôle de l'agent
-                            for (AffaireActeur acteur : affaire.getActeurs()) {
+                            List<AffaireActeur> acteurs = getActeursByAffaire(affaire.getId());
+                            for (AffaireActeur acteur : acteurs) {
                                 if (acteur.getAgent().getId().equals(agent.getId())) {
                                     String role = acteur.getRoleSurAffaire();
 
@@ -255,8 +289,9 @@ public class RapportService {
                 }
 
                 // Vérifier aussi si l'agent est DG ou DD (ils reçoivent toujours leur part)
-                if (agent.getRole() != null) {
-                    if ("DG".equals(agent.getRole())) {
+                String roleSpecial = agentDAO.getRoleSpecial(agent.getId());
+                if (roleSpecial != null) {
+                    if ("DG".equals(roleSpecial)) {
                         // Le DG reçoit sa part sur TOUTES les affaires de la période
                         List<Encaissement> tousEncaissements = encaissementDAO.findByPeriod(dateDebut, dateFin);
                         for (Encaissement enc : tousEncaissements) {

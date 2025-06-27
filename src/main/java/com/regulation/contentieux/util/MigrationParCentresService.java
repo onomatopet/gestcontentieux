@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import java.sql.*; // <-- IMPORT MANQUANT pour Connection, Statement, PreparedStatement, ResultSet
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Scanner;
 
 /**
  * Service de migration des données depuis l'ancienne table parcentres
@@ -233,6 +234,40 @@ public class MigrationParCentresService {
         }
     }
 
+    public void creerTableAffairesCentres() {  // <-- Assurez-vous que c'est public
+        logger.info("📋 Vérification/Création de la table affaires_centres...");
+
+        String createTableSQL = """
+        CREATE TABLE IF NOT EXISTS affaires_centres (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            affaire_id INTEGER NOT NULL,
+            centre_id INTEGER NOT NULL,
+            montant_base REAL DEFAULT 0,
+            montant_indicateur REAL DEFAULT 0,
+            date_import DATETIME DEFAULT CURRENT_TIMESTAMP,
+            source VARCHAR(50) DEFAULT 'MIGRATION',
+            FOREIGN KEY (affaire_id) REFERENCES affaires(id),
+            FOREIGN KEY (centre_id) REFERENCES centres(id),
+            UNIQUE(affaire_id, centre_id)
+        )
+    """;
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             Statement stmt = conn.createStatement()) {
+
+            stmt.execute(createTableSQL);
+            logger.info("✅ Table affaires_centres créée/vérifiée");
+
+            // Créer aussi les index
+            stmt.execute("CREATE INDEX IF NOT EXISTS idx_affaires_centres_centre ON affaires_centres(centre_id)");
+            stmt.execute("CREATE INDEX IF NOT EXISTS idx_affaires_centres_affaire ON affaires_centres(affaire_id)");
+
+        } catch (SQLException e) {
+            logger.error("❌ Erreur création table affaires_centres", e);
+            throw new RuntimeException("Impossible de créer la table affaires_centres", e);
+        }
+    }
+    
     /**
      * Méthode principale pour exécuter toute la migration
      */
@@ -252,20 +287,28 @@ public class MigrationParCentresService {
         logger.info("=== DÉMARRAGE MIGRATION PARCENTRES ===");
 
         try {
-            // Créer une instance du service
             MigrationParCentresService migrationService = new MigrationParCentresService();
 
-            // Afficher un menu d'options
+            // AJOUTER : Créer la table immédiatement
+            migrationService.creerTableAffairesCentres();
+
+            String option;
+
+            // Si pas d'arguments, demander interactivement
             if (args.length == 0) {
+                Scanner scanner = new Scanner(System.in);
+
                 System.out.println("\nOptions de migration disponibles :");
                 System.out.println("1. Migration complète (données + analyse)");
                 System.out.println("2. Migration des données uniquement");
                 System.out.println("3. Analyse des relations uniquement");
-                System.out.println("\nUtilisation : java MigrationParCentresService [1|2|3]");
-                System.exit(0);
-            }
+                System.out.print("\nVotre choix (1-3) : ");
 
-            String option = args[0];
+                option = scanner.nextLine().trim();
+                scanner.close();
+            } else {
+                option = args[0];
+            }
 
             switch (option) {
                 case "1":
@@ -292,6 +335,7 @@ public class MigrationParCentresService {
 
         } catch (Exception e) {
             logger.error("❌ Erreur fatale durant la migration", e);
+            e.printStackTrace();
             System.exit(1);
         }
     }

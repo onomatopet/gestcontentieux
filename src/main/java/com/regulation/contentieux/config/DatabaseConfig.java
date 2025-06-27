@@ -1083,6 +1083,22 @@ public class DatabaseConfig {
                 )
                 """,
 
+                // Table de liaison affaires centres
+                """
+                CREATE TABLE IF NOT EXISTS affaires_centres (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    affaire_id INTEGER NOT NULL,
+                    centre_id INTEGER NOT NULL,
+                    montant_base REAL DEFAULT 0,
+                    montant_indicateur REAL DEFAULT 0,
+                    date_import DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    source VARCHAR(50) DEFAULT 'MIGRATION',
+                    FOREIGN KEY (affaire_id) REFERENCES affaires(id),
+                    FOREIGN KEY (centre_id) REFERENCES centres(id),
+                    UNIQUE(affaire_id, centre_id)
+                )
+                """,
+
                 // Table logs_activites (pour l'audit)
                 """
                 CREATE TABLE IF NOT EXISTS logs_activites (

@@ -207,6 +207,15 @@ public class RapportHtmlBuilder {
             context.put("affaires", rapport.getAffaires());
             context.put("nombreAffaires", rapport.getAffaires() != null ? rapport.getAffaires().size() : 0);
 
+            RapportService.CentreRepartitionDTO centres = new RapportService.CentreRepartitionDTO();
+            context.put("centres", centres.getCentres());
+            context.put("nombreCentres", centres.getCentres() != null ? centres.getCentres().size() : 0);
+
+            // Ajouter les totaux
+            context.put("totalRepartitionBase", centres.getTotalRepartitionBase());
+            context.put("totalRepartitionIndicateur", centres.getTotalRepartitionIndicateur());
+            context.put("totalPartCentre", centres.getTotalPartCentre());
+
         } else if (data instanceof RapportService.EtatMandatementDTO mandatement) {
             // CORRECTION Template 2 : Mapping correct des mandatements
             context.put("mandatements", mandatement.getMandatements());

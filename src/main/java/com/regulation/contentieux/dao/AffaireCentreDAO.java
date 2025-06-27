@@ -212,19 +212,22 @@ public class AffaireCentreDAO extends AbstractSQLiteDAO<AffaireCentre, Long> {
      */
     public List<CentreRepartitionStat> getStatsByCentrePeriode(LocalDate debut, LocalDate fin) {
         String sql = """
-            SELECT 
-                c.id as centre_id,
-                c.code_centre,
-                c.nom_centre,
-                COUNT(DISTINCT ac.affaire_id) as nombre_affaires,
-                COALESCE(SUM(ac.montant_base), 0) as total_base,
-                COALESCE(SUM(ac.montant_indicateur), 0) as total_indicateur
-            FROM centres c
-            LEFT JOIN affaires_centres ac ON c.id = ac.centre_id
-            LEFT JOIN affaires a ON ac.affaire_id = a.id
-            WHERE a.date_creation BETWEEN ? AND ?
-            GROUP BY c.id, c.code_centre, c.nom_centre
-        """;
+        SELECT 
+            c.id as centre_id,
+            c.code_centre,
+            c.nom_centre,
+            COUNT(DISTINCT ac.affaire_id) as nombre_affaires,
+            COALESCE(SUM(ac.montant_base), 0) as total_base,
+            COALESCE(SUM(ac.montant_indicateur), 0) as total_indicateur
+        FROM centres c
+        LEFT JOIN affaires_centres ac ON c.id = ac.centre_id
+        LEFT JOIN affaires a ON ac.affaire_id = a.id
+        LEFT JOIN encaissements e ON a.id = e.affaire_id
+        WHERE e.date_encaissement BETWEEN ? AND ?
+        OR (ac.affaire_id IS NOT NULL AND e.id IS NULL)
+        GROUP BY c.id, c.code_centre, c.nom_centre
+        ORDER BY c.nom_centre
+    """;
 
         List<CentreRepartitionStat> stats = new ArrayList<>();
 
@@ -246,6 +249,9 @@ public class AffaireCentreDAO extends AbstractSQLiteDAO<AffaireCentre, Long> {
                     stats.add(stat);
                 }
             }
+
+            logger.info("✅ {} centres trouvés avec données", stats.size());
+
         } catch (SQLException e) {
             logger.error("Erreur calcul stats", e);
         }

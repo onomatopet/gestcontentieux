@@ -316,4 +316,31 @@ public class SimpleTemplateEngine implements TemplateEngine {
 
         return value.toString();
     }
+
+    private String resolvePlaceholder(String key, Map<String, Object> context) {
+        if (key.contains(".")) {
+            String[] parts = key.split("\\.", 2);
+            Object obj = context.get(parts[0]);
+
+            if (obj != null) {
+                try {
+                    // Pour les propriétés imbriquées
+                    String propertyName = parts[1];
+                    String getterName = "get" + propertyName.substring(0, 1).toUpperCase() +
+                            propertyName.substring(1);
+
+                    Method getter = obj.getClass().getMethod(getterName);
+                    Object value = getter.invoke(obj);
+
+                    return formatValue(value);
+                } catch (Exception e) {
+                    logger.warn("Impossible de résoudre: {}", key);
+                    return "";
+                }
+            }
+        }
+
+        Object value = context.get(key);
+        return formatValue(value);
+    }
 }

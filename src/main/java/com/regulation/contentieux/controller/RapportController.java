@@ -1,5 +1,6 @@
 package com.regulation.contentieux.controller;
 
+import com.regulation.contentieux.util.CurrencyFormatter;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -2724,6 +2725,61 @@ public class RapportController implements Initializable {
                 dgCol, ddCol, partAgentCol
         );
         logger.debug("✅ Colonnes Template 8 configurées : 8 colonnes exactes selon spécifications");
+    }
+
+    private void configurerColonnesTemplate3() {
+        logger.debug("✅ Configuration colonnes Template 3");
+
+        resultatsTableView.getColumns().clear();
+
+        TableColumn<Object, String> col1 = new TableColumn<>("Centre de répartition");
+        col1.setCellValueFactory(data -> {
+            if (data.getValue() instanceof RapportService.CentreStatsDTO) {
+                RapportService.CentreStatsDTO centre = (RapportService.CentreStatsDTO) data.getValue();
+                return new SimpleStringProperty(centre.getCentre() != null ?
+                        centre.getCentre().getNomCentre() : "");
+            }
+            return new SimpleStringProperty("");
+        });
+        col1.setPrefWidth(250);
+
+        TableColumn<Object, String> col2 = new TableColumn<>("Répartition de base");
+        col2.setCellValueFactory(data -> {
+            if (data.getValue() instanceof RapportService.CentreStatsDTO) {
+                RapportService.CentreStatsDTO centre = (RapportService.CentreStatsDTO) data.getValue();
+                return new SimpleStringProperty(
+                        CurrencyFormatter.format(centre.getRepartitionBase())
+                );
+            }
+            return new SimpleStringProperty("");
+        });
+        col2.setPrefWidth(150);
+
+        TableColumn<Object, String> col3 = new TableColumn<>("Répartition part indic. fictif");
+        col3.setCellValueFactory(data -> {
+            if (data.getValue() instanceof RapportService.CentreStatsDTO) {
+                // TOUJOURS ZÉRO
+                return new SimpleStringProperty("0");
+            }
+            return new SimpleStringProperty("");
+        });
+        col3.setPrefWidth(180);
+
+        TableColumn<Object, String> col4 = new TableColumn<>("Part centre");
+        col4.setCellValueFactory(data -> {
+            if (data.getValue() instanceof RapportService.CentreStatsDTO) {
+                RapportService.CentreStatsDTO centre = (RapportService.CentreStatsDTO) data.getValue();
+                // Part centre = Répartition base - 0 = Répartition base
+                return new SimpleStringProperty(
+                        CurrencyFormatter.format(centre.getPartTotalCentre())
+                );
+            }
+            return new SimpleStringProperty("");
+        });
+        col4.setPrefWidth(150);
+
+        resultatsTableView.getColumns().addAll(col1, col2, col3, col4);
+        logger.debug("✅ Colonnes Template 3 configurées : {} colonnes", resultatsTableView.getColumns().size());
     }
 
     /**

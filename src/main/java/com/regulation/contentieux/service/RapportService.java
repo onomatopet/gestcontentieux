@@ -233,16 +233,17 @@ public class RapportService {
 
                             RepartitionResultat repartition = repartitionService.calculerRepartition(enc, affaire);
 
-                            // CORRECTION BUG : Calculer les parts selon le rôle de l'agent
+                            // CORRECTION : Utiliser getActeursByAffaire au lieu de affaire.getActeurs()
                             List<AffaireActeur> acteurs = getActeursByAffaire(affaire.getId());
+
                             for (AffaireActeur acteur : acteurs) {
-                                if (acteur.getAgent().getId().equals(agent.getId())) {
+                                if (acteur.getAgent() != null && acteur.getAgent().getId().equals(agent.getId())) {
                                     String role = acteur.getRoleSurAffaire();
 
                                     switch (role) {
                                         case "CHEF":
                                             // Part chef = part totale des chefs divisée par le nombre de chefs
-                                            long nbChefs = affaire.getActeurs().stream()
+                                            long nbChefs = acteurs.stream()
                                                     .filter(a -> "CHEF".equals(a.getRoleSurAffaire()))
                                                     .count();
                                             if (nbChefs > 0) {
@@ -256,7 +257,7 @@ public class RapportService {
 
                                         case "SAISISSANT":
                                             // Part saisissant = part totale des saisissants divisée par le nombre de saisissants
-                                            long nbSaisissants = affaire.getActeurs().stream()
+                                            long nbSaisissants = acteurs.stream()
                                                     .filter(a -> "SAISISSANT".equals(a.getRoleSurAffaire()))
                                                     .count();
                                             if (nbSaisissants > 0) {
@@ -300,7 +301,7 @@ public class RapportService {
                                 stats.setPartEnTantQueDG(stats.getPartEnTantQueDG().add(rep.getPartDG()));
                             }
                         }
-                    } else if ("DD".equals(agent.getRole())) {
+                    } else if ("DD".equals(roleSpecial)) {
                         // Le DD reçoit sa part sur TOUTES les affaires de la période
                         List<Encaissement> tousEncaissements = encaissementDAO.findByPeriod(dateDebut, dateFin);
                         for (Encaissement enc : tousEncaissements) {
@@ -334,6 +335,51 @@ public class RapportService {
         }
     }
 
+    public IndicateursReelsDTO genererDonneesIndicateursReels(LocalDate dateDebut, LocalDate dateFin) {
+        logger.info("📊 Génération des données d'indicateurs réels - {} au {}", dateDebut, dateFin);
+
+        IndicateursReelsDTO rapport = new IndicateursReelsDTO();
+        rapport.setDateDebut(dateDebut);
+        rapport.setDateFin(dateFin);
+        rapport.setDateGeneration(LocalDate.now());
+        rapport.setPeriodeLibelle(formatPeriode(dateDebut, dateFin));
+
+        try {
+            // Récupérer tous les encaissements de la période
+            List<Encaissement> encaissements = encaissementDAO.findByPeriod(dateDebut, dateFin);
+
+            List<IndicateurReelDTO> indicateurs = new ArrayList<>();
+
+            for (Encaissement enc : encaissements) {
+                if (enc.getStatut() == StatutEncaissement.VALIDE && enc.getAffaire() != null) {
+                    RepartitionResultat repartition = repartitionService.calculerRepartition(enc, enc.getAffaire());
+
+                    IndicateurReelDTO indicateur = new IndicateurReelDTO();
+                    indicateur.setNumeroEncaissement(enc.getReference());
+                    indicateur.setDateEncaissement(enc.getDateEncaissement());
+                    indicateur.setNumeroAffaire(enc.getAffaire().getNumeroAffaire());
+                    indicateur.setMontantEncaisse(enc.getMontantEncaisse());
+                    indicateur.setPartIndicateur(repartition.getPartIndicateur());
+
+                    // Centre si disponible
+                    if (enc.getAffaire().getCentresAssocies() != null && !enc.getAffaire().getCentresAssocies().isEmpty()) {
+                        Centre centre = enc.getAffaire().getCentresAssocies().get(0).getCentre();
+                        indicateur.setCentre(centre);
+                    }
+
+                    indicateurs.add(indicateur);
+                }
+            }
+
+            rapport.setIndicateurs(indicateurs);
+            rapport.calculateTotaux();
+
+        } catch (Exception e) {
+            logger.error("Erreur lors de la génération des indicateurs réels", e);
+        }
+
+        return rapport;
+    }
 
     /**
      * ENRICHISSEMENT : Génère le rapport de situation générale
@@ -1073,7 +1119,6 @@ public class RapportService {
                         ligne.setNumeroEncaissement(enc.getReference());
                         ligne.setDateEncaissement(enc.getDateEncaissement());
                         ligne.setNumeroAffaire(enc.getAffaire().getNumeroAffaire());
-                        // CORRECTION : Supprimer setDateAffaire() qui n'existe pas dans LigneRepartitionDTO
 
                         // CORRECTION BUG 5 : Ajouter nom du contrevenant
                         if (enc.getAffaire().getContrevenant() != null) {
@@ -1087,10 +1132,10 @@ public class RapportService {
                             ligne.setNomContrevenant("Non spécifié");
                         }
 
-                        // CORRECTION BUG 5 : Ajouter nom des contraventions
-                        if (!enc.getAffaire().getContraventions().isEmpty()) {
+                        // CORRECTION : Utiliser directement les objets Contravention
+                        if (enc.getAffaire().getContraventions() != null && !enc.getAffaire().getContraventions().isEmpty()) {
                             String contraventions = enc.getAffaire().getContraventions().stream()
-                                    .map(ac -> ac.getContravention().getLibelle())
+                                    .map(Contravention::getLibelle)
                                     .collect(Collectors.joining(", "));
                             ligne.setContraventions(contraventions);
                         } else {
@@ -2392,6 +2437,7 @@ public class RapportService {
         private Agent indicateur;
         private BigDecimal montant;
         private String observations;
+        private Centre centre;
 
         // Getters et setters
         public String getNumeroEncaissement() { return numeroEncaissement; }
@@ -2427,6 +2473,14 @@ public class RapportService {
 
         public String getObservations() { return observations; }
         public void setObservations(String observations) { this.observations = observations; }
+
+        public Centre getCentre() {
+            return centre;
+        }
+
+        public void setCentre(Centre centre) {
+            this.centre = centre;
+        }
     }
 
     public static class IndicateursReelsDTO {
@@ -3149,6 +3203,59 @@ public class RapportService {
         public BigDecimal getTotalPartCollectivite() { return totalCollectivite; }
         public BigDecimal getTotalMontantAmendes() { return totalEncaisse; }
         public BigDecimal getTotalMontantEncaisse() { return totalEncaisse; }
+
+        public BigDecimal getTotalProduitNet() {
+            // Le produit net est le produit disponible moins la part indicateur
+            if (totalProduitDisponible != null && totalPartIndicateur != null) {
+                return totalProduitDisponible.subtract(totalPartIndicateur);
+            }
+            return totalProduitDisponible != null ? totalProduitDisponible : BigDecimal.ZERO;
+        }
+
+        public BigDecimal getTotalPartChefs() {
+            if (affaires == null || affaires.isEmpty()) {
+                return BigDecimal.ZERO;
+            }
+            return affaires.stream()
+                    .map(a -> a.getPartChefs() != null ? a.getPartChefs() : BigDecimal.ZERO)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+        }
+
+        public BigDecimal getTotalPartSaisissants() {
+            if (affaires == null || affaires.isEmpty()) {
+                return BigDecimal.ZERO;
+            }
+            return affaires.stream()
+                    .map(a -> a.getPartSaisissants() != null ? a.getPartSaisissants() : BigDecimal.ZERO)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+        }
+
+        public BigDecimal getTotalPartMutuelle() {
+            if (affaires == null || affaires.isEmpty()) {
+                return BigDecimal.ZERO;
+            }
+            return affaires.stream()
+                    .map(a -> a.getPartMutuelle() != null ? a.getPartMutuelle() : BigDecimal.ZERO)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+        }
+
+        public BigDecimal getTotalPartMasseCommune() {
+            if (affaires == null || affaires.isEmpty()) {
+                return BigDecimal.ZERO;
+            }
+            return affaires.stream()
+                    .map(a -> a.getPartMasseCommune() != null ? a.getPartMasseCommune() : BigDecimal.ZERO)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+        }
+
+        public BigDecimal getTotalPartInteressement() {
+            if (affaires == null || affaires.isEmpty()) {
+                return BigDecimal.ZERO;
+            }
+            return affaires.stream()
+                    .map(a -> a.getPartInteressement() != null ? a.getPartInteressement() : BigDecimal.ZERO)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+        }
     }
 
     /**

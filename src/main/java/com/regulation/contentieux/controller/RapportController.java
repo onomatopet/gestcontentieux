@@ -4,7 +4,6 @@ import com.regulation.contentieux.util.CurrencyFormatter;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
-import javafx.geometry.Pos;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
@@ -19,19 +18,13 @@ import java.util.Map;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.Collection;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 
 import java.text.DecimalFormat;
 import java.time.LocalDateTime;
-import com.regulation.contentieux.service.RapportHtmlBuilder;
-import javafx.scene.control.Tooltip;
 
 import java.time.format.DateTimeFormatter;
 import java.awt.Desktop;
-import java.math.BigDecimal;
 import java.text.NumberFormat;
 import java.util.*;
 
@@ -66,9 +59,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
-import java.time.LocalDate;
 import java.time.Month;
-import java.time.YearMonth;
 
 /**
  * Contrôleur pour la génération et l'affichage des rapports

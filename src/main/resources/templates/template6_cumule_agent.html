@@ -125,26 +125,27 @@
     </tr>
     </thead>
     <tbody>
-    {{#each agents}}
-    <tr>
-        <td>{{agent.nomComplet}}</td>
-        <td class="montant">{{partEnTantQueChef}}</td>
-        <td class="montant">{{partEnTantQueSaisissant}}</td>
-        <td class="montant">{{partEnTantQueDG}}</td>
-        <td class="montant">{{partEnTantQueDD}}</td>
-        <td class="montant">{{partTotaleAgent}}</td>
-    </tr>
-    {{/each}}
+        {{#each agents}}
+        <tr>
+            <td>{{nomCompletAgent}}</td>
+            <td class="montant">{{partEnTantQueChef}}</td>
+            <td class="montant">{{partEnTantQueSaisissant}}</td>
+            <td class="montant">{{partEnTantQueDG}}</td>
+            <td class="montant">{{partEnTantQueDD}}</td>
+            <td class="montant">{{partTotaleAgent}}</td>
+        </tr>
+        {{/each}}
 
-    <!-- Ligne de totaux -->
-    <tr class="total-row">
-        <td><strong>TOTAUX</strong></td>
-        <td class="montant"><strong>{{totalChefs}}</strong></td>
-        <td class="montant"><strong>{{totalSaisissants}}</strong></td>
-        <td class="montant"><strong>{{totalDG}}</strong></td>
-        <td class="montant"><strong>{{totalDD}}</strong></td>
-        <td class="montant"><strong>{{totalGeneral}}</strong></td>
-    </tr>
+        {{#if agents}}
+        <tr class="total-row">
+            <td>TOTAL</td>
+            <td class="montant">{{totalChefs}}</td>
+            <td class="montant">{{totalSaisissants}}</td>
+            <td class="montant">{{totalDG}}</td>
+            <td class="montant">{{totalDD}}</td>
+            <td class="montant">{{totalGeneral}}</td>
+        </tr>
+        {{/if}}
     </tbody>
 </table>
 

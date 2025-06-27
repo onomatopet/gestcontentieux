@@ -2505,16 +2505,16 @@ public class RapportController implements Initializable {
             }
         });
 
-        // 3. Noms des contrevenants - CORRECTION BUG 5
+        // 3. Noms des contrevenants
         TableColumn<Object, String> contrevenantsCol = new TableColumn<>("Noms des contrevenants");
         contrevenantsCol.setCellValueFactory(data ->
                 new SimpleStringProperty(extractValue(data.getValue(), "nomContrevenant")));
         contrevenantsCol.setPrefWidth(130);
 
-        // 4. Noms des contraventions - CORRECTION BUG 5
+        // 4. Noms des contraventions
         TableColumn<Object, String> contraventionsCol = new TableColumn<>("Noms des contraventions");
         contraventionsCol.setCellValueFactory(data ->
-                new SimpleStringProperty(extractValue(data.getValue(), "nomContravention")));
+                new SimpleStringProperty(extractValue(data.getValue(), "contraventions")));
         contraventionsCol.setPrefWidth(130);
 
         // 5. Produit disponible
@@ -2538,31 +2538,31 @@ public class RapportController implements Initializable {
         partDirectionCol.setPrefWidth(130);
         partDirectionCol.getStyleClass().add("montant-column");
 
-        // 8. Part indicateur (2ème colonne)
+        // 8. Part indicateur (2ème colonne) - même valeur que la première
         TableColumn<Object, String> partIndic2Col = new TableColumn<>("Part indicateur");
         partIndic2Col.setCellValueFactory(data ->
-                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "partIndicateur2"))));
+                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "partIndicateur"))));
         partIndic2Col.setPrefWidth(100);
         partIndic2Col.getStyleClass().add("montant-column");
 
         // 9. FLCF
         TableColumn<Object, String> flcfCol = new TableColumn<>("FLCF");
         flcfCol.setCellValueFactory(data ->
-                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "partFlcf"))));
+                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "partFLCF"))));
         flcfCol.setPrefWidth(80);
         flcfCol.getStyleClass().add("montant-column");
 
         // 10. Montant Trésor
         TableColumn<Object, String> tresorCol = new TableColumn<>("Montant Trésor");
         tresorCol.setCellValueFactory(data ->
-                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "montantTresor"))));
+                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "partTresor"))));
         tresorCol.setPrefWidth(100);
         tresorCol.getStyleClass().add("montant-column");
 
         // 11. Montant Global ayants droits
         TableColumn<Object, String> ayantsDroitsCol = new TableColumn<>("Montant Global ayants droits");
         ayantsDroitsCol.setCellValueFactory(data ->
-                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "montantGlobalAyantsDroits"))));
+                new SimpleStringProperty(formatMontant(extractBigDecimal(data.getValue(), "partAyantsDroits"))));
         ayantsDroitsCol.setPrefWidth(140);
         ayantsDroitsCol.getStyleClass().add("montant-column");
 

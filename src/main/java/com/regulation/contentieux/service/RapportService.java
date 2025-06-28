@@ -212,162 +212,255 @@ public class RapportService {
         rapport.setTitreRapport("ETAT CUMULE PAR AGENT");
 
         try {
-            // Récupérer tous les agents actifs
+            // Récupérer TOUS les agents (actifs et inactifs)
             List<Agent> agents = agentDAO.findAll();
-            logger.debug("🔍 Agents trouvés: {}", agents.size());
+            logger.debug("🔍 Nombre total d'agents trouvés: {}", agents.size());
 
-            // Si aucun agent, créer des données de test
-            if (agents.isEmpty()) {
-                logger.warn("⚠️ Aucun agent trouvé, création de données simulées");
-                rapport.setAgents(creerAgentsSimules());
-                rapport.calculateTotaux();
-                return rapport;
+            // Récupérer toutes les affaires de la période pour optimiser les requêtes
+            String sqlAffaires = """
+            SELECT DISTINCT a.*, aa.agent_id, aa.role_sur_affaire
+            FROM affaires a
+            JOIN affaire_acteurs aa ON a.id = aa.affaire_id
+            WHERE a.date_creation BETWEEN ? AND ?
+            ORDER BY a.id
+        """;
+
+            Map<Long, List<AffaireRole>> affairesParAgent = new HashMap<>();
+
+            try (Connection conn = DatabaseConfig.getSQLiteConnection();
+                 PreparedStatement stmt = conn.prepareStatement(sqlAffaires)) {
+
+                stmt.setDate(1, Date.valueOf(dateDebut));
+                stmt.setDate(2, Date.valueOf(dateFin));
+
+                ResultSet rs = stmt.executeQuery();
+                while (rs.next()) {
+                    Long agentId = rs.getLong("agent_id");
+                    Long affaireId = rs.getLong("id");
+                    String role = rs.getString("role_sur_affaire");
+
+                    affairesParAgent.computeIfAbsent(agentId, k -> new ArrayList<>())
+                            .add(new AffaireRole(affaireId, role));
+                }
+
+                logger.debug("📊 Affaires trouvées pour {} agents", affairesParAgent.size());
             }
 
-            // Pour chaque agent, calculer ses parts cumulées
+            // Traiter chaque agent
             for (Agent agent : agents) {
                 AgentStatsDTO stats = new AgentStatsDTO(agent);
-                stats.setPartEnTantQueChef(BigDecimal.ZERO);
-                stats.setPartEnTantQueSaisissant(BigDecimal.ZERO);
-                stats.setPartEnTantQueDG(BigDecimal.ZERO);
-                stats.setPartEnTantQueDD(BigDecimal.ZERO);
 
-                boolean hasData = false;
+                // Récupérer les affaires de cet agent
+                List<AffaireRole> affairesAgent = affairesParAgent.get(agent.getId());
 
-                // Récupérer toutes les affaires où l'agent est impliqué
-                String sqlAffaires = """
-                SELECT DISTINCT a.*, aa.role_sur_affaire
-                FROM affaires a
-                INNER JOIN affaire_acteurs aa ON a.id = aa.affaire_id
-                INNER JOIN encaissements e ON e.affaire_id = a.id
-                WHERE aa.agent_id = ?
-                AND e.date_encaissement BETWEEN ? AND ?
-            """;
+                if (affairesAgent != null && !affairesAgent.isEmpty()) {
+                    logger.debug("🔍 Agent {} - {} affaire(s) trouvée(s)",
+                            agent.getNomComplet(), affairesAgent.size());
 
-                try (Connection conn = DatabaseConfig.getSQLiteConnection();
-                     PreparedStatement stmt = conn.prepareStatement(sqlAffaires)) {
+                    // Calculer les parts pour chaque affaire et rôle
+                    for (AffaireRole ar : affairesAgent) {
+                        try {
+                            // Récupérer l'affaire complète
+                            Optional<Affaire> affaireOpt = affaireDAO.findById(ar.affaireId);
+                            if (affaireOpt.isPresent()) {
+                                Affaire affaire = affaireOpt.get();
 
-                    stmt.setLong(1, agent.getId());
-                    stmt.setDate(2, Date.valueOf(dateDebut));
-                    stmt.setDate(3, Date.valueOf(dateFin));
+                                // Récupérer tous les encaissements de l'affaire
+                                List<Encaissement> encaissements = encaissementDAO.findByAffaireId(affaire.getId());
 
-                    ResultSet rs = stmt.executeQuery();
+                                for (Encaissement enc : encaissements) {
+                                    if (enc.getStatut() == StatutEncaissement.VALIDE &&
+                                            !enc.getDateEncaissement().isBefore(dateDebut) &&
+                                            !enc.getDateEncaissement().isAfter(dateFin)) {
 
-                    while (rs.next()) {
-                        Long affaireId = rs.getLong("id");
-                        String roleAgent = rs.getString("role_sur_affaire");
+                                        // Calculer la répartition
+                                        RepartitionResultat repartition = repartitionService.calculerRepartition(enc, affaire);
 
-                        // Récupérer les encaissements de cette affaire
-                        List<Encaissement> encaissements = encaissementDAO.findByAffaireId(affaireId);
+                                        // Ajouter la part selon le rôle (respecter la casse exacte de la BD)
+                                        switch (ar.role) {
+                                            case "Chef":
+                                                // Compter le nombre de chefs pour diviser la part
+                                                long nbChefs = compterActeursParRole(affaire.getId(), "Chef");
+                                                if (nbChefs > 0) {
+                                                    BigDecimal partParChef = repartition.getPartChefs()
+                                                            .divide(BigDecimal.valueOf(nbChefs), 2, RoundingMode.HALF_UP);
+                                                    stats.setPartEnTantQueChef(
+                                                            stats.getPartEnTantQueChef().add(partParChef)
+                                                    );
+                                                }
+                                                break;
 
-                        for (Encaissement enc : encaissements) {
-                            if (!enc.getDateEncaissement().isBefore(dateDebut) &&
-                                    !enc.getDateEncaissement().isAfter(dateFin)) {
+                                            case "Saisissant":
+                                                // Compter le nombre de saisissants pour diviser la part
+                                                long nbSaisissants = compterActeursParRole(affaire.getId(), "Saisissant");
+                                                if (nbSaisissants > 0) {
+                                                    BigDecimal partParSaisissant = repartition.getPartSaisissants()
+                                                            .divide(BigDecimal.valueOf(nbSaisissants), 2, RoundingMode.HALF_UP);
+                                                    stats.setPartEnTantQueSaisissant(
+                                                            stats.getPartEnTantQueSaisissant().add(partParSaisissant)
+                                                    );
+                                                }
+                                                break;
+                                        }
 
-                                // Charger l'affaire complète
+                                        stats.setNombreAffaires(stats.getNombreAffaires() + 1);
+                                    }
+                                }
+                            }
+                        } catch (Exception e) {
+                            logger.warn("⚠️ Erreur traitement affaire {} pour agent {}: {}",
+                                    ar.affaireId, agent.getNomComplet(), e.getMessage());
+                        }
+                    }
+                }
+
+                // Vérifier si l'agent a un rôle spécial (DG ou DD)
+                try {
+                    String roleSpecial = getRoleSpecialAgent(agent.getId());
+                    if (roleSpecial != null) {
+                        logger.debug("🎖️ Agent {} a le rôle spécial: {}", agent.getNomComplet(), roleSpecial);
+
+                        // Pour DG et DD, calculer leur part sur TOUTES les affaires de la période
+                        String sqlToutesAffaires = """
+                        SELECT DISTINCT e.*, a.id as affaire_id
+                        FROM encaissements e
+                        JOIN affaires a ON e.affaire_id = a.id
+                        WHERE e.date_encaissement BETWEEN ? AND ?
+                        AND e.statut = 'VALIDE'
+                    """;
+
+                        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+                             PreparedStatement stmt = conn.prepareStatement(sqlToutesAffaires)) {
+
+                            stmt.setDate(1, Date.valueOf(dateDebut));
+                            stmt.setDate(2, Date.valueOf(dateFin));
+
+                            ResultSet rs = stmt.executeQuery();
+                            while (rs.next()) {
+                                Long affaireId = rs.getLong("affaire_id");
+                                BigDecimal montantEncaisse = rs.getBigDecimal("montant_encaisse");
+
+                                // Récupérer l'affaire pour le calcul
                                 Optional<Affaire> affaireOpt = affaireDAO.findById(affaireId);
                                 if (affaireOpt.isPresent()) {
-                                    Affaire affaire = affaireOpt.get();
+                                    Encaissement enc = new Encaissement();
+                                    enc.setMontantEncaisse(montantEncaisse);
+                                    enc.setStatut(StatutEncaissement.VALIDE);
 
-                                    // Calculer la répartition
-                                    RepartitionResultat repartition = repartitionService.calculerRepartition(enc, affaire);
+                                    RepartitionResultat rep = repartitionService.calculerRepartition(enc, affaireOpt.get());
 
-                                    if ("CHEF".equals(roleAgent)) {
-                                        // Compter le nombre de chefs pour cette affaire
-                                        long nbChefs = countActeursByRole(affaireId, "CHEF");
-                                        if (nbChefs > 0) {
-                                            BigDecimal partParChef = repartition.getPartChefs()
-                                                    .divide(BigDecimal.valueOf(nbChefs), 2, RoundingMode.HALF_UP);
-                                            stats.setPartEnTantQueChef(
-                                                    stats.getPartEnTantQueChef().add(partParChef)
-                                            );
-                                            hasData = true;
-                                        }
-                                    } else if ("SAISISSANT".equals(roleAgent)) {
-                                        // Compter le nombre de saisissants pour cette affaire
-                                        long nbSaisissants = countActeursByRole(affaireId, "SAISISSANT");
-                                        if (nbSaisissants > 0) {
-                                            BigDecimal partParSaisissant = repartition.getPartSaisissants()
-                                                    .divide(BigDecimal.valueOf(nbSaisissants), 2, RoundingMode.HALF_UP);
-                                            stats.setPartEnTantQueSaisissant(
-                                                    stats.getPartEnTantQueSaisissant().add(partParSaisissant)
-                                            );
-                                            hasData = true;
-                                        }
+                                    if ("DG".equals(roleSpecial)) {
+                                        stats.setPartEnTantQueDG(stats.getPartEnTantQueDG().add(rep.getPartDG()));
+                                    } else if ("DD".equals(roleSpecial)) {
+                                        stats.setPartEnTantQueDD(stats.getPartEnTantQueDD().add(rep.getPartDD()));
                                     }
                                 }
                             }
                         }
                     }
-                } catch (SQLException e) {
-                    logger.error("Erreur calcul parts pour agent {}: {}", agent.getId(), e.getMessage());
+                } catch (Exception e) {
+                    logger.debug("Agent {} n'a pas de rôle spécial", agent.getNomComplet());
                 }
 
-                // Vérifier si l'agent est DG ou DD
-                String roleSpecial = agentDAO.getRoleSpecial(agent.getId());
-                if ("DG".equals(roleSpecial)) {
-                    // Le DG reçoit sa part sur TOUTES les affaires de la période
-                    BigDecimal totalPartDG = BigDecimal.ZERO;
-                    List<Encaissement> tousEncaissements = encaissementDAO.findByPeriod(dateDebut, dateFin);
-
-                    for (Encaissement enc : tousEncaissements) {
-                        if (enc.getAffaire() != null) {
-                            RepartitionResultat rep = repartitionService.calculerRepartition(enc, enc.getAffaire());
-                            totalPartDG = totalPartDG.add(rep.getPartDG());
-                        }
-                    }
-
-                    if (totalPartDG.compareTo(BigDecimal.ZERO) > 0) {
-                        stats.setPartEnTantQueDG(totalPartDG);
-                        hasData = true;
-                    }
-                } else if ("DD".equals(roleSpecial)) {
-                    // Le DD reçoit sa part sur TOUTES les affaires de la période
-                    BigDecimal totalPartDD = BigDecimal.ZERO;
-                    List<Encaissement> tousEncaissements = encaissementDAO.findByPeriod(dateDebut, dateFin);
-
-                    for (Encaissement enc : tousEncaissements) {
-                        if (enc.getAffaire() != null) {
-                            RepartitionResultat rep = repartitionService.calculerRepartition(enc, enc.getAffaire());
-                            totalPartDD = totalPartDD.add(rep.getPartDD());
-                        }
-                    }
-
-                    if (totalPartDD.compareTo(BigDecimal.ZERO) > 0) {
-                        stats.setPartEnTantQueDD(totalPartDD);
-                        hasData = true;
-                    }
-                }
-
-                // Calculer la part totale
+                // Calculer la part totale de l'agent
                 stats.calculerPartTotale();
 
-                // Ajouter seulement si l'agent a des données
-                if (hasData || stats.getPartTotaleAgent().compareTo(BigDecimal.ZERO) > 0) {
-                    stats.setObservations("Agent actif sur la période");
-                    rapport.getAgents().add(stats);
-                }
+                // IMPORTANT : Ajouter TOUS les agents, même ceux sans activité
+                rapport.getAgents().add(stats);
+                logger.debug("✅ Agent ajouté: {} - Part totale: {}",
+                        agent.getNomComplet(), stats.getPartTotaleAgent());
             }
 
-            // Si aucun agent avec des données, ajouter des données simulées
-            if (rapport.getAgents().isEmpty()) {
-                logger.warn("⚠️ Aucun agent avec des parts sur la période, création de données simulées");
-                rapport.setAgents(creerAgentsSimules());
-            }
-
-            // Calculer les totaux
+            // Calculer les totaux du rapport
             rapport.calculateTotaux();
+            rapport.setNombreAgents(rapport.getAgents().size());
 
-            logger.info("✅ État cumulé par agent généré - {} agents avec activité", rapport.getAgents().size());
+            logger.info("✅ État cumulé généré avec succès - {} agents", rapport.getAgents().size());
+            logger.info("📊 Totaux - Chefs: {} | Saisissants: {} | DG: {} | DD: {} | TOTAL: {}",
+                    rapport.getTotalChefs(), rapport.getTotalSaisissants(),
+                    rapport.getTotalDG(), rapport.getTotalDD(), rapport.getTotalGeneral());
+
             return rapport;
 
         } catch (Exception e) {
-            logger.error("❌ Erreur génération état cumulé par agent", e);
-            // Retourner un rapport avec des données simulées
-            rapport.setAgents(creerAgentsSimules());
-            rapport.calculateTotaux();
+            logger.error("❌ Erreur lors de la génération de l'état cumulé par agent", e);
+
+            // En cas d'erreur, retourner au moins les agents sans données
+            rapport.getAgents().clear();
+            List<Agent> tousAgents = agentDAO.findAll();
+            for (Agent agent : tousAgents) {
+                rapport.getAgents().add(new AgentStatsDTO(agent));
+            }
+            rapport.setNombreAgents(rapport.getAgents().size());
+
             return rapport;
         }
+    }
+
+
+    /**
+     * Classe helper pour stocker affaire et rôle
+     */
+    private static class AffaireRole {
+        Long affaireId;
+        String role;
+
+        AffaireRole(Long affaireId, String role) {
+            this.affaireId = affaireId;
+            this.role = role;
+        }
+    }
+
+    /**
+     * Compte le nombre d'acteurs d'un certain rôle pour une affaire
+     */
+    private long compterActeursParRole(Long affaireId, String role) {
+        String sql = """
+        SELECT COUNT(*) as nb FROM affaire_acteurs 
+        WHERE affaire_id = ? AND role_sur_affaire = ?
+    """;
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setLong(1, affaireId);
+            stmt.setString(2, role);
+
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                return rs.getLong("nb");
+            }
+        } catch (SQLException e) {
+            logger.error("Erreur comptage acteurs affaire {} rôle {}", affaireId, role, e);
+        }
+
+        return 0;
+    }
+
+    /**
+     * Récupère le rôle spécial d'un agent (DG ou DD)
+     */
+    private String getRoleSpecialAgent(Long agentId) {
+        String sql = """
+        SELECT role_nom FROM roles_speciaux 
+        WHERE agent_id = ? AND actif = 1
+        LIMIT 1
+    """;
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setLong(1, agentId);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                return rs.getString("role_nom");
+            }
+        } catch (SQLException e) {
+            logger.debug("Pas de rôle spécial pour l'agent {}", agentId);
+        }
+
+        return null;
     }
 
     private long countActeursByRole(Long affaireId, String role) {

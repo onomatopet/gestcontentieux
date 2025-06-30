@@ -4,6 +4,7 @@ import com.regulation.contentieux.dao.impl.AbstractSQLiteDAO;
 import com.regulation.contentieux.model.*;
 import com.regulation.contentieux.model.enums.StatutAffaire;
 import com.regulation.contentieux.config.DatabaseConfig;
+import com.regulation.contentieux.service.NumerotationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,6 +24,12 @@ import java.util.Optional;
 public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
 
     private static final Logger logger = LoggerFactory.getLogger(AffaireDAO.class);
+    private final NumerotationService numerotationService;
+
+    public AffaireDAO() {
+        super();
+        this.numerotationService = NumerotationService.getInstance();
+    }
 
     @Override
     protected String getTableName() {
@@ -339,32 +346,109 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
         return affaires;
     }
 
-    /**
-     * Génère le prochain numéro d'affaire selon le format YYMMNNNNN
-     * ENRICHISSEMENT : Ajout de validations et diagnostics sans changer la signature
-     */
     public String generateNextCode() {
-        String prefix = "AFF";  // Garde le prefix existant pour compatibilité
+        try {
+            // Utiliser le service de numérotation existant qui gère déjà :
+            // - Le format YYMMNNNNN
+            // - Les verrous (ReentrantLock)
+            // - La remise à zéro mensuelle
+            // - La vérification des séquences
+            String numeroGenere = numerotationService.genererNumeroAffaire();
 
-        // ENRICHISSEMENT : Diagnostic du format actuel
-        logger.debug("🔍 === GÉNÉRATION NUMÉRO AFFAIRE ===");
-        logger.debug("🔍 Format attendu selon cahier des charges: YYMMNNNNN");
-        logger.debug("🔍 Format actuel utilisé: {} + numéro séquentiel", prefix);
+            logger.info("✅ Numéro d'affaire généré via NumerotationService : {}", numeroGenere);
+            return numeroGenere;
 
-        // ENRICHISSEMENT : Détection du mois actuel pour vérifier la cohérence
+        } catch (Exception e) {
+            logger.error("❌ Erreur lors de la génération via NumerotationService", e);
+
+            // FALLBACK : Si le service échoue, utiliser la méthode locale
+            // basée sur le code existant mais adapté au format YYMMNNNNN
+            return generateNextCodeFallback();
+        }
+    }
+
+    /**
+     * Méthode de fallback en cas d'échec du NumerotationService
+     * Utilise la logique existante mais adaptée au format YYMMNNNNN
+     */
+    private String generateNextCodeFallback() {
         LocalDate now = LocalDate.now();
         String yearMonth = now.format(DateTimeFormatter.ofPattern("yyMM"));
-        logger.debug("🔍 Période actuelle (YYMM): {}", yearMonth);
 
-        // Rechercher le dernier code avec ce préfixe - CODE EXISTANT CONSERVÉ
+        logger.warn("⚠️ Utilisation du fallback pour génération numéro affaire");
+
+        // Requête adaptée pour le format YYMMNNNNN
         String sql = """
-            SELECT numero_affaire FROM affaires 
-            WHERE numero_affaire LIKE ? 
-            ORDER BY numero_affaire DESC 
-            LIMIT 1
-        """;
+        SELECT numero_affaire FROM affaires 
+        WHERE numero_affaire LIKE ? 
+        AND LENGTH(numero_affaire) = 9
+        ORDER BY numero_affaire DESC 
+        LIMIT 1
+    """;
 
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, yearMonth + "%");
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                String lastCode = rs.getString("numero_affaire");
+
+                // Vérifier si c'est bien le format YYMMNNNNN
+                if (lastCode != null && lastCode.length() == 9) {
+                    try {
+                        String lastYearMonth = lastCode.substring(0, 4);
+
+                        // Si on est dans le même mois, incrémenter
+                        if (lastYearMonth.equals(yearMonth)) {
+                            String numberPart = lastCode.substring(4);
+                            int lastNumber = Integer.parseInt(numberPart);
+
+                            if (lastNumber >= 99999) {
+                                logger.error("Limite mensuelle atteinte (99999)");
+                                return yearMonth + "99999"; // Limite max
+                            }
+
+                            return yearMonth + String.format("%05d", lastNumber + 1);
+                        }
+                    } catch (Exception parseEx) {
+                        logger.error("Erreur parsing du dernier numéro: {}", lastCode, parseEx);
+                    }
+                }
+            }
+
+            // Pas de numéro trouvé ou nouveau mois : commencer à 00001
+            String premierNumero = yearMonth + "00001";
+            logger.info("Premier numéro du mois : {}", premierNumero);
+            return premierNumero;
+
+        } catch (SQLException e) {
+            logger.error("Erreur SQL dans le fallback", e);
+            // Dernier recours : retourner un numéro basé sur le timestamp
+            return yearMonth + "00001";
+        }
+    }
+
+
+
+    /**
+     * OPTIONNEL : Si vous voulez conserver l'ancienne méthode pour compatibilité
+     * (mais marquez-la comme @Deprecated)
+     */
+    @Deprecated
+    public String generateOldFormatCode() {
+        String prefix = "AFF";
+
+        // Ancienne logique avec format AFF00001
+        String sql = """
+        SELECT numero_affaire FROM affaires 
+        WHERE numero_affaire LIKE ? 
+        ORDER BY numero_affaire DESC 
+        LIMIT 1
+    """;
+
+        try (Connection conn = getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setString(1, prefix + "%");
@@ -372,58 +456,18 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
 
             if (rs.next()) {
                 String lastCode = rs.getString("numero_affaire");
-
-                // ENRICHISSEMENT : Analyse du dernier code trouvé
-                logger.debug("🔍 Dernier code trouvé: {}", lastCode);
-
-                // ENRICHISSEMENT : Vérification de conformité au cahier des charges
-                if (isValidCahierChargesFormat(lastCode)) {
-                    logger.info("✅ Le code {} respecte le format YYMMNNNNN du cahier des charges", lastCode);
-                    return generateNextCodeFromCahierChargesFormat(lastCode);
-                } else {
-                    logger.warn("⚠️ Le code {} ne respecte PAS le format du cahier des charges", lastCode);
-                    logger.warn("⚠️ Migration progressive vers le nouveau format...");
-
-                    // ENRICHISSEMENT : Double génération pour transition
-                    String oldFormatCode = generateNextCodeFromLast(lastCode, prefix);
-                    String newFormatCode = generateCahierChargesCompliantCode(yearMonth);
-
-                    logger.info("📋 Code ancien format: {}", oldFormatCode);
-                    logger.info("📋 Code nouveau format (cahier charges): {}", newFormatCode);
-
-                    // ENRICHISSEMENT : Vérifier si on peut basculer sur le nouveau format
-                    if (canMigrateToNewFormat()) {
-                        logger.info("✅ Migration vers le nouveau format activée");
-                        return newFormatCode;
-                    } else {
-                        logger.info("⏳ Conservation temporaire de l'ancien format");
-                        return oldFormatCode;
-                    }
-                }
-
-            } else {
-                // Premier code
-                logger.info("🆕 Aucun code existant - Création du premier numéro");
-
-                // ENRICHISSEMENT : Choix du format selon configuration
-                if (shouldUseNewFormat()) {
-                    String newCode = yearMonth + "00001";
-                    logger.info("✅ Premier code au format cahier des charges: {}", newCode);
-                    return newCode;
-                } else {
-                    String oldCode = prefix + "00001";
-                    logger.info("⏳ Premier code au format historique: {}", oldCode);
-                    return oldCode;
+                if (lastCode != null && lastCode.startsWith(prefix) && lastCode.length() == 8) {
+                    String numericPart = lastCode.substring(3);
+                    int lastNumber = Integer.parseInt(numericPart);
+                    return prefix + String.format("%05d", lastNumber + 1);
                 }
             }
 
-        } catch (SQLException e) {
-            logger.error("❌ Erreur lors de la génération du code affaire", e);
+            return prefix + "00001";
 
-            // ENRICHISSEMENT : Fallback intelligent
-            String fallbackCode = generateFallbackCode(prefix, yearMonth);
-            logger.error("🔄 Utilisation du code de secours: {}", fallbackCode);
-            return fallbackCode;
+        } catch (SQLException e) {
+            logger.error("Erreur génération ancien format", e);
+            return prefix + "00001";
         }
     }
 

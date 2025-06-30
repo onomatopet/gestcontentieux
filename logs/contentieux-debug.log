@@ -55,3 +55,345 @@
 2025-06-28 00:15:31.064 [JavaFX Application Thread] DEBUG c.r.contentieux.dao.AgentDAO - Trouvé 2890 entités
 2025-06-28 00:15:45.661 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ HTML généré à la volée pour l'aperçu
 2025-06-28 03:06:57.580 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Nettoyage des ressources terminé
+2025-06-29 07:26:43.484 [JavaFX-Launcher] DEBUG c.r.c.util.DatabaseSchemaUpdate - Schéma de base de données à jour
+2025-06-29 07:26:47.050 [JavaFX-Launcher] DEBUG com.regulation.contentieux.Main - ✅ Connexion SQLite établie
+2025-06-29 07:26:47.207 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - 🔧 Vérification de la base de données...
+2025-06-29 07:26:47.277 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - ✅ Tables manquantes initialisées
+2025-06-29 07:26:47.278 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - 🔍 Vérification des tables de base de données...
+2025-06-29 07:26:47.289 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Table utilisateurs vérifiée: 1 enregistrements
+2025-06-29 07:26:47.295 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Table affaires vérifiée: 30377 enregistrements
+2025-06-29 07:26:47.299 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Table contrevenants vérifiée: 20222 enregistrements
+2025-06-29 07:26:47.314 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Table agents vérifiée: 2890 enregistrements
+2025-06-29 07:26:47.318 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - ✅ Table affaire_contraventions: 0 enregistrements
+2025-06-29 07:26:47.319 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - ✅ Table affaire_acteurs: 570601 enregistrements
+2025-06-29 07:26:47.320 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - ✅ Table roles_speciaux: 0 enregistrements
+2025-06-29 07:26:47.328 [JavaFX Application Thread] DEBUG c.r.contentieux.util.StageManager - ⚠️ Icône non trouvée: /images/icon.png
+2025-06-29 07:26:47.348 [JavaFX Application Thread] DEBUG c.r.contentieux.util.StageManager - ✅ Stage principal configuré
+2025-06-29 07:26:47.350 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Icône d'application non trouvée: /images/app-icon.png
+2025-06-29 07:26:47.352 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - 🎭 Chargement de l'interface de connexion...
+2025-06-29 07:26:47.352 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - 🎭 Chargement robuste de l'interface de connexion...
+2025-06-29 07:26:47.665 [JavaFX Application Thread] DEBUG c.r.c.controller.LoginController - LoginController initialisé
+2025-06-29 07:27:00.751 [JavaFX Application Thread] DEBUG c.r.contentieux.dao.UtilisateurDAO - Entité mise à jour avec succès: Utilisateur{id=1, login='admin', nom='Système', prenom='Administrateur', role=Super Administrateur, actif=true}
+2025-06-29 07:27:00.879 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Informations utilisateur configurées: Administrateur Système
+2025-06-29 07:27:00.880 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Affaires - Accès: true
+2025-06-29 07:27:00.880 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Agents - Accès: true
+2025-06-29 07:27:00.880 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Contrevenants - Accès: true
+2025-06-29 07:27:00.881 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Encaissements - Accès: true
+2025-06-29 07:27:00.881 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Rapports - Accès: true
+2025-06-29 07:27:00.881 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Administration - Accès: true
+2025-06-29 07:27:00.898 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des handlers ToolBar...
+2025-06-29 07:27:00.940 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration de la navigation clavier...
+2025-06-29 07:27:00.941 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des gestionnaires de menus
+2025-06-29 07:27:00.941 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des raccourcis globaux
+2025-06-29 07:27:00.942 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Gestionnaires d'événements configurés
+2025-06-29 07:27:00.950 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Icône mandat non trouvée
+2025-06-29 07:28:29.159 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Gestionnaires d'événements configurés
+2025-06-29 07:28:29.161 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🔧 Configuration colonnes génériques
+2025-06-29 07:28:29.172 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Colonnes génériques configurées: 2
+2025-06-29 07:28:29.194 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Vue chargée dans mainContentArea: /view/rapport-list.fxml
+2025-06-29 07:28:41.991 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Colonnes Template 6 configurées : 7 colonnes (colonnes indésirables supprimées)
+2025-06-29 07:28:42.004 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Type de rapport changé: ETAT CUMULE PAR AGENT
+2025-06-29 07:28:42.008 [Thread-5] DEBUG c.r.c.controller.RapportController - 🔄 Chargement automatique des données pour: ETAT CUMULE PAR AGENT
+2025-06-29 07:28:42.460 [Thread-5] DEBUG c.r.contentieux.dao.AgentDAO - Trouvé 2890 entités
+2025-06-29 07:29:15.181 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📦 Données automatiques chargées: EtatCumuleAgentDTO
+2025-06-29 07:29:15.182 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - === DÉBUT updateTableViewData ===
+2025-06-29 07:29:15.182 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Paramètres reçus:
+2025-06-29 07:29:15.182 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - - resultatsTableView: EXISTS
+2025-06-29 07:29:15.182 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - - rapportData: EtatCumuleAgentDTO
+2025-06-29 07:29:15.183 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🔍 Type de données reçues: com.regulation.contentieux.service.RapportService$EtatCumuleAgentDTO
+2025-06-29 07:29:15.194 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📋 Traitement DTO générique: EtatCumuleAgentDTO
+2025-06-29 07:29:15.196 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Collection trouvée via champ: agents (268 éléments)
+2025-06-29 07:29:15.196 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Ajouté 268 éléments génériques
+2025-06-29 07:29:15.196 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Mise à jour TableView avec 268 éléments
+2025-06-29 07:29:15.197 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ TableView mise à jour avec 268 éléments
+2025-06-29 07:29:15.268 [JavaFX Application Thread] DEBUG c.r.contentieux.dao.AgentDAO - Trouvé 2890 entités
+2025-06-29 07:29:30.548 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Aperçu HTML généré automatiquement pour ETAT CUMULE PAR AGENT
+2025-06-29 07:29:30.772 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Nombre de résultats affiché: 268
+2025-06-29 07:30:28.618 [JavaFX Application Thread] DEBUG c.r.contentieux.dao.AgentDAO - Trouvé 2890 entités
+2025-06-29 07:30:41.878 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ HTML généré à la volée pour l'aperçu
+2025-06-29 07:55:58.250 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Colonnes Template 1 configurées : 14 colonnes exactes
+2025-06-29 07:55:58.252 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Type de rapport changé: ETAT DE REPARTITION DES AFFAIRES CONTENTIEUSE
+2025-06-29 07:55:58.254 [Thread-7] DEBUG c.r.c.controller.RapportController - 🔄 Chargement automatique des données pour: ETAT DE REPARTITION DES AFFAIRES CONTENTIEUSE
+2025-06-29 07:55:58.342 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Extraction impossible: numeroEncaissement
+2025-06-29 07:55:58.344 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Extraction impossible: dateEncaissement
+2025-06-29 07:55:58.352 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Extraction impossible: numeroAffaire
+2025-06-29 07:55:58.352 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Extraction impossible: dateCreation
+2025-06-29 07:55:58.356 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Extraction impossible: produitDisponible
+2025-06-29 07:55:58.356 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Extraction impossible: partDD
+2025-06-29 07:55:58.710 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📦 Données automatiques chargées: RapportRepartitionDTO
+2025-06-29 07:55:58.710 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - === DÉBUT updateTableViewData ===
+2025-06-29 07:55:58.710 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Paramètres reçus:
+2025-06-29 07:55:58.710 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - - resultatsTableView: EXISTS
+2025-06-29 07:55:58.710 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - - rapportData: RapportRepartitionDTO
+2025-06-29 07:55:58.710 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🔍 Type de données reçues: com.regulation.contentieux.service.RapportService$RapportRepartitionDTO
+2025-06-29 07:55:58.710 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Ajouté 267 affaires de répartition
+2025-06-29 07:55:58.710 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Mise à jour TableView avec 267 éléments
+2025-06-29 07:55:58.712 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ TableView mise à jour avec 267 éléments
+2025-06-29 07:55:59.034 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Aperçu HTML généré automatiquement pour ETAT DE REPARTITION DES AFFAIRES CONTENTIEUSE
+2025-06-29 07:55:59.034 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Nombre de résultats affiché: 267
+2025-06-29 07:56:17.813 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Recherche: 2
+2025-06-29 07:56:18.044 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Recherche: 25
+2025-06-29 07:56:18.348 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Recherche: 25
+2025-06-29 07:56:19.293 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Recherche: 250
+2025-06-29 07:56:19.597 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Recherche: 250
+2025-06-29 07:56:20.038 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Recherche: 2505
+2025-06-29 07:56:23.059 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Recherche - action Enter
+2025-06-29 07:57:51.511 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Colonnes Template 7 configurées : 4 colonnes exactes
+2025-06-29 07:57:51.513 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Type de rapport changé: TABLEAU DES AMENDES PAR SERVICES
+2025-06-29 07:57:51.517 [Thread-8] DEBUG c.r.c.controller.RapportController - 🔄 Chargement automatique des données pour: TABLEAU DES AMENDES PAR SERVICES
+2025-06-29 07:57:51.705 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📦 Données automatiques chargées: TableauAmendesParServicesDTO
+2025-06-29 07:57:51.705 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - === DÉBUT updateTableViewData ===
+2025-06-29 07:57:51.705 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Paramètres reçus:
+2025-06-29 07:57:51.705 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - - resultatsTableView: EXISTS
+2025-06-29 07:57:51.705 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - - rapportData: TableauAmendesParServicesDTO
+2025-06-29 07:57:51.705 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🔍 Type de données reçues: com.regulation.contentieux.service.RapportService$TableauAmendesParServicesDTO
+2025-06-29 07:57:51.705 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📋 Traitement DTO générique: TableauAmendesParServicesDTO
+2025-06-29 07:57:51.706 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Collection trouvée via champ: services (3 éléments)
+2025-06-29 07:57:51.707 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Ajouté 3 éléments génériques
+2025-06-29 07:57:51.707 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Mise à jour TableView avec 3 éléments
+2025-06-29 07:57:51.707 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ TableView mise à jour avec 3 éléments
+2025-06-29 07:57:51.873 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Nombre de résultats affiché: 3
+2025-06-29 07:57:55.019 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Colonnes Template 8 configurées : 8 colonnes exactes selon spécifications
+2025-06-29 07:57:55.022 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Type de rapport changé: ETAT PAR SERIES DE MANDATEMENTS
+2025-06-29 07:57:55.023 [Thread-9] DEBUG c.r.c.controller.RapportController - 🔄 Chargement automatique des données pour: ETAT PAR SERIES DE MANDATEMENTS
+2025-06-29 07:57:55.162 [Thread-9] DEBUG c.r.contentieux.dao.AgentDAO - Trouvé 2890 entités
+2025-06-29 07:57:56.012 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📦 Données automatiques chargées: EtatMandatementDTO
+2025-06-29 07:57:56.012 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - === DÉBUT updateTableViewData ===
+2025-06-29 07:57:56.012 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Paramètres reçus:
+2025-06-29 07:57:56.012 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - - resultatsTableView: EXISTS
+2025-06-29 07:57:56.012 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - - rapportData: EtatMandatementDTO
+2025-06-29 07:57:56.012 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🔍 Type de données reçues: com.regulation.contentieux.service.RapportService$EtatMandatementDTO
+2025-06-29 07:57:56.013 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Mise à jour TableView avec 3 éléments
+2025-06-29 07:57:56.017 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ TableView mise à jour avec 3 éléments
+2025-06-29 07:57:56.051 [JavaFX Application Thread] DEBUG c.r.contentieux.dao.AgentDAO - Trouvé 2890 entités
+2025-06-29 07:57:56.423 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Aperçu HTML généré automatiquement pour ETAT PAR SERIES DE MANDATEMENTS
+2025-06-29 07:57:56.434 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Nombre de résultats affiché: 3
+2025-06-29 07:58:27.550 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Colonnes Template 6 configurées : 7 colonnes (colonnes indésirables supprimées)
+2025-06-29 07:58:27.552 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Type de rapport changé: ETAT CUMULE PAR AGENT
+2025-06-29 07:58:27.553 [Thread-10] DEBUG c.r.c.controller.RapportController - 🔄 Chargement automatique des données pour: ETAT CUMULE PAR AGENT
+2025-06-29 07:58:27.594 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Impossible d'extraire le champ agent: agent
+2025-06-29 07:58:27.601 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Impossible d'extraire le champ agent: agent
+2025-06-29 07:58:27.606 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Impossible d'extraire le champ agent: agent
+2025-06-29 07:58:27.701 [Thread-10] DEBUG c.r.contentieux.dao.AgentDAO - Trouvé 2890 entités
+2025-06-29 07:58:56.529 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📦 Données automatiques chargées: EtatCumuleAgentDTO
+2025-06-29 07:58:56.529 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - === DÉBUT updateTableViewData ===
+2025-06-29 07:58:56.529 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Paramètres reçus:
+2025-06-29 07:58:56.529 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - - resultatsTableView: EXISTS
+2025-06-29 07:58:56.529 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - - rapportData: EtatCumuleAgentDTO
+2025-06-29 07:58:56.529 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🔍 Type de données reçues: com.regulation.contentieux.service.RapportService$EtatCumuleAgentDTO
+2025-06-29 07:58:56.529 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📋 Traitement DTO générique: EtatCumuleAgentDTO
+2025-06-29 07:58:56.532 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Collection trouvée via champ: agents (268 éléments)
+2025-06-29 07:58:56.532 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Ajouté 268 éléments génériques
+2025-06-29 07:58:56.532 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Mise à jour TableView avec 268 éléments
+2025-06-29 07:58:56.533 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ TableView mise à jour avec 268 éléments
+2025-06-29 07:59:23.218 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Aperçu HTML généré automatiquement pour ETAT CUMULE PAR AGENT
+2025-06-29 07:59:23.963 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Nombre de résultats affiché: 268
+2025-06-29 08:08:57.589 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Colonnes Template 2 configurées : 9 colonnes exactes
+2025-06-29 08:08:57.594 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Type de rapport changé: ETAT PAR SERIES DE MANDATEMENT
+2025-06-29 08:08:57.622 [Thread-11] DEBUG c.r.c.controller.RapportController - 🔄 Chargement automatique des données pour: ETAT PAR SERIES DE MANDATEMENT
+2025-06-29 08:08:58.007 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📦 Données automatiques chargées: EtatMandatementDTO
+2025-06-29 08:08:58.008 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - === DÉBUT updateTableViewData ===
+2025-06-29 08:08:58.008 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Paramètres reçus:
+2025-06-29 08:08:58.008 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - - resultatsTableView: EXISTS
+2025-06-29 08:08:58.008 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - - rapportData: EtatMandatementDTO
+2025-06-29 08:08:58.008 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🔍 Type de données reçues: com.regulation.contentieux.service.RapportService$EtatMandatementDTO
+2025-06-29 08:08:58.008 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Ajouté 267 éléments de mandatement
+2025-06-29 08:08:58.008 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Mise à jour TableView avec 267 éléments
+2025-06-29 08:08:58.010 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ TableView mise à jour avec 267 éléments
+2025-06-29 08:08:58.242 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Aperçu HTML généré automatiquement pour ETAT PAR SERIES DE MANDATEMENT
+2025-06-29 08:08:58.243 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Nombre de résultats affiché: 267
+2025-06-29 22:02:29.363 [main] DEBUG c.r.c.util.DatabaseSchemaUpdate - Schéma de base de données à jour
+2025-06-29 22:02:33.709 [main] DEBUG c.r.contentieux.dao.AgentDAO - Trouvé 2890 entités
+2025-06-29 22:21:45.629 [main] DEBUG c.r.c.util.DatabaseSchemaUpdate - Schéma de base de données à jour
+2025-06-29 22:21:49.187 [main] DEBUG c.r.contentieux.dao.AgentDAO - Trouvé 2890 entités
+2025-06-29 22:30:18.753 [JavaFX-Launcher] DEBUG c.r.c.util.DatabaseSchemaUpdate - Schéma de base de données à jour
+2025-06-29 22:30:21.408 [JavaFX-Launcher] DEBUG com.regulation.contentieux.Main - ✅ Connexion SQLite établie
+2025-06-29 22:30:21.599 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - 🔧 Vérification de la base de données...
+2025-06-29 22:30:21.708 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - ✅ Tables manquantes initialisées
+2025-06-29 22:30:21.709 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - 🔍 Vérification des tables de base de données...
+2025-06-29 22:30:21.726 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Table utilisateurs vérifiée: 1 enregistrements
+2025-06-29 22:30:21.733 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Table affaires vérifiée: 30377 enregistrements
+2025-06-29 22:30:21.737 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Table contrevenants vérifiée: 20222 enregistrements
+2025-06-29 22:30:21.742 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Table agents vérifiée: 2890 enregistrements
+2025-06-29 22:30:21.742 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - ✅ Table affaire_contraventions: 0 enregistrements
+2025-06-29 22:30:21.743 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - ✅ Table affaire_acteurs: 570601 enregistrements
+2025-06-29 22:30:21.744 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - ✅ Table roles_speciaux: 0 enregistrements
+2025-06-29 22:30:21.749 [JavaFX Application Thread] DEBUG c.r.contentieux.util.StageManager - ⚠️ Icône non trouvée: /images/icon.png
+2025-06-29 22:30:21.752 [JavaFX Application Thread] DEBUG c.r.contentieux.util.StageManager - ✅ Stage principal configuré
+2025-06-29 22:30:21.753 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Icône d'application non trouvée: /images/app-icon.png
+2025-06-29 22:30:21.753 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - 🎭 Chargement de l'interface de connexion...
+2025-06-29 22:30:21.754 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - 🎭 Chargement robuste de l'interface de connexion...
+2025-06-29 22:30:22.052 [JavaFX Application Thread] DEBUG c.r.c.controller.LoginController - LoginController initialisé
+2025-06-29 22:30:39.849 [JavaFX Application Thread] DEBUG c.r.contentieux.dao.UtilisateurDAO - Entité mise à jour avec succès: Utilisateur{id=1, login='admin', nom='Administrateur', prenom='Système', role=Super Administrateur, actif=true}
+2025-06-29 22:30:39.916 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Informations utilisateur configurées: Système Administrateur
+2025-06-29 22:30:39.916 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Affaires - Accès: true
+2025-06-29 22:30:39.917 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Agents - Accès: true
+2025-06-29 22:30:39.917 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Contrevenants - Accès: true
+2025-06-29 22:30:39.917 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Encaissements - Accès: true
+2025-06-29 22:30:39.917 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Rapports - Accès: true
+2025-06-29 22:30:39.917 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Administration - Accès: true
+2025-06-29 22:30:39.923 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des handlers ToolBar...
+2025-06-29 22:30:39.939 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration de la navigation clavier...
+2025-06-29 22:30:39.940 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des gestionnaires de menus
+2025-06-29 22:30:39.940 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des raccourcis globaux
+2025-06-29 22:30:39.940 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Gestionnaires d'événements configurés
+2025-06-29 22:30:39.944 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Icône mandat non trouvée
+2025-06-29 22:30:44.362 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Gestionnaires d'événements configurés
+2025-06-29 22:30:44.363 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🔧 Configuration colonnes génériques
+2025-06-29 22:30:44.371 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Colonnes génériques configurées: 2
+2025-06-29 22:30:44.391 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Vue chargée dans mainContentArea: /view/rapport-list.fxml
+2025-06-29 22:30:56.805 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Colonnes Template 6 configurées : 7 colonnes (colonnes indésirables supprimées)
+2025-06-29 22:30:56.810 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Type de rapport changé: ETAT CUMULE PAR AGENT
+2025-06-29 22:30:56.811 [Thread-5] DEBUG c.r.c.controller.RapportController - 🔄 Chargement automatique des données pour: ETAT CUMULE PAR AGENT
+2025-06-29 22:30:57.113 [Thread-5] DEBUG c.r.contentieux.dao.AgentDAO - Trouvé 2890 entités
+2025-06-29 22:31:13.498 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📦 Données automatiques chargées: EtatCumuleAgentDTO
+2025-06-29 22:31:13.499 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - === DÉBUT updateTableViewData ===
+2025-06-29 22:31:13.499 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Paramètres reçus:
+2025-06-29 22:31:13.499 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - - resultatsTableView: EXISTS
+2025-06-29 22:31:13.499 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - - rapportData: EtatCumuleAgentDTO
+2025-06-29 22:31:13.499 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🔍 Type de données reçues: com.regulation.contentieux.service.RapportService$EtatCumuleAgentDTO
+2025-06-29 22:31:13.509 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📋 Traitement DTO générique: EtatCumuleAgentDTO
+2025-06-29 22:31:13.510 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Collection trouvée via champ: agents (268 éléments)
+2025-06-29 22:31:13.511 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Ajouté 268 éléments génériques
+2025-06-29 22:31:13.511 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Mise à jour TableView avec 268 éléments
+2025-06-29 22:31:13.512 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ TableView mise à jour avec 268 éléments
+2025-06-29 22:31:13.545 [JavaFX Application Thread] DEBUG c.r.contentieux.dao.AgentDAO - Trouvé 2890 entités
+2025-06-29 22:31:25.914 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Aperçu HTML généré automatiquement pour ETAT CUMULE PAR AGENT
+2025-06-29 22:31:26.086 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Nombre de résultats affiché: 268
+2025-06-29 22:34:11.730 [JavaFX Application Thread] DEBUG c.r.contentieux.dao.AgentDAO - Trouvé 2890 entités
+2025-06-29 22:34:25.522 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ HTML généré à la volée pour l'aperçu
+2025-06-29 22:36:01.687 [main] DEBUG c.r.c.util.DatabaseSchemaUpdate - Schéma de base de données à jour
+2025-06-29 22:36:03.643 [main] DEBUG c.r.c.util.DebugRepartitionScript - Pas de rôle spécial pour l'agent 1525
+2025-06-29 22:38:57.470 [main] DEBUG c.r.c.util.DebugRepartitionScript - Pas de rôle spécial pour l'agent 918
+2025-06-29 22:41:52.317 [main] DEBUG c.r.c.util.DebugRepartitionScript - Pas de rôle spécial pour l'agent 1566
+2025-06-29 22:43:55.952 [main] DEBUG c.r.c.util.DebugRepartitionScript - Erreur vérification rôle spécial DG
+2025-06-29 22:43:55.955 [main] DEBUG c.r.c.util.DebugRepartitionScript - Erreur vérification rôle spécial DD
+2025-06-30 04:18:04.588 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🎯 === DÉBUT GÉNÉRATION RAPPORT ===
+2025-06-30 04:18:04.618 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Génération rapport: ETAT CUMULE PAR AGENT
+2025-06-30 04:18:04.619 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📅 Période: 2025-05-01 - 2025-05-31
+2025-06-30 04:18:04.629 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Colonnes Template 6 configurées : 7 colonnes (colonnes indésirables supprimées)
+2025-06-30 04:18:04.632 [Thread-7] DEBUG c.r.c.controller.RapportController - 🔄 Début génération asynchrone...
+2025-06-30 04:18:05.011 [Thread-7] DEBUG c.r.contentieux.dao.AgentDAO - Trouvé 2890 entités
+2025-06-30 04:18:32.436 [Thread-7] DEBUG c.r.c.controller.RapportController - ✅ Données générées: EtatCumuleAgentDTO
+2025-06-30 04:18:32.436 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🎉 Génération réussie
+2025-06-30 04:18:32.436 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📦 Données récupérées: EtatCumuleAgentDTO
+2025-06-30 04:18:32.437 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - === DÉBUT updateTableViewData ===
+2025-06-30 04:18:32.437 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Paramètres reçus:
+2025-06-30 04:18:32.437 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - - resultatsTableView: EXISTS
+2025-06-30 04:18:32.438 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - - rapportData: EtatCumuleAgentDTO
+2025-06-30 04:18:32.438 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🔍 Type de données reçues: com.regulation.contentieux.service.RapportService$EtatCumuleAgentDTO
+2025-06-30 04:18:32.438 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📋 Traitement DTO générique: EtatCumuleAgentDTO
+2025-06-30 04:18:32.778 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Collection trouvée via champ: agents (268 éléments)
+2025-06-30 04:18:32.785 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Ajouté 268 éléments génériques
+2025-06-30 04:18:32.794 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Mise à jour TableView avec 268 éléments
+2025-06-30 04:18:32.860 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ TableView mise à jour avec 268 éléments
+2025-06-30 04:18:32.941 [JavaFX Application Thread] DEBUG c.r.contentieux.dao.AgentDAO - Trouvé 2890 entités
+2025-06-30 04:18:46.332 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Nombre de résultats affiché: 268
+2025-06-30 04:22:51.655 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🎯 === DÉBUT GÉNÉRATION RAPPORT ===
+2025-06-30 04:22:51.656 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Génération rapport: ETAT CUMULE PAR AGENT
+2025-06-30 04:22:51.657 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📅 Période: 2025-04-01 - 2025-05-31
+2025-06-30 04:22:51.672 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Colonnes Template 6 configurées : 7 colonnes (colonnes indésirables supprimées)
+2025-06-30 04:22:51.674 [Thread-8] DEBUG c.r.c.controller.RapportController - 🔄 Début génération asynchrone...
+2025-06-30 04:22:51.772 [Thread-8] DEBUG c.r.contentieux.dao.AgentDAO - Trouvé 2890 entités
+2025-06-30 04:23:17.766 [Thread-8] DEBUG c.r.c.controller.RapportController - ✅ Données générées: EtatCumuleAgentDTO
+2025-06-30 04:23:17.766 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🎉 Génération réussie
+2025-06-30 04:23:17.767 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📦 Données récupérées: EtatCumuleAgentDTO
+2025-06-30 04:23:17.767 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - === DÉBUT updateTableViewData ===
+2025-06-30 04:23:17.767 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Paramètres reçus:
+2025-06-30 04:23:17.768 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - - resultatsTableView: EXISTS
+2025-06-30 04:23:17.768 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - - rapportData: EtatCumuleAgentDTO
+2025-06-30 04:23:17.768 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🔍 Type de données reçues: com.regulation.contentieux.service.RapportService$EtatCumuleAgentDTO
+2025-06-30 04:23:17.768 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📋 Traitement DTO générique: EtatCumuleAgentDTO
+2025-06-30 04:23:17.768 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Collection trouvée via champ: agents (353 éléments)
+2025-06-30 04:23:17.769 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Ajouté 353 éléments génériques
+2025-06-30 04:23:17.769 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Mise à jour TableView avec 353 éléments
+2025-06-30 04:23:17.774 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ TableView mise à jour avec 353 éléments
+2025-06-30 04:23:44.243 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Nombre de résultats affiché: 353
+2025-06-30 04:24:15.821 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🎯 === DÉBUT GÉNÉRATION RAPPORT ===
+2025-06-30 04:24:15.821 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Génération rapport: ETAT CUMULE PAR AGENT
+2025-06-30 04:24:15.822 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📅 Période: 2025-05-05 - 2025-05-31
+2025-06-30 04:24:15.827 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Colonnes Template 6 configurées : 7 colonnes (colonnes indésirables supprimées)
+2025-06-30 04:24:15.828 [Thread-9] DEBUG c.r.c.controller.RapportController - 🔄 Début génération asynchrone...
+2025-06-30 04:24:27.353 [Thread-9] DEBUG c.r.c.controller.RapportController - ✅ Données générées: EtatCumuleAgentDTO
+2025-06-30 04:24:27.353 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🎉 Génération réussie
+2025-06-30 04:24:27.354 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📦 Données récupérées: EtatCumuleAgentDTO
+2025-06-30 04:24:27.354 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - === DÉBUT updateTableViewData ===
+2025-06-30 04:24:27.354 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Paramètres reçus:
+2025-06-30 04:24:27.354 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - - resultatsTableView: EXISTS
+2025-06-30 04:24:27.354 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - - rapportData: EtatCumuleAgentDTO
+2025-06-30 04:24:27.354 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🔍 Type de données reçues: com.regulation.contentieux.service.RapportService$EtatCumuleAgentDTO
+2025-06-30 04:24:27.354 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📋 Traitement DTO générique: EtatCumuleAgentDTO
+2025-06-30 04:24:27.355 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Collection trouvée via champ: agents (268 éléments)
+2025-06-30 04:24:27.355 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Ajouté 268 éléments génériques
+2025-06-30 04:24:27.355 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Mise à jour TableView avec 268 éléments
+2025-06-30 04:24:27.356 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ TableView mise à jour avec 268 éléments
+2025-06-30 04:24:38.492 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Nombre de résultats affiché: 268
+2025-06-30 04:24:49.704 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🎯 === DÉBUT GÉNÉRATION RAPPORT ===
+2025-06-30 04:24:49.705 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Génération rapport: ETAT CUMULE PAR AGENT
+2025-06-30 04:24:49.705 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📅 Période: 2025-05-06 - 2025-05-31
+2025-06-30 04:24:49.707 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Colonnes Template 6 configurées : 7 colonnes (colonnes indésirables supprimées)
+2025-06-30 04:24:49.708 [Thread-10] DEBUG c.r.c.controller.RapportController - 🔄 Début génération asynchrone...
+2025-06-30 04:25:01.522 [Thread-10] DEBUG c.r.c.controller.RapportController - ✅ Données générées: EtatCumuleAgentDTO
+2025-06-30 04:25:01.522 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🎉 Génération réussie
+2025-06-30 04:25:01.523 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📦 Données récupérées: EtatCumuleAgentDTO
+2025-06-30 04:25:01.523 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - === DÉBUT updateTableViewData ===
+2025-06-30 04:25:01.523 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Paramètres reçus:
+2025-06-30 04:25:01.523 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - - resultatsTableView: EXISTS
+2025-06-30 04:25:01.523 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - - rapportData: EtatCumuleAgentDTO
+2025-06-30 04:25:01.523 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🔍 Type de données reçues: com.regulation.contentieux.service.RapportService$EtatCumuleAgentDTO
+2025-06-30 04:25:01.523 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📋 Traitement DTO générique: EtatCumuleAgentDTO
+2025-06-30 04:25:01.524 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Collection trouvée via champ: agents (268 éléments)
+2025-06-30 04:25:01.524 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Ajouté 268 éléments génériques
+2025-06-30 04:25:01.524 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Mise à jour TableView avec 268 éléments
+2025-06-30 04:25:01.525 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ TableView mise à jour avec 268 éléments
+2025-06-30 04:25:12.997 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Nombre de résultats affiché: 268
+2025-06-30 04:26:55.461 [main] DEBUG c.r.c.util.DebugRepartitionScript - Pas de rôle spécial pour l'agent 339
+2025-06-30 04:28:19.746 [main] DEBUG c.r.c.util.DebugRepartitionScript - Pas de rôle spécial pour l'agent 918
+2025-06-30 04:32:33.898 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Colonnes Template 7 configurées : 4 colonnes exactes
+2025-06-30 04:32:33.899 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Type de rapport changé: TABLEAU DES AMENDES PAR SERVICES
+2025-06-30 04:32:33.902 [Thread-11] DEBUG c.r.c.controller.RapportController - 🔄 Chargement automatique des données pour: TABLEAU DES AMENDES PAR SERVICES
+2025-06-30 04:32:33.921 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Extraction impossible: nomService
+2025-06-30 04:32:33.922 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Extraction impossible: montantMoyen
+2025-06-30 04:32:33.923 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Extraction impossible: nomService
+2025-06-30 04:32:33.924 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Extraction impossible: montantMoyen
+2025-06-30 04:32:33.925 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Extraction impossible: nomService
+2025-06-30 04:32:33.925 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Extraction impossible: montantMoyen
+2025-06-30 04:32:34.181 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📦 Données automatiques chargées: TableauAmendesParServicesDTO
+2025-06-30 04:32:34.182 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - === DÉBUT updateTableViewData ===
+2025-06-30 04:32:34.183 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Paramètres reçus:
+2025-06-30 04:32:34.183 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - - resultatsTableView: EXISTS
+2025-06-30 04:32:34.183 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - - rapportData: TableauAmendesParServicesDTO
+2025-06-30 04:32:34.183 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🔍 Type de données reçues: com.regulation.contentieux.service.RapportService$TableauAmendesParServicesDTO
+2025-06-30 04:32:34.184 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📋 Traitement DTO générique: TableauAmendesParServicesDTO
+2025-06-30 04:32:34.198 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Collection trouvée via champ: services (3 éléments)
+2025-06-30 04:32:34.198 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Ajouté 3 éléments génériques
+2025-06-30 04:32:34.199 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Mise à jour TableView avec 3 éléments
+2025-06-30 04:32:34.201 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ TableView mise à jour avec 3 éléments
+2025-06-30 04:32:35.781 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Nombre de résultats affiché: 3
+2025-06-30 04:32:38.821 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🎯 === DÉBUT GÉNÉRATION RAPPORT ===
+2025-06-30 04:32:38.822 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Génération rapport: TABLEAU DES AMENDES PAR SERVICES
+2025-06-30 04:32:38.823 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📅 Période: 2025-05-01 - 2025-05-31
+2025-06-30 04:32:38.828 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Colonnes Template 7 configurées : 4 colonnes exactes
+2025-06-30 04:32:38.834 [Thread-12] DEBUG c.r.c.controller.RapportController - 🔄 Début génération asynchrone...
+2025-06-30 04:32:38.984 [Thread-12] DEBUG c.r.c.controller.RapportController - ✅ Données générées: TableauAmendesParServicesDTO
+2025-06-30 04:32:38.996 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🎉 Génération réussie
+2025-06-30 04:32:38.996 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📦 Données récupérées: TableauAmendesParServicesDTO
+2025-06-30 04:36:28.974 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Colonnes Template 6 configurées : 7 colonnes (colonnes indésirables supprimées)
+2025-06-30 04:36:28.975 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Type de rapport changé: ETAT CUMULE PAR AGENT
+2025-06-30 04:36:28.975 [Thread-13] DEBUG c.r.c.controller.RapportController - 🔄 Chargement automatique des données pour: ETAT CUMULE PAR AGENT
+2025-06-30 04:36:29.008 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Impossible d'extraire le champ agent: agent
+2025-06-30 04:36:29.010 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Impossible d'extraire le champ agent: agent
+2025-06-30 04:36:29.012 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Impossible d'extraire le champ agent: agent
+2025-06-30 04:36:32.935 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🎯 === DÉBUT GÉNÉRATION RAPPORT ===
+2025-06-30 04:36:32.935 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Génération rapport: ETAT CUMULE PAR AGENT
+2025-06-30 04:36:32.935 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📅 Période: 2025-05-07 - 2025-05-31
+2025-06-30 04:36:32.940 [Thread-14] DEBUG c.r.c.controller.RapportController - 🔄 Début génération asynchrone...
+2025-06-30 04:36:32.958 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Impossible d'extraire le champ agent: agent
+2025-06-30 04:36:32.961 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Impossible d'extraire le champ agent: agent
+2025-06-30 04:36:32.963 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Impossible d'extraire le champ agent: agent
+2025-06-30 04:36:46.228 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📦 Données automatiques chargées: EtatCumuleAgentDTO
+2025-06-30 04:36:51.077 [Thread-14] DEBUG c.r.c.controller.RapportController - ✅ Données générées: EtatCumuleAgentDTO
+2025-06-30 04:37:01.010 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Aperçu HTML généré automatiquement pour ETAT CUMULE PAR AGENT
+2025-06-30 04:37:01.032 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🎉 Génération réussie
+2025-06-30 04:37:01.032 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📦 Données récupérées: EtatCumuleAgentDTO
+2025-06-30 04:37:43.480 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Nettoyage des ressources terminé

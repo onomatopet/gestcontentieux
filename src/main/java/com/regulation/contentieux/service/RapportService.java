@@ -365,17 +365,21 @@ public class RapportService {
                 // Calculer la part totale de l'agent
                 stats.calculerPartTotale();
 
-                // IMPORTANT : Ajouter TOUS les agents, même ceux sans activité
-                rapport.getAgents().add(stats);
-                logger.debug("✅ Agent ajouté: {} - Part totale: {}",
-                        agent.getNomComplet(), stats.getPartTotaleAgent());
+                // OPTION 1 : Ajouter uniquement les agents ayant des parts
+                if (stats.getPartTotaleAgent().compareTo(BigDecimal.ZERO) > 0) {
+                    rapport.getAgents().add(stats);
+                    logger.debug("✅ Agent ajouté: {} - Part totale: {}",
+                            agent.getNomComplet(), stats.getPartTotaleAgent());
+                } else {
+                    logger.debug("⏭️ Agent ignoré (aucune part): {}", agent.getNomComplet());
+                }
             }
 
             // Calculer les totaux du rapport
             rapport.calculateTotaux();
             rapport.setNombreAgents(rapport.getAgents().size());
 
-            logger.info("✅ État cumulé généré avec succès - {} agents", rapport.getAgents().size());
+            logger.info("✅ État cumulé généré avec succès - {} agents avec des parts", rapport.getAgents().size());
             logger.info("📊 Totaux - Chefs: {} | Saisissants: {} | DG: {} | DD: {} | TOTAL: {}",
                     rapport.getTotalChefs(), rapport.getTotalSaisissants(),
                     rapport.getTotalDG(), rapport.getTotalDD(), rapport.getTotalGeneral());
@@ -385,18 +389,13 @@ public class RapportService {
         } catch (Exception e) {
             logger.error("❌ Erreur lors de la génération de l'état cumulé par agent", e);
 
-            // En cas d'erreur, retourner au moins les agents sans données
+            // En cas d'erreur, retourner un rapport vide plutôt que tous les agents
             rapport.getAgents().clear();
-            List<Agent> tousAgents = agentDAO.findAll();
-            for (Agent agent : tousAgents) {
-                rapport.getAgents().add(new AgentStatsDTO(agent));
-            }
-            rapport.setNombreAgents(rapport.getAgents().size());
+            rapport.setNombreAgents(0);
 
             return rapport;
         }
     }
-
 
     /**
      * Classe helper pour stocker affaire et rôle

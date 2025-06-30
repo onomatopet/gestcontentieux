@@ -155,6 +155,35 @@ public class BureauDAO extends AbstractSQLiteDAO<Bureau, Long> {
     }
 
     /**
+     * Compte le nombre de bureaux par service
+     * @param serviceId ID du service
+     * @return Nombre de bureaux appartenant au service
+     */
+    public long countByServiceId(Long serviceId) {
+        if (serviceId == null) {
+            return 0;
+        }
+
+        String sql = "SELECT COUNT(*) FROM bureaux WHERE service_id = ?";
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setLong(1, serviceId);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                return rs.getLong(1);
+            }
+
+        } catch (SQLException e) {
+            logger.error("Erreur lors du comptage des bureaux pour le service ID: " + serviceId, e);
+        }
+
+        return 0;
+    }
+
+    /**
      * Trouve un bureau par son code bureau
      */
     public Optional<Bureau> findByCodeBureau(String codeBureau) {

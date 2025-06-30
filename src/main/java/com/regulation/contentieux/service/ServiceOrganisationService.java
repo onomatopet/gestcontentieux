@@ -2,7 +2,7 @@ package com.regulation.contentieux.service;
 
 import com.regulation.contentieux.dao.ServiceDAO;
 import com.regulation.contentieux.model.Service;
-import com.regulation.contentieux.util.ValidationService;
+import com.regulation.contentieux.service.ValidationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

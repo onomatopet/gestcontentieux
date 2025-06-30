@@ -182,6 +182,35 @@ public class ServiceDAO extends AbstractSQLiteDAO<Service, Long> {
     }
 
     /**
+     * Compte le nombre de services par centre
+     * @param centreId ID du centre
+     * @return Nombre de services appartenant au centre
+     */
+    public long countByCentreId(Long centreId) {
+        if (centreId == null) {
+            return 0;
+        }
+
+        String sql = "SELECT COUNT(*) FROM services WHERE centre_id = ?";
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setLong(1, centreId);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                return rs.getLong(1);
+            }
+
+        } catch (SQLException e) {
+            logger.error("Erreur lors du comptage des services pour le centre ID: " + centreId, e);
+        }
+
+        return 0;
+    }
+
+    /**
      * Recherche de services avec critères multiples - POUR ReferentielController
      */
     public List<Service> searchServices(String nomOuCode, Boolean actifOnly, int offset, int limit) {

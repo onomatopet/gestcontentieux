@@ -2,7 +2,6 @@ package com.regulation.contentieux.service;
 
 import com.regulation.contentieux.dao.BanqueDAO;
 import com.regulation.contentieux.model.Banque;
-import com.regulation.contentieux.util.ValidationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

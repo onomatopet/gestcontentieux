@@ -133,8 +133,8 @@ public class MandatService {
         Mandat mandat = findByNumero(numeroMandat)
                 .orElseThrow(() -> new BusinessException("Mandat introuvable : " + numeroMandat));
 
-        // Vérifier qu'il n'est pas déjà actif
-        if (mandat.getStatut() == StatutMandat.ACTIF) {
+        // Vérifier qu'il n'est pas déjà actif (CORRECTION: utiliser isActif() au lieu de getActif())
+        if (mandat.isActif() && mandat.getStatut() == StatutMandat.ACTIF) {
             logger.info("ℹ️ Le mandat {} est déjà actif", numeroMandat);
             this.mandatActif = mandat;
             return;
@@ -236,7 +236,10 @@ public class MandatService {
     public List<Mandat> listerMandats(boolean seulementActifs, StatutMandat statut) {
         List<Mandat> mandats = new ArrayList<>();
 
-        StringBuilder sql = new StringBuilder("SELECT * FROM mandats WHERE 1=1");
+        StringBuilder sql = new StringBuilder("""
+        SELECT * FROM mandats 
+        WHERE 1=1
+    """);
 
         if (seulementActifs) {
             sql.append(" AND actif = 1");
@@ -246,7 +249,7 @@ public class MandatService {
             sql.append(" AND statut = ?");
         }
 
-        sql.append(" ORDER BY numero_mandat DESC");
+        sql.append(" ORDER BY created_at DESC, id DESC");
 
         try (Connection conn = DatabaseConfig.getSQLiteConnection();
              PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
@@ -333,40 +336,64 @@ public class MandatService {
      * ENRICHISSEMENT : Gestion robuste avec vérification d'unicité
      */
     private String genererNouveauMandat() {
-        LocalDate now = LocalDate.now();
-        // Format : yyMM + M + 0001
-        String yearMonth = now.format(DateTimeFormatter.ofPattern("yyMM"));
-        String prefixe = yearMonth + "M";  // Ajouter le M obligatoire
+        logger.info("🔢 Génération d'un nouveau numéro de mandat...");
 
-        logger.debug("🔍 Génération mandat pour période : {}", prefixe);
+        // Format CORRECT : YYMMM0001 (avec M séparateur)
+        String prefixe = YearMonth.now().format(DateTimeFormatter.ofPattern("yyMM")) + "M";
 
         // Rechercher le dernier mandat du mois
         String sql = """
-        SELECT numero_mandat FROM mandats
-        WHERE numero_mandat LIKE ?
-        ORDER BY numero_mandat DESC
+        SELECT numero_mandat 
+        FROM mandats 
+        WHERE numero_mandat LIKE ? 
+        ORDER BY numero_mandat DESC 
         LIMIT 1
     """;
+
+        String dernierNumero = null;
 
         try (Connection conn = DatabaseConfig.getSQLiteConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-            stmt.setString(1, prefixe + "%");
+            stmt.setString(1, prefixe.substring(0, 4) + "%"); // Recherche par YYMM%
             ResultSet rs = stmt.executeQuery();
 
             if (rs.next()) {
-                String lastMandat = rs.getString("numero_mandat");
-                return genererProchainNumero(lastMandat, prefixe);
-            } else {
-                // Premier mandat du mois
-                String numero = prefixe + "0001";
-                logger.info("🆕 Premier mandat du mois : {}", numero);
-                return numero;
+                dernierNumero = rs.getString("numero_mandat");
+                logger.debug("Dernier mandat trouvé : {}", dernierNumero);
             }
 
         } catch (SQLException e) {
-            logger.error("Erreur lors de la génération du numéro de mandat", e);
-            throw new RuntimeException("Impossible de générer le numéro de mandat", e);
+            logger.error("Erreur lors de la recherche du dernier mandat", e);
+        }
+
+        // Si aucun mandat ce mois-ci ou format invalide
+        if (dernierNumero == null || !dernierNumero.startsWith(prefixe)) {
+            return prefixe + "0001";
+        }
+
+        try {
+            // Extraire le numéro séquentiel (4 derniers caractères après le M)
+            String sequenceStr = dernierNumero.substring(prefixe.length());
+            int sequence = Integer.parseInt(sequenceStr);
+
+            // Incrémenter
+            sequence++;
+
+            // Vérifier la limite
+            if (sequence > 9999) {
+                throw new BusinessException("Limite de mandats atteinte pour ce mois (9999)");
+            }
+
+            // Formater avec padding
+            String nouveauNumero = prefixe + String.format("%04d", sequence);
+            logger.info("✅ Nouveau mandat généré : {}", nouveauNumero);
+
+            return nouveauNumero;
+
+        } catch (NumberFormatException e) {
+            logger.warn("Format invalide, génération d'un nouveau : {}", prefixe + "0001");
+            return prefixe + "0001";
         }
     }
 
@@ -464,15 +491,15 @@ public class MandatService {
      */
     private int compterAffairesEnCours(String numeroMandat) {
         String sql = """
-            SELECT COUNT(DISTINCT a.id) 
-            FROM affaires a
-            WHERE a.statut = 'EN_COURS'
-            AND EXISTS (
-                SELECT 1 FROM encaissements e 
-                WHERE e.affaire_id = a.id 
-                AND e.numero_mandat = ?
-            )
-        """;
+        SELECT COUNT(DISTINCT a.id) 
+        FROM affaires a
+        WHERE a.statut = 'EN_COURS'
+        AND EXISTS (
+            SELECT 1 FROM encaissements e 
+            WHERE e.affaire_id = a.id 
+            AND e.numero_mandat = ?
+        )
+    """;
 
         try (Connection conn = DatabaseConfig.getSQLiteConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -508,7 +535,7 @@ public class MandatService {
             }
 
         } catch (SQLException e) {
-            logger.error("Erreur lors de la recherche du mandat", e);
+            logger.error("Erreur lors de la recherche du mandat : {}", numeroMandat, e);
         }
 
         return Optional.empty();
@@ -519,26 +546,53 @@ public class MandatService {
      */
     private Mandat mapResultSetToMandat(ResultSet rs) throws SQLException {
         Mandat mandat = new Mandat();
+
         mandat.setId(rs.getLong("id"));
         mandat.setNumeroMandat(rs.getString("numero_mandat"));
         mandat.setDescription(rs.getString("description"));
         mandat.setDateDebut(rs.getDate("date_debut").toLocalDate());
         mandat.setDateFin(rs.getDate("date_fin").toLocalDate());
-        mandat.setStatut(StatutMandat.valueOf(rs.getString("statut")));
+
+        // Gérer le statut
+        String statutStr = rs.getString("statut");
+        try {
+            mandat.setStatut(StatutMandat.valueOf(statutStr));
+        } catch (Exception e) {
+            mandat.setStatut(StatutMandat.EN_ATTENTE);
+        }
+
         mandat.setActif(rs.getBoolean("actif"));
 
+        // Gérer les dates nullables
         Timestamp dateCloture = rs.getTimestamp("date_cloture");
         if (dateCloture != null) {
             mandat.setDateCloture(dateCloture.toLocalDateTime());
         }
 
-        mandat.setCreatedAt(rs.getTimestamp("created_at").toLocalDateTime());
-        mandat.setCreatedBy(rs.getString("created_by"));
+        Timestamp createdAt = rs.getTimestamp("created_at");
+        if (createdAt != null) {
+            mandat.setCreatedAt(createdAt.toLocalDateTime());
+        }
 
         Timestamp updatedAt = rs.getTimestamp("updated_at");
         if (updatedAt != null) {
             mandat.setUpdatedAt(updatedAt.toLocalDateTime());
-            mandat.setUpdatedBy(rs.getString("updated_by"));
+        }
+
+        mandat.setCreatedBy(rs.getString("created_by"));
+        mandat.setUpdatedBy(rs.getString("updated_by"));
+
+        // Colonnes optionnelles (peuvent ne pas exister)
+        try {
+            mandat.setNombreAffaires(rs.getInt("nombre_affaires"));
+        } catch (SQLException e) {
+            // Colonne n'existe pas, ignorer
+        }
+
+        try {
+            mandat.setMontantTotal(rs.getBigDecimal("montant_total"));
+        } catch (SQLException e) {
+            // Colonne n'existe pas, ignorer
         }
 
         return mandat;

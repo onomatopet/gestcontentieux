@@ -1342,6 +1342,15 @@ public class AffaireFormController implements Initializable {
      * Sauvegarde l'affaire
      */
     private void saveAffaire(boolean createNew) {
+
+        if (!MandatService.getInstance().hasMandatActif()) {
+            AlertUtil.showErrorAlert("Erreur",
+                    "Aucun mandat actif",
+                    "Vous devez d'abord activer un mandat pour créer une affaire.\n" +
+                            "Allez dans Fichier > Gestion des Mandats (Ctrl+M)");
+            return;
+        }
+
         // Désactiver le formulaire pendant la sauvegarde
         setFormDisabled(true);
         if (saveProgressIndicator != null) {
@@ -1358,7 +1367,7 @@ public class AffaireFormController implements Initializable {
                 if (!isEditMode) {
                     // En création, collecter aussi l'encaissement
                     encaissement = collectEncaissementData();
-                    affaireService.createAffaireWithEncaissement(affaire, encaissement, acteurs);
+                    affaireService.createAffaireAvecEncaissement(affaire, encaissement, acteurs);
                 } else {
                     // En édition, mise à jour simple
                     affaire.setId(currentAffaire.getId());
@@ -1560,7 +1569,7 @@ public class AffaireFormController implements Initializable {
 
         if (typeContrevenantLabel != null) {
             typeContrevenantLabel.setText(contrevenant.getTypePersonne() != null ?
-                    contrevenant.getTypePersonne().getLibelle() : "");
+                    contrevenant.getTypePersonne() : "");
         }
         if (nomContrevenantLabel != null) {
             nomContrevenantLabel.setText(contrevenant.getNom() + " " + contrevenant.getPrenom());
@@ -1599,7 +1608,8 @@ public class AffaireFormController implements Initializable {
         }
 
         if (montantEnLettresLabel != null) {
-            montantEnLettresLabel.setText(NumberToWords.convert(total));
+            // CORRECTION - ligne 1563
+            montantEnLettresLabel.setText(NumberToWords.convert(total.longValue()));
         }
 
         // Nombre de contraventions

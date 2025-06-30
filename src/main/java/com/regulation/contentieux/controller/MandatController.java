@@ -230,9 +230,16 @@ public class MandatController implements Initializable {
     /**
      * Création d'un nouveau mandat
      */
+    @FXML
     private void creerNouveauMandat() {
         try {
             // Validation
+            String description = descriptionField.getText();
+            if (description == null || description.trim().isEmpty()) {
+                AlertUtil.showWarning("Validation", "Veuillez saisir une description pour le mandat");
+                return;
+            }
+
             if (dateDebutPicker.getValue() == null || dateFinPicker.getValue() == null) {
                 AlertUtil.showWarning("Validation", "Veuillez sélectionner les dates du mandat");
                 return;
@@ -247,9 +254,10 @@ public class MandatController implements Initializable {
             Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
             confirm.setTitle("Création de mandat");
             confirm.setHeaderText("Créer un nouveau mandat ?");
-            confirm.setContentText("Période : " + dateDebutPicker.getValue().format(
-                    DateTimeFormatter.ofPattern("dd/MM/yyyy")) + " au " +
-                    dateFinPicker.getValue().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+            confirm.setContentText(
+                    "Période : " + dateDebutPicker.getValue().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) +
+                            " au " + dateFinPicker.getValue().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+            );
 
             if (confirm.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK) {
                 return;
@@ -261,7 +269,7 @@ public class MandatController implements Initializable {
             Task<Mandat> createTask = new Task<>() {
                 @Override
                 protected Mandat call() throws Exception {
-                    return mandatService.creerNouveauMandat(descriptionField.getText());
+                    return mandatService.creerNouveauMandat(description.trim());
                 }
             };
 
@@ -282,6 +290,7 @@ public class MandatController implements Initializable {
 
                     // Recharger la liste
                     loadData();
+                    updateMandatActif();
                 });
             });
 
@@ -290,8 +299,16 @@ public class MandatController implements Initializable {
                     createButton.setDisable(false);
                     Throwable error = createTask.getException();
                     logger.error("Erreur lors de la création du mandat", error);
-                    AlertUtil.showError("Erreur", "Impossible de créer le mandat",
-                            error.getMessage());
+
+                    if (error.getMessage() != null && error.getMessage().contains("mandat actif existe")) {
+                        AlertUtil.showError("Erreur",
+                                "Un mandat actif existe déjà",
+                                "Vous devez d'abord clôturer le mandat actif avant d'en créer un nouveau.");
+                    } else {
+                        AlertUtil.showError("Erreur",
+                                "Impossible de créer le mandat",
+                                error.getMessage());
+                    }
                 });
             });
 

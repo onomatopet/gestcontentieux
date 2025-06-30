@@ -34,12 +34,8 @@
         <poi.version>5.2.5</poi.version>
         <bcrypt.version>0.10.2</bcrypt.version>
 
-        <!-- PDF - Versions correctes -->
-        <dependency>
-            <groupId>com.itextpdf</groupId>
-            <artifactId>itext7-core</artifactId>
-            <version>7.2.5</version>
-        </dependency>
+        <!-- PDF - Version html2pdf -->
+        <html2pdf.version>4.0.5</html2pdf.version>
 
         <!-- Contrôles étendus -->
         <controlsfx.version>11.2.1</controlsfx.version>
@@ -156,14 +152,11 @@
         </dependency>
 
         <!-- ==================== PDF (iText 7) ==================== -->
-        <!-- Version correcte de html2pdf qui existe dans Maven Central -->
         <dependency>
             <groupId>com.itextpdf</groupId>
             <artifactId>html2pdf</artifactId>
             <version>${html2pdf.version}</version>
         </dependency>
-
-        <!-- Les dépendances iText7 sont automatiquement incluses avec html2pdf -->
 
         <!-- ==================== CONTRÔLES ÉTENDUS ==================== -->
         <dependency>

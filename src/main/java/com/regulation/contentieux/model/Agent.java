@@ -23,6 +23,9 @@ public class Agent {
     // ENRICHISSEMENT : Rôle spécial (DD, DG, etc.)
     private String roleSpecial;
 
+    // ENRICHISSEMENT : Indicateur si l'agent est un chef
+    private boolean chef;
+
     // Relations
     private Service service;
     private Bureau bureau;
@@ -86,6 +89,30 @@ public class Agent {
      */
     public boolean hasRoleSpecial() {
         return roleSpecial != null && !roleSpecial.trim().isEmpty();
+    }
+
+    /**
+     * Vérifie si l'agent est un chef
+     * @return true si l'agent est chef
+     */
+    public boolean isChef() {
+        return chef;
+    }
+
+    /**
+     * Définit si l'agent est un chef
+     * @param chef true si l'agent est chef
+     */
+    public void setChef(boolean chef) {
+        this.chef = chef;
+    }
+
+    /**
+     * Alias pour getCodeAgent() - utilisé dans certains contrôleurs
+     * @return le code de l'agent
+     */
+    public String getCode() {
+        return getCodeAgent();
     }
 
     /**

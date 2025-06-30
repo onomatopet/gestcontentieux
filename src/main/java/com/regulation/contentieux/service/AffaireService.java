@@ -189,6 +189,21 @@ public class AffaireService {
         });
     }
 
+    public String genererNumeroAffaire() {
+        logger.debug("Génération d'un nouveau numéro d'affaire via NumerotationService");
+
+        try {
+            // Utiliser le service de numérotation centralisé
+            String numeroGenere = numerotationService.genererNumeroAffaire();
+            logger.info("Numéro d'affaire généré: {}", numeroGenere);
+            return numeroGenere;
+
+        } catch (Exception e) {
+            logger.error("Erreur lors de la génération du numéro d'affaire", e);
+            throw new RuntimeException("Impossible de générer le numéro d'affaire: " + e.getMessage(), e);
+        }
+    }
+
     /**
      * Sauvegarde un acteur d'affaire (méthode alternative)
      */

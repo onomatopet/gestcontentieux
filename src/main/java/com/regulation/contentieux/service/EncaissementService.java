@@ -277,8 +277,20 @@ public class EncaissementService {
      * Génère le prochain numéro d'encaissement - FORMAT YYMMRNNNN
      */
     public String generateNextNumeroEncaissement() {
-        return encaissementDAO.generateNextNumeroEncaissement();
+        logger.debug("Génération d'un nouveau numéro d'encaissement via NumerotationService");
+
+        try {
+            // Utiliser le service de numérotation centralisé
+            String numeroGenere = numerotationService.genererNumeroEncaissement();
+            logger.info("Numéro d'encaissement généré: {}", numeroGenere);
+            return numeroGenere;
+
+        } catch (Exception e) {
+            logger.error("Erreur lors de la génération du numéro d'encaissement", e);
+            throw new RuntimeException("Impossible de générer le numéro d'encaissement: " + e.getMessage(), e);
+        }
     }
+
 
     /**
      * Vérifie si une référence existe déjà

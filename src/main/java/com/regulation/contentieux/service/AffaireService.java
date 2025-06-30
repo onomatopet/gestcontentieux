@@ -50,6 +50,8 @@ public class AffaireService {
         this.transactionManager = TransactionManager.getInstance();
     }
 
+    private final NumerotationService numerotationService = NumerotationService.getInstance();
+
     /**
      * NOUVELLE MÉTHODE : Crée une affaire avec son premier encaissement
      * Respecte la règle métier : "Pas d'affaire sans paiement"

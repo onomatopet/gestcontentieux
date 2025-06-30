@@ -94,6 +94,17 @@ public class BanqueDAO extends AbstractSQLiteDAO<Banque, Long> {
         return banque;
     }
 
+    /**
+     * Trouve toutes les banques actives
+     * Note: Banque n'a pas de champ actif dans le modèle actuel,
+     * donc on retourne toutes les banques
+     */
+    public List<Banque> findAllActive() {
+        // Comme Banque n'a pas de champ actif, on retourne toutes les banques
+        // Si un champ actif est ajouté plus tard, modifier cette méthode
+        return findAll();
+    }
+
     @Override
     protected void setInsertParameters(PreparedStatement stmt, Banque banque) throws SQLException {
         stmt.setString(1, banque.getCodeBanque());
@@ -158,7 +169,11 @@ public class BanqueDAO extends AbstractSQLiteDAO<Banque, Long> {
     /**
      * Recherche de banques avec critères multiples
      */
-    public List<Banque> searchBanques(String nomOuCode, int offset, int limit) {
+    /**
+     * Recherche de banques avec critères multiples
+     * Version corrigée avec signature compatible avec BanqueService
+     */
+    public List<Banque> searchBanques(String nomOuCode, Boolean actifOnly, int offset, int limit) {
         StringBuilder sql = new StringBuilder();
         sql.append("SELECT id, code_banque, nom_banque, description, adresse, ");
         sql.append("telephone, email, created_at ");
@@ -172,6 +187,8 @@ public class BanqueDAO extends AbstractSQLiteDAO<Banque, Long> {
             parameters.add(searchPattern);
             parameters.add(searchPattern);
         }
+
+        // Note: Banque n'a pas de champ actif, donc on ignore le paramètre actifOnly
 
         sql.append("ORDER BY nom_banque ASC LIMIT ? OFFSET ?");
         parameters.add(limit);

@@ -122,6 +122,27 @@ public class CentreDAO extends AbstractSQLiteDAO<Centre, Long> {
     // ========== MÉTHODES SPÉCIFIQUES AUX CENTRES ==========
 
     /**
+     * Vérifie si un code centre existe déjà
+     * @param codeCentre Le code à vérifier
+     * @return true si le code existe déjà
+     */
+    public boolean existsByCodeCentre(String codeCentre) {
+        String sql = "SELECT COUNT(*) FROM centres WHERE code_centre = ? LIMIT 1";
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, codeCentre);
+            ResultSet rs = stmt.executeQuery();
+            return rs.next() && rs.getInt(1) > 0;
+
+        } catch (SQLException e) {
+            logger.error("Erreur lors de la vérification du code centre", e);
+            return false;
+        }
+    }
+
+    /**
      * CORRECTION BUG SÉRIE 2 : Méthode manquante findAllActifs()
      * Trouve tous les centres actifs - POUR LES RAPPORTS
      */

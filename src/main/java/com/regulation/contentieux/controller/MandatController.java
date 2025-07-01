@@ -1,9 +1,7 @@
 package com.regulation.contentieux.controller;
 
 import com.regulation.contentieux.model.Mandat;
-import com.regulation.contentieux.model.enums.RoleUtilisateur;
 import com.regulation.contentieux.model.enums.StatutMandat;
-import com.regulation.contentieux.service.AuthenticationService;
 import com.regulation.contentieux.service.MandatService;
 import com.regulation.contentieux.service.MandatService.MandatStatistiques;
 import com.regulation.contentieux.util.AlertUtil;
@@ -92,23 +90,10 @@ public class MandatController implements Initializable {
      * Configuration de l'interface utilisateur
      */
     private void setupUI() {
-        // Récupérer le service d'authentification et le rôle de l'utilisateur
-        AuthenticationService authenticationService = AuthenticationService.getInstance();
-        RoleUtilisateur roleUtilisateur = authenticationService.getCurrentUser().getRole();
-        boolean isSuperAdmin = (roleUtilisateur == RoleUtilisateur.SUPER_ADMIN);
-
         // Configuration des dates par défaut
         LocalDate now = LocalDate.now();
         dateDebutPicker.setValue(now.withDayOfMonth(1));
         dateFinPicker.setValue(now.withDayOfMonth(now.lengthOfMonth()));
-
-        // Désactiver les DatePickers si l'utilisateur n'est pas SUPER_ADMIN
-        if (!isSuperAdmin) {
-            dateDebutPicker.setDisable(true);
-            dateFinPicker.setDisable(true);
-            dateDebutPicker.setTooltip(new Tooltip("Seul un Super Administrateur peut modifier les dates"));
-            dateFinPicker.setTooltip(new Tooltip("Seul un Super Administrateur peut modifier les dates"));
-        }
 
         // Configuration du filtre de statut
         statutFilterCombo.getItems().add(null); // Tous
@@ -245,16 +230,9 @@ public class MandatController implements Initializable {
     /**
      * Création d'un nouveau mandat
      */
-    @FXML
     private void creerNouveauMandat() {
         try {
             // Validation
-            String description = descriptionField.getText();
-            if (description == null || description.trim().isEmpty()) {
-                AlertUtil.showWarning("Validation", "Veuillez saisir une description pour le mandat");
-                return;
-            }
-
             if (dateDebutPicker.getValue() == null || dateFinPicker.getValue() == null) {
                 AlertUtil.showWarning("Validation", "Veuillez sélectionner les dates du mandat");
                 return;
@@ -265,38 +243,13 @@ public class MandatController implements Initializable {
                 return;
             }
 
-            // Récupérer le service d'authentification et le rôle de l'utilisateur
-            AuthenticationService authenticationService = AuthenticationService.getInstance();
-            RoleUtilisateur roleUtilisateur = authenticationService.getCurrentUser().getRole();
-            boolean isSuperAdmin = (roleUtilisateur == RoleUtilisateur.SUPER_ADMIN);
-
-            // Pour les non SUPER_ADMIN, vérifier que les dates correspondent au mois en cours
-            if (!isSuperAdmin) {
-                LocalDate now = LocalDate.now();
-                LocalDate debutMoisCourant = now.withDayOfMonth(1);
-                LocalDate finMoisCourant = now.withDayOfMonth(now.lengthOfMonth());
-
-                if (!dateDebutPicker.getValue().equals(debutMoisCourant) ||
-                        !dateFinPicker.getValue().equals(finMoisCourant)) {
-                    AlertUtil.showWarning("Droits insuffisants",
-                            "Vous ne pouvez créer des mandats que pour le mois en cours.\n" +
-                                    "Seul un Super Administrateur peut créer des mandats pour d'autres périodes.");
-                    return;
-                }
-            }
-
-            // Récupérer les dates sélectionnées
-            LocalDate dateDebut = dateDebutPicker.getValue();
-            LocalDate dateFin = dateFinPicker.getValue();
-
             // Confirmation
             Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
             confirm.setTitle("Création de mandat");
             confirm.setHeaderText("Créer un nouveau mandat ?");
-            confirm.setContentText(
-                    "Période : " + dateDebut.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) +
-                            " au " + dateFin.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
-            );
+            confirm.setContentText("Période : " + dateDebutPicker.getValue().format(
+                    DateTimeFormatter.ofPattern("dd/MM/yyyy")) + " au " +
+                    dateFinPicker.getValue().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
 
             if (confirm.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK) {
                 return;
@@ -308,7 +261,7 @@ public class MandatController implements Initializable {
             Task<Mandat> createTask = new Task<>() {
                 @Override
                 protected Mandat call() throws Exception {
-                    return mandatService.creerNouveauMandat(description.trim(), dateDebut, dateFin);
+                    return mandatService.creerNouveauMandat(descriptionField.getText());
                 }
             };
 
@@ -329,7 +282,6 @@ public class MandatController implements Initializable {
 
                     // Recharger la liste
                     loadData();
-                    updateMandatActif();
                 });
             });
 
@@ -338,16 +290,8 @@ public class MandatController implements Initializable {
                     createButton.setDisable(false);
                     Throwable error = createTask.getException();
                     logger.error("Erreur lors de la création du mandat", error);
-
-                    if (error.getMessage() != null && error.getMessage().contains("mandat actif existe")) {
-                        AlertUtil.showError("Erreur",
-                                "Un mandat actif existe déjà",
-                                "Vous devez d'abord clôturer le mandat actif avant d'en créer un nouveau.");
-                    } else {
-                        AlertUtil.showError("Erreur",
-                                "Impossible de créer le mandat",
-                                error.getMessage());
-                    }
+                    AlertUtil.showError("Erreur", "Impossible de créer le mandat",
+                            error.getMessage());
                 });
             });
 

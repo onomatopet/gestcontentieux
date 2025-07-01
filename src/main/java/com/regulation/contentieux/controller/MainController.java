@@ -97,6 +97,7 @@ public class MainController implements Initializable {
     @FXML private Menu menuAdministration;
     @FXML private Menu menuAide;
 
+
     // Services
     private final AuthenticationService authService = AuthenticationService.getInstance();
     private final StageManager stageManager = StageManager.getInstance();
@@ -122,6 +123,8 @@ public class MainController implements Initializable {
         return currentStage;
     }
 
+    private Object currentController; // Contrôleur de la vue actuellement affichée
+
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         logger.info("Initialisation du MainController");
@@ -136,25 +139,21 @@ public class MainController implements Initializable {
         // Ajouter l'item de menu pour la gestion des mandats
         setupMandatMenuItem();
 
-        // Raccourci clavier global pour ouvrir la gestion des mandats
-        // Utilisation de Platform.runLater pour attendre que la scène soit prête
+        // AJOUTER CES LIGNES
+        // Mettre à jour l'affichage du mandat actif
         Platform.runLater(() -> {
-            Scene scene = getCurrentScene();
-            if (scene != null) {
-                scene.getAccelerators().put(
-                        KeyCombination.keyCombination("Ctrl+M"),
-                        () -> openMandatManagement()
-                );
+            updateMandatActif();
+
+            // Vérifier si un mandat est actif
+            if (!MandatService.getInstance().hasMandatActif()) {
+                Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                alert.setTitle("Information");
+                alert.setHeaderText("Aucun mandat actif");
+                alert.setContentText("Pour commencer à travailler, vous devez créer et activer un mandat.\n\n" +
+                        "Utilisez Fichier > Gestion des Mandats ou Ctrl+M");
+                alert.show();
             }
         });
-
-        // Mettre à jour l'affichage du mandat actif
-        updateMandatActif();
-
-        // Configurer la mise à jour périodique du mandat actif (optionnel)
-        Timeline timeline = new Timeline(new KeyFrame(Duration.seconds(30), e -> updateMandatActif()));
-        timeline.setCycleCount(Timeline.INDEFINITE);
-        timeline.play();
     }
 
     private void setupWindowFocusListener() {
@@ -284,61 +283,72 @@ public class MainController implements Initializable {
     }
 
     private void setupMandatMenuItem() {
-        // Ajouter un item de menu pour la gestion des mandats dans le menu Fichier
-        if (fileMenu != null || menuFichier != null) {
-            Menu targetMenu = fileMenu != null ? fileMenu : menuFichier;
+        logger.debug("Configuration du menu Gestion des Mandats");
 
-            MenuItem mandatMenuItem = new MenuItem("Gestion des Mandats");
-            mandatMenuItem.setAccelerator(KeyCombination.keyCombination("Ctrl+M"));
-            mandatMenuItem.setOnAction(e -> openMandatManagement());
+        // Chercher le menu Fichier (peut s'appeler fileMenu ou menuFichier)
+        Menu targetMenu = null;
+        if (fileMenu != null) {
+            targetMenu = fileMenu;
+        } else if (menuFichier != null) {
+            targetMenu = menuFichier;
+        }
 
-            // Ajouter une icône si disponible
-            try {
-                ImageView icon = new ImageView(new Image(getClass().getResourceAsStream("/images/mandat-icon.png")));
-                icon.setFitWidth(16);
-                icon.setFitHeight(16);
-                mandatMenuItem.setGraphic(icon);
-            } catch (Exception e) {
-                logger.debug("Icône mandat non trouvée");
-            }
+        if (targetMenu != null) {
+            // Vérifier si l'item n'existe pas déjà
+            boolean mandatItemExists = targetMenu.getItems().stream()
+                    .anyMatch(item -> item.getText() != null &&
+                            item.getText().contains("Gestion des Mandats"));
 
-            // Insérer après "Nouveau" ou au début
-            ObservableList<MenuItem> items = targetMenu.getItems();
-            int insertIndex = 0;
+            if (!mandatItemExists) {
+                MenuItem mandatMenuItem = new MenuItem("Gestion des Mandats...");
+                mandatMenuItem.setAccelerator(KeyCombination.keyCombination("Ctrl+M"));
+                mandatMenuItem.setOnAction(e -> openMandatManagement());
 
-            // Chercher l'item "Nouveau" ou "Quitter"
-            for (int i = 0; i < items.size(); i++) {
-                MenuItem item = items.get(i);
-                if (item.getText() != null &&
-                        (item.getText().toLowerCase().contains("nouveau") ||
-                                item.getText().toLowerCase().contains("quitter"))) {
-                    insertIndex = i + 1;
-                    break;
+                // Ajouter une icône si disponible
+                try {
+                    ImageView icon = new ImageView(new Image(
+                            getClass().getResourceAsStream("/images/calendar-icon.png")));
+                    icon.setFitWidth(16);
+                    icon.setFitHeight(16);
+                    mandatMenuItem.setGraphic(icon);
+                } catch (Exception e) {
+                    // Pas d'icône disponible
                 }
-            }
 
-            // Ajouter un séparateur si nécessaire
-            if (insertIndex > 0 && insertIndex < items.size()) {
-                items.add(insertIndex, mandatMenuItem);
-                // Ajouter un séparateur après si l'élément suivant n'en est pas un
-                if (insertIndex + 1 < items.size() &&
-                        !(items.get(insertIndex + 1) instanceof SeparatorMenuItem)) {
-                    items.add(insertIndex + 1, new SeparatorMenuItem());
-                }
-            } else {
-                // Si on ne trouve pas où l'insérer, l'ajouter à la fin
-                if (!items.isEmpty() && !(items.get(items.size() - 1) instanceof SeparatorMenuItem)) {
-                    items.add(new SeparatorMenuItem());
-                }
-                items.add(mandatMenuItem);
-            }
+                // Trouver où insérer l'item
+                ObservableList<MenuItem> items = targetMenu.getItems();
+                int insertIndex = -1;
 
-            logger.info("Menu Gestion des Mandats ajouté");
+                // Chercher "Quitter" pour insérer avant
+                for (int i = 0; i < items.size(); i++) {
+                    if (items.get(i).getText() != null &&
+                            items.get(i).getText().toLowerCase().contains("quitter")) {
+                        insertIndex = i;
+                        break;
+                    }
+                }
+
+                if (insertIndex > 0) {
+                    // Ajouter un séparateur avant si nécessaire
+                    if (insertIndex > 0 && !(items.get(insertIndex - 1) instanceof SeparatorMenuItem)) {
+                        items.add(insertIndex, new SeparatorMenuItem());
+                        insertIndex++;
+                    }
+                    items.add(insertIndex, mandatMenuItem);
+                } else {
+                    // Ajouter à la fin
+                    if (!items.isEmpty() && !(items.get(items.size() - 1) instanceof SeparatorMenuItem)) {
+                        items.add(new SeparatorMenuItem());
+                    }
+                    items.add(mandatMenuItem);
+                }
+
+                logger.info("✅ Menu Gestion des Mandats ajouté avec succès");
+            }
         } else {
-            logger.warn("Menu Fichier non trouvé - Impossible d'ajouter le menu Mandat");
+            logger.warn("⚠️ Menu Fichier non trouvé - Impossible d'ajouter le menu Mandat");
         }
     }
-
     /**
      * Configure les gestionnaires d'événements
      */
@@ -418,6 +428,13 @@ public class MainController implements Initializable {
 
         Scene scene = getCurrentScene();
         if (scene != null) {
+
+            // Ctrl+M - Gestion des mandats
+            scene.getAccelerators().put(
+                    KeyCombination.keyCombination("Ctrl+M"),
+                    this::openMandatManagement
+            );
+
             // F1 - Aide
             scene.getAccelerators().put(
                     KeyCombination.keyCombination("F1"),
@@ -526,6 +543,14 @@ public class MainController implements Initializable {
         return null;
     }
 
+    // 4. AJOUTER une méthode pour obtenir le type de contrôleur actuel
+    private String getCurrentControllerType() {
+        if (currentController == null) {
+            return "none";
+        }
+        return currentController.getClass().getSimpleName();
+    }
+
     /**
      * Configure les éléments de menu
      */
@@ -544,6 +569,7 @@ public class MainController implements Initializable {
             // Menu Affaires
             if (menuAffaires != null) {
                 MenuItem nouvelleAffaire = new MenuItem("Nouvelle Affaire...");
+                nouvelleAffaire.setAccelerator(KeyCombination.keyCombination("Ctrl+N"));
                 nouvelleAffaire.setOnAction(e -> showNewAffaireDialog());
 
                 MenuItem listeAffaires = new MenuItem("Liste des Affaires");
@@ -698,6 +724,9 @@ public class MainController implements Initializable {
             FXMLLoader loader = new FXMLLoader(getClass().getResource(fxmlPath));
             Node view = loader.load();
 
+            // Stocker le contrôleur de la vue chargée
+            currentController = loader.getController();
+
             // CORRIGÉ : utilise contentPane ou mainContentArea selon ce qui est disponible
             if (mainContentArea != null) {
                 mainContentArea.getChildren().clear();
@@ -722,8 +751,12 @@ public class MainController implements Initializable {
             } else if (contentPane != null) {
                 contentPane.setCenter(errorLabel);
             }
+
+            // Réinitialiser le contrôleur en cas d'erreur
+            currentController = null;
         }
     }
+
 
     /**
      * Charge une vue avec titre (surcharge pour WelcomeController et autres)
@@ -738,6 +771,41 @@ public class MainController implements Initializable {
     }
 
     // ==================== GESTIONNAIRES D'ÉVÉNEMENTS ====================
+
+    @FXML
+    private void showNewAffaireDialog() {
+        logger.info("Ouverture du formulaire unifié de création d'affaire");
+
+        try {
+            // Vérifier qu'un mandat est actif
+            if (!MandatService.getInstance().hasMandatActif()) {
+                AlertUtil.showError("Erreur", "Aucun mandat actif",
+                        "Vous devez activer un mandat avant de créer des affaires.");
+                return;
+            }
+
+            // Créer et afficher le dialogue
+            AffaireEncaissementController controller = new AffaireEncaissementController();
+            controller.showDialog(currentStage);
+
+            // Si une affaire a été créée, rafraîchir la vue
+            if (controller.getCreatedAffaire() != null) {
+                logger.info("Nouvelle affaire créée : {}", controller.getCreatedAffaire().getNumeroAffaire());
+
+                // Rafraîchir la vue actuelle
+                onRefreshAction();
+
+                // Mettre à jour les statistiques du dashboard si visible
+                if (welcomeController != null) {
+                    welcomeController.refreshStatistics();
+                }
+            }
+
+        } catch (Exception e) {
+            logger.error("Erreur lors de l'ouverture du dialogue", e);
+            AlertUtil.showError("Erreur", "Impossible d'ouvrir le formulaire", e.getMessage());
+        }
+    }
 
     @FXML
     private void onLogout() {
@@ -771,6 +839,29 @@ public class MainController implements Initializable {
     @FXML
     private void onRefreshAction() {
         logger.debug("Action Actualiser déclenchée");
+
+        // Rafraîchir selon le type de contrôleur actuel
+        if (currentController != null) {
+            String controllerType = getCurrentControllerType();
+            logger.debug("Rafraîchissement du contrôleur: {}", controllerType);
+
+            // Utiliser la réflexion pour appeler refresh() si la méthode existe
+            try {
+                java.lang.reflect.Method refreshMethod = currentController.getClass().getMethod("refresh");
+                refreshMethod.invoke(currentController);
+            } catch (NoSuchMethodException e) {
+                logger.debug("Pas de méthode refresh() dans {}", controllerType);
+                // Essayer d'autres méthodes communes
+                try {
+                    java.lang.reflect.Method loadDataMethod = currentController.getClass().getMethod("loadData");
+                    loadDataMethod.invoke(currentController);
+                } catch (Exception ex) {
+                    logger.debug("Pas de méthode loadData() dans {}", controllerType);
+                }
+            } catch (Exception e) {
+                logger.error("Erreur lors du rafraîchissement", e);
+            }
+        }
     }
 
     @FXML
@@ -781,29 +872,6 @@ public class MainController implements Initializable {
     @FXML
     private void onFilterAction() {
         logger.debug("Action Filtrer déclenchée");
-    }
-
-    @FXML
-    private void showNewAffaireDialog() {
-        try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/affaire-form.fxml"));
-            Parent root = loader.load();
-
-            Stage dialogStage = new Stage();
-            dialogStage.setTitle("Nouvelle Affaire");
-            dialogStage.initModality(Modality.WINDOW_MODAL);
-            dialogStage.initOwner(contentPane.getScene().getWindow());
-
-            Scene scene = new Scene(root);
-            dialogStage.setScene(scene);
-            dialogStage.showAndWait();
-
-            // Rafraîchir la liste si nécessaire
-            onRefreshAction();
-        } catch (IOException e) {
-            logger.error("Erreur lors de l'ouverture du formulaire de nouvelle affaire", e);
-            showErrorDialog("Erreur", "Impossible d'ouvrir le formulaire", e.getMessage());
-        }
     }
 
     @FXML
@@ -1256,6 +1324,12 @@ public class MainController implements Initializable {
 
                 // Raccourcis Ctrl+
                 setupControlShortcuts(scene);
+
+                // Raccourcis Ctrl+N
+                scene.getAccelerators().put(
+                        KeyCombination.keyCombination("Ctrl+N"),
+                        this::showNewAffaireDialog
+                );
 
                 logger.info("✅ Navigation clavier F1-F12 configurée");
             }
@@ -1817,7 +1891,19 @@ public class MainController implements Initializable {
      */
     private void updateMandatActif() {
         Platform.runLater(() -> {
-            if (mandatLabel != null) {
+            // Chercher le label dans la barre de statut
+            if (mandatLabel == null && statusLabel != null) {
+                // Utiliser le statusLabel si mandatLabel n'existe pas
+                Mandat mandatActif = MandatService.getInstance().getMandatActif();
+                if (mandatActif != null) {
+                    statusLabel.setText("Mandat: " + mandatActif.getNumeroMandat());
+                    statusLabel.setStyle("-fx-text-fill: green; -fx-font-weight: bold;");
+                } else {
+                    statusLabel.setText("Aucun mandat actif");
+                    statusLabel.setStyle("-fx-text-fill: red; -fx-font-weight: bold;");
+                }
+            } else if (mandatLabel != null) {
+                // Code existant pour mandatLabel
                 Mandat mandatActif = MandatService.getInstance().getMandatActif();
                 if (mandatActif != null) {
                     String displayText = mandatActif.getNumeroMandat();

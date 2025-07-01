@@ -322,6 +322,100 @@ public class ValidationService {
         }
     }
 
+    /**
+     * Normalise un texte générique (utilisé pour les noms de services, bureaux, etc.)
+     * - Supprime les espaces en début/fin
+     * - Remplace les espaces multiples par un seul
+     * - Conserve la casse originale (contrairement à normalizePersonName)
+     *
+     * @param text Le texte à normaliser
+     * @return Le texte normalisé
+     */
+    public String normalizeText(String text) {
+        if (text == null) {
+            return null;
+        }
+
+        // Supprimer les espaces en début/fin
+        String normalized = text.trim();
+
+        // Remplacer les espaces multiples par un seul
+        normalized = normalized.replaceAll("\\s+", " ");
+
+        return normalized;
+    }
+
+    /**
+     * Formate un numéro de téléphone selon les standards
+     * - Supprime tous les caractères non numériques sauf le +
+     * - Ajoute des espaces pour la lisibilité
+     *
+     * @param phoneNumber Le numéro à formater
+     * @return Le numéro formaté
+     */
+    public String formatPhoneNumber(String phoneNumber) {
+        if (phoneNumber == null || phoneNumber.trim().isEmpty()) {
+            return phoneNumber;
+        }
+
+        // Garder uniquement les chiffres et le +
+        String cleaned = phoneNumber.replaceAll("[^0-9+]", "");
+
+        // Si le numéro commence par +, le préserver
+        boolean hasPlus = cleaned.startsWith("+");
+        if (hasPlus) {
+            cleaned = cleaned.substring(1);
+        }
+
+        // Formater selon la longueur
+        String formatted = cleaned;
+
+        // Format gabonais : +241 XX XX XX XX
+        if (cleaned.startsWith("241") && cleaned.length() == 11) {
+            formatted = String.format("%s %s %s %s %s",
+                    cleaned.substring(0, 3),
+                    cleaned.substring(3, 5),
+                    cleaned.substring(5, 7),
+                    cleaned.substring(7, 9),
+                    cleaned.substring(9, 11)
+            );
+        }
+        // Format local gabonais : 0X XX XX XX XX
+        else if (cleaned.startsWith("0") && cleaned.length() == 10) {
+            formatted = String.format("%s %s %s %s %s",
+                    cleaned.substring(0, 2),
+                    cleaned.substring(2, 4),
+                    cleaned.substring(4, 6),
+                    cleaned.substring(6, 8),
+                    cleaned.substring(8, 10)
+            );
+        }
+        // Format générique pour 10 chiffres
+        else if (cleaned.length() == 10) {
+            formatted = String.format("%s %s %s %s",
+                    cleaned.substring(0, 3),
+                    cleaned.substring(3, 6),
+                    cleaned.substring(6, 8),
+                    cleaned.substring(8, 10)
+            );
+        }
+        // Format générique pour 9 chiffres
+        else if (cleaned.length() == 9) {
+            formatted = String.format("%s %s %s",
+                    cleaned.substring(0, 3),
+                    cleaned.substring(3, 6),
+                    cleaned.substring(6, 9)
+            );
+        }
+
+        // Rajouter le + si nécessaire
+        if (hasPlus) {
+            formatted = "+" + formatted;
+        }
+
+        return formatted;
+    }
+
     public boolean isValidNumeroMandat(String numero) {
         if (numero == null || numero.trim().isEmpty()) {
             return false;

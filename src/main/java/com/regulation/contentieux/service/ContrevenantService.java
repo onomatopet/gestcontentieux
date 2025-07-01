@@ -1,6 +1,8 @@
 package com.regulation.contentieux.service;
 
 import com.regulation.contentieux.dao.ContrevenantDAO;
+import com.regulation.contentieux.model.Agent;
+import com.regulation.contentieux.model.Contravention;
 import com.regulation.contentieux.model.Contrevenant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -77,6 +79,35 @@ public class ContrevenantService {
         logger.info("Nouveau contrevenant créé: {} - {}", saved.getCode(), saved.getNomComplet());
 
         return saved;
+    }
+
+    /**
+     * Récupère tous les contrevenants sans pagination
+     * Surcharge pour compatibilité avec AffaireEncaissementController
+     * @return Liste de tous les contrevenants
+     */
+    public List<Contrevenant> getAllContrevenants() {
+        return getAllContrevenants(1, Integer.MAX_VALUE);
+    }
+
+// === Dans ContraventionService.java ===
+    /**
+     * Récupère toutes les contraventions sans pagination
+     * Surcharge pour compatibilité avec AffaireEncaissementController
+     * @return Liste de toutes les contraventions
+     */
+    public List<Contravention> getAllContraventions() {
+        return getAllContraventions(1, Integer.MAX_VALUE);
+    }
+
+// === Dans AgentService.java ===
+    /**
+     * Récupère tous les agents sans pagination
+     * Surcharge pour compatibilité avec AffaireEncaissementController
+     * @return Liste de tous les agents
+     */
+    public List<Agent> getAllAgents() {
+        return getAllAgents(1, Integer.MAX_VALUE);
     }
 
     /**

@@ -1342,15 +1342,6 @@ public class AffaireFormController implements Initializable {
      * Sauvegarde l'affaire
      */
     private void saveAffaire(boolean createNew) {
-
-        if (!MandatService.getInstance().hasMandatActif()) {
-            AlertUtil.showErrorAlert("Erreur",
-                    "Aucun mandat actif",
-                    "Vous devez d'abord activer un mandat pour créer une affaire.\n" +
-                            "Allez dans Fichier > Gestion des Mandats (Ctrl+M)");
-            return;
-        }
-
         // Désactiver le formulaire pendant la sauvegarde
         setFormDisabled(true);
         if (saveProgressIndicator != null) {
@@ -1367,11 +1358,16 @@ public class AffaireFormController implements Initializable {
                 if (!isEditMode) {
                     // En création, collecter aussi l'encaissement
                     encaissement = collectEncaissementData();
-                    affaireService.createAffaireAvecEncaissement(affaire, encaissement, acteurs);
+                    affaireService.createAffaireWithEncaissement(affaire, encaissement, acteurs);
                 } else {
                     // En édition, mise à jour simple
                     affaire.setId(currentAffaire.getId());
                     affaireService.updateAffaire(affaire);
+                    // Note : Si vous avez besoin de mettre à jour les acteurs aussi,
+                    // ajoutez ces lignes après :
+                    // for (AffaireActeur acteur : acteurs) {
+                    //     acteurService.updateActeur(acteur);
+                    // }
                 }
 
                 return null;
@@ -1386,17 +1382,15 @@ public class AffaireFormController implements Initializable {
                 }
 
                 String message = isEditMode ?
-                        "L'affaire a été mise à jour avec succès" :
+                        "L'affaire a été modifiée avec succès" :
                         "L'affaire a été créée avec succès";
-
-                AlertUtil.showInfoAlert("Succès", message,
-                        "Numéro d'affaire : " + (isEditMode ? currentAffaire.getNumeroAffaire() : "Généré"));
-
-                hasUnsavedChanges = false;
+                AlertUtil.showInfoAlert("Succès", message, "");
 
                 if (createNew && !isEditMode) {
+                    resetForm();
                     initializeForNew();
                 } else {
+                    hasUnsavedChanges = false;
                     closeWindow();
                 }
             });
@@ -1412,16 +1406,16 @@ public class AffaireFormController implements Initializable {
                 Throwable error = saveTask.getException();
                 logger.error("Erreur lors de la sauvegarde", error);
 
-                String errorMessage = error.getMessage() != null ?
-                        error.getMessage() : "Une erreur inconnue s'est produite";
+                String errorMessage = "Une erreur est survenue lors de l'enregistrement";
+                if (error instanceof BusinessException) {
+                    errorMessage = error.getMessage();
+                }
 
-                AlertUtil.showErrorAlert("Erreur", "Erreur lors de la sauvegarde", errorMessage);
+                AlertUtil.showErrorAlert("Erreur", errorMessage, "");
             });
         });
 
-        Thread saveThread = new Thread(saveTask);
-        saveThread.setDaemon(true);
-        saveThread.start();
+        new Thread(saveTask).start();
     }
 
     /**
@@ -1516,17 +1510,12 @@ public class AffaireFormController implements Initializable {
             if (modeReglementComboBox.getValue().isNecessiteBanque() && banqueComboBox != null) {
                 if (banqueComboBox.getValue() != null) {
                     encaissement.setBanque(banqueComboBox.getValue().getNomBanque());
-                    // Assigner l'ID de la banque si nécessaire
-                    encaissement.setBanqueId(banqueComboBox.getValue().getId());
                 }
             }
             if (modeReglementComboBox.getValue().isNecessiteReference() && numeroChequeField != null) {
                 encaissement.setNumeroPiece(numeroChequeField.getText());
             }
         }
-
-        // Statut par défaut
-        encaissement.setStatut(StatutEncaissement.VALIDE);
 
         return encaissement;
     }
@@ -1570,28 +1559,9 @@ public class AffaireFormController implements Initializable {
         }
 
         if (typeContrevenantLabel != null) {
-            // Gérer les deux cas : enum TypeContrevenant ou String typePersonne
-            String typeLibelle = "";
-
-            // Si on utilise l'enum TypeContrevenant
-            if (contrevenant.getType() != null) {
-                typeLibelle = contrevenant.getType().getLibelle();
-            }
-            // Sinon, si on utilise le String typePersonne
-            else if (contrevenant.getTypePersonne() != null) {
-                // Convertir PHYSIQUE/MORALE en libellé lisible
-                if ("PHYSIQUE".equals(contrevenant.getTypePersonne())) {
-                    typeLibelle = "Personne physique";
-                } else if ("MORALE".equals(contrevenant.getTypePersonne())) {
-                    typeLibelle = "Personne morale";
-                } else {
-                    typeLibelle = contrevenant.getTypePersonne();
-                }
-            }
-
-            typeContrevenantLabel.setText(typeLibelle);
+            typeContrevenantLabel.setText(contrevenant.getTypePersonne() != null ?
+                    contrevenant.getTypePersonne().getLibelle() : "");
         }
-
         if (nomContrevenantLabel != null) {
             nomContrevenantLabel.setText(contrevenant.getNom() + " " + contrevenant.getPrenom());
         }
@@ -1629,10 +1599,7 @@ public class AffaireFormController implements Initializable {
         }
 
         if (montantEnLettresLabel != null) {
-            // Conversion sûre de BigDecimal vers long
-            long montantLong = total != null ? total.longValue() : 0L;
-            String montantEnLettres = NumberToWords.convert(montantLong);
-            montantEnLettresLabel.setText(montantEnLettres);
+            montantEnLettresLabel.setText(NumberToWords.convert(total));
         }
 
         // Nombre de contraventions
@@ -1660,34 +1627,24 @@ public class AffaireFormController implements Initializable {
      * Met à jour l'affichage du montant restant
      */
     private void updateMontantRestant() {
-        if (montantEncaisseField == null || montantRestantLabel == null) {
-            return;
-        }
+        if (isEditMode || montantEncaisseField == null || montantRestantLabel == null) return;
 
         try {
             BigDecimal montantTotal = getTotalMontantContraventions();
-            String montantEncaisseStr = montantEncaisseField.getText();
+            BigDecimal montantEncaisse = parseMontant(montantEncaisseField.getText());
+            BigDecimal montantRestant = montantTotal.subtract(montantEncaisse);
 
-            if (montantEncaisseStr != null && !montantEncaisseStr.trim().isEmpty()) {
-                BigDecimal montantEncaisse = new BigDecimal(montantEncaisseStr.replaceAll("[^0-9.,]", "").replace(",", "."));
-                BigDecimal montantRestant = montantTotal.subtract(montantEncaisse);
-
-                montantRestantLabel.setText("Reste à payer : " + CurrencyFormatter.format(montantRestant) + " FCFA");
-
-                if (montantRestant.compareTo(BigDecimal.ZERO) < 0) {
-                    montantRestantLabel.setStyle("-fx-text-fill: red;");
-                } else if (montantRestant.compareTo(BigDecimal.ZERO) == 0) {
-                    montantRestantLabel.setStyle("-fx-text-fill: green;");
-                } else {
-                    montantRestantLabel.setStyle("-fx-text-fill: orange;");
-                }
-            } else {
-                montantRestantLabel.setText("Reste à payer : " + CurrencyFormatter.format(montantTotal) + " FCFA");
-                montantRestantLabel.setStyle("");
+            if (montantRestant.compareTo(BigDecimal.ZERO) < 0) {
+                montantRestant = BigDecimal.ZERO;
             }
-        } catch (NumberFormatException e) {
-            montantRestantLabel.setText("Montant encaissé invalide");
-            montantRestantLabel.setStyle("-fx-text-fill: red;");
+
+            montantRestantLabel.setText("Restant : " + CurrencyFormatter.format(montantRestant) + " FCFA");
+
+            // Mettre à jour la barre de progression
+            updatePaiementProgress(montantEncaisse, montantTotal);
+
+        } catch (Exception e) {
+            montantRestantLabel.setText("Restant : " + CurrencyFormatter.format(getTotalMontantContraventions()) + " FCFA");
         }
     }
 

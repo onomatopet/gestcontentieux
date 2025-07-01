@@ -7,7 +7,6 @@
 
 <BorderPane xmlns="http://javafx.com/javafx/21"
             xmlns:fx="http://javafx.com/fxml/1"
-            fx:controller="com.regulation.contentieux.controller.AffaireEncaissementController"
             prefHeight="700.0" prefWidth="900.0">
 
     <padding>
@@ -84,38 +83,43 @@
                     </GridPane>
                 </TitledPane>
 
-                <!-- Section Acteurs -->
+                <!-- Section Acteurs MODIFIÉE -->
                 <TitledPane text="Acteurs" expanded="true">
-                    <HBox spacing="20.0">
-                        <!-- Agents saisissants -->
-                        <VBox spacing="5.0" HBox.hgrow="ALWAYS">
-                            <Label text="Agents saisissants:" styleClass="text-bold"/>
-                            <Label text="Disponibles:" styleClass="text-muted"/>
-                            <ListView fx:id="agentsList" prefHeight="100.0"/>
-                            <Label text="Sélectionnés:" styleClass="text-muted"/>
-                            <ListView fx:id="selectedAgentsList" prefHeight="100.0"/>
-                        </VBox>
+                    <VBox spacing="10.0">
+                        <!-- Titre et bouton d'ajout -->
+                        <HBox spacing="10.0" alignment="CENTER_LEFT">
+                            <Label text="Agents assignés à l'affaire" styleClass="text-bold"/>
+                            <Region HBox.hgrow="ALWAYS"/>
+                            <Button fx:id="addActeurButton" text="+ Ajouter un agent" styleClass="button-primary"/>
+                        </HBox>
 
-                        <!-- Chefs -->
-                        <VBox spacing="5.0" HBox.hgrow="ALWAYS">
-                            <Label text="Chefs:" styleClass="text-bold"/>
-                            <Label text="Disponibles:" styleClass="text-muted"/>
-                            <ListView fx:id="chefsList" prefHeight="100.0"/>
-                            <Label text="Sélectionnés:" styleClass="text-muted"/>
-                            <ListView fx:id="selectedChefsList" prefHeight="100.0"/>
-                        </VBox>
+                        <!-- TableView des acteurs -->
+                        <TableView fx:id="acteursTableView" prefHeight="200.0">
+                            <columns>
+                                <TableColumn fx:id="codeAgentColumn" text="Code Agent" prefWidth="100.0"/>
+                                <TableColumn fx:id="nomAgentColumn" text="Nom de l'Agent" prefWidth="300.0"/>
+                                <TableColumn fx:id="roleAgentColumn" text="Rôle" prefWidth="150.0"/>
+                                <TableColumn fx:id="actionColumn" text="Action" prefWidth="80.0"/>
+                            </columns>
+                            <placeholder>
+                                <Label text="Aucun agent assigné. Cliquez sur '+ Ajouter un agent' pour commencer." />
+                            </placeholder>
+                        </TableView>
 
-                        <!-- Indicateur -->
-                        <VBox spacing="10.0" minWidth="200.0">
-                            <Label text="Indicateur:" styleClass="text-bold"/>
-                            <CheckBox fx:id="indicateurCheck" text="Indicateur présent"/>
-                            <TextField fx:id="nomIndicateurField"
-                                       promptText="Nom indicateur externe"/>
-                            <ComboBox fx:id="indicateurAgentCombo"
-                                      promptText="Ou agent indicateur"
-                                      prefWidth="200.0"/>
+                        <!-- Zone indicateur reste inchangée -->
+                        <Separator/>
+                        <VBox spacing="10.0">
+                            <Label text="Indicateur" styleClass="text-bold"/>
+                            <HBox spacing="10.0" alignment="CENTER_LEFT">
+                                <CheckBox fx:id="indicateurCheck" text="Indicateur présent"/>
+                                <TextField fx:id="nomIndicateurField" promptText="Nom indicateur externe"
+                                           prefWidth="200.0" disable="true"/>
+                                <Label text="ou"/>
+                                <ComboBox fx:id="indicateurAgentCombo" promptText="Sélectionner un agent indicateur"
+                                          prefWidth="250.0" disable="true"/>
+                            </HBox>
                         </VBox>
-                    </HBox>
+                    </VBox>
                 </TitledPane>
 
                 <!-- Section Encaissement -->

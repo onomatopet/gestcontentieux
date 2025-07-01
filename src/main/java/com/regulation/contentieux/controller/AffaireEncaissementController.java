@@ -15,6 +15,7 @@ import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
@@ -52,7 +53,7 @@ public class AffaireEncaissementController implements Initializable {
 
     // Contrevenant
     @FXML private ComboBox<Contrevenant> contrevenantCombo;
-    @FXML private Button newContrevenantBtn;
+    @FXML private Button nouveauContrevenantBtn;  // Corriger le nom
     @FXML private TextField nomContrevenantField;
     @FXML private TextField adresseField;
     @FXML private TextField telephoneField;
@@ -60,13 +61,21 @@ public class AffaireEncaissementController implements Initializable {
     // Infraction
     @FXML private ComboBox<Contravention> contraventionCombo;
     @FXML private TextField contraventionLibreField;
-    @FXML private TextField montantAmendeField;
+    @FXML private Label montantTotalLabel;  // C'est un Label dans le FXML, pas un TextField
+    @FXML private Button ajouterContraventionBtn;  // Ajouter ce bouton qui existe dans le FXML
     @FXML private ComboBox<Centre> centreCombo;
     @FXML private ComboBox<Service> serviceCombo;
     @FXML private ComboBox<Bureau> bureauCombo;
 
-    // Acteurs - NOUVEAU
+    // Variables pour stocker les montants
+    private BigDecimal montantAmendeTotal = BigDecimal.ZERO;
+
+    // Acteurs - Une seule TableView comme demandé
     @FXML private TableView<ActeurViewModel> acteursTableView;
+    @FXML private TableColumn<ActeurViewModel, String> codeAgentColumn;
+    @FXML private TableColumn<ActeurViewModel, String> nomAgentColumn;
+    @FXML private TableColumn<ActeurViewModel, String> roleAgentColumn;
+    @FXML private TableColumn<ActeurViewModel, Void> actionColumn;
     @FXML private Button addActeurButton;
     private ObservableList<ActeurViewModel> acteursList = FXCollections.observableArrayList();
 
@@ -149,9 +158,12 @@ public class AffaireEncaissementController implements Initializable {
             dialogStage.setWidth(900);
             dialogStage.setHeight(750);
 
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/affaire-encaissement-dialog.fxml"));
+            // IMPORTANT: Créer le loader SANS charger encore le FXML
+            FXMLLoader loader = new FXMLLoader();
+            loader.setLocation(getClass().getResource("/view/affaire-encaissement-dialog.fxml"));
             loader.setController(this);
 
+            // MAINTENANT charger le FXML
             BorderPane root = loader.load();
             Scene scene = new Scene(root);
             scene.getStylesheets().add(getClass().getResource("/css/application.css").toExternalForm());
@@ -197,72 +209,60 @@ public class AffaireEncaissementController implements Initializable {
      * Configuration de la TableView des acteurs
      */
     private void setupActeursTable() {
-        // Configuration de la TableView
-        acteursTableView.setItems(acteursList);
+        if (acteursTableView != null) {
+            // Configurer la TableView
+            acteursTableView.setItems(acteursList);
 
-        // Colonne Code
-        TableColumn<ActeurViewModel, String> codeCol = new TableColumn<>("Code");
-        codeCol.setCellValueFactory(new PropertyValueFactory<>("codeAgent"));
-        codeCol.setPrefWidth(100);
+            // Si les colonnes sont définies dans le FXML, les configurer
+            if (codeAgentColumn != null) {
+                codeAgentColumn.setCellValueFactory(new PropertyValueFactory<>("codeAgent"));
+            }
 
-        // Colonne Nom
-        TableColumn<ActeurViewModel, String> nomCol = new TableColumn<>("Nom de l'agent");
-        nomCol.setCellValueFactory(new PropertyValueFactory<>("nomAgent"));
-        nomCol.setPrefWidth(250);
+            if (nomAgentColumn != null) {
+                nomAgentColumn.setCellValueFactory(new PropertyValueFactory<>("nomAgent"));
+            }
 
-        // Colonne Rôle
-        TableColumn<ActeurViewModel, String> roleCol = new TableColumn<>("Rôle");
-        roleCol.setCellValueFactory(new PropertyValueFactory<>("role"));
-        roleCol.setPrefWidth(120);
+            if (roleAgentColumn != null) {
+                roleAgentColumn.setCellValueFactory(new PropertyValueFactory<>("role"));
+            }
 
-        // Colonne Actions
-        TableColumn<ActeurViewModel, Void> actionCol = new TableColumn<>("Action");
-        actionCol.setPrefWidth(80);
+            // Colonne Action avec bouton Retirer
+            if (actionColumn != null) {
+                actionColumn.setCellFactory(param -> new TableCell<ActeurViewModel, Void>() {
+                    private final Button btn = new Button("Retirer");
 
-        Callback<TableColumn<ActeurViewModel, Void>, TableCell<ActeurViewModel, Void>> cellFactory =
-                new Callback<TableColumn<ActeurViewModel, Void>, TableCell<ActeurViewModel, Void>>() {
-                    @Override
-                    public TableCell<ActeurViewModel, Void> call(final TableColumn<ActeurViewModel, Void> param) {
-                        final TableCell<ActeurViewModel, Void> cell = new TableCell<ActeurViewModel, Void>() {
-                            private final Button btn = new Button("Retirer");
-
-                            {
-                                btn.setOnAction((ActionEvent event) -> {
-                                    ActeurViewModel data = getTableView().getItems().get(getIndex());
-                                    acteursList.remove(data);
-                                });
-                            }
-
-                            @Override
-                            public void updateItem(Void item, boolean empty) {
-                                super.updateItem(item, empty);
-                                if (empty) {
-                                    setGraphic(null);
-                                } else {
-                                    setGraphic(btn);
-                                }
-                            }
-                        };
-                        return cell;
+                    {
+                        btn.setOnAction(event -> {
+                            ActeurViewModel data = getTableView().getItems().get(getIndex());
+                            acteursList.remove(data);
+                        });
+                        btn.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white;");
                     }
-                };
 
-        actionCol.setCellFactory(cellFactory);
-
-        acteursTableView.getColumns().clear();
-        acteursTableView.getColumns().addAll(codeCol, nomCol, roleCol, actionCol);
+                    @Override
+                    public void updateItem(Void item, boolean empty) {
+                        super.updateItem(item, empty);
+                        if (empty) {
+                            setGraphic(null);
+                        } else {
+                            setGraphic(btn);
+                        }
+                    }
+                });
+            }
+        }
     }
 
     /**
      * Affiche le dialogue d'ajout d'acteur
      */
     private void showAddActeurDialog() {
-        Dialog<Agent> dialog = new Dialog<>();
-        dialog.setTitle("Ajouter un acteur");
-        dialog.setHeaderText("Sélectionnez un agent et son rôle");
+        Dialog<Boolean> dialog = new Dialog<>();
+        dialog.setTitle("Ajouter un agent");
+        dialog.setHeaderText("Sélectionnez un agent et son(ses) rôle(s)");
 
         // Boutons
-        ButtonType addButtonType = new ButtonType("Ajouter", ButtonBar.ButtonData.OK_DONE);
+        ButtonType addButtonType = new ButtonType("Choisir", ButtonBar.ButtonData.OK_DONE);
         dialog.getDialogPane().getButtonTypes().addAll(addButtonType, ButtonType.CANCEL);
 
         // Contenu
@@ -271,7 +271,13 @@ public class AffaireEncaissementController implements Initializable {
         grid.setVgap(10);
         grid.setPadding(new Insets(20, 150, 10, 10));
 
+        // ComboBox éditable pour la recherche
         ComboBox<Agent> agentCombo = new ComboBox<>();
+        agentCombo.setEditable(true);
+        agentCombo.setPrefWidth(300);
+        agentCombo.setPromptText("Tapez pour rechercher un agent...");
+
+        // Configuration du converter pour l'affichage
         agentCombo.setConverter(new StringConverter<Agent>() {
             @Override
             public String toString(Agent agent) {
@@ -280,18 +286,25 @@ public class AffaireEncaissementController implements Initializable {
 
             @Override
             public Agent fromString(String string) {
-                return null;
+                // Recherche dans la liste des agents
+                return agentCombo.getItems().stream()
+                        .filter(agent -> agent.getCodeAgent().toLowerCase().contains(string.toLowerCase()) ||
+                                agent.getNom().toLowerCase().contains(string.toLowerCase()) ||
+                                agent.getPrenom().toLowerCase().contains(string.toLowerCase()))
+                        .findFirst()
+                        .orElse(null);
             }
         });
 
+        // CheckBox pour les rôles
         CheckBox saisissantCheck = new CheckBox("Saisissant");
         CheckBox chefCheck = new CheckBox("Chef");
 
         grid.add(new Label("Agent:"), 0, 0);
-        grid.add(agentCombo, 1, 0);
-        grid.add(new Label("Rôles:"), 0, 1);
+        grid.add(agentCombo, 1, 0, 2, 1);
+        grid.add(new Label("Rôle(s):"), 0, 1);
         grid.add(saisissantCheck, 1, 1);
-        grid.add(chefCheck, 1, 2);
+        grid.add(chefCheck, 2, 1);
 
         dialog.getDialogPane().setContent(grid);
 
@@ -304,42 +317,81 @@ public class AffaireEncaissementController implements Initializable {
         };
 
         loadAgentsTask.setOnSucceeded(e -> {
-            agentCombo.getItems().setAll(loadAgentsTask.getValue());
+            List<Agent> agents = loadAgentsTask.getValue();
+            agentCombo.getItems().setAll(agents);
+
+            // Activer la recherche automatique lors de la saisie
+            agentCombo.getEditor().textProperty().addListener((obs, oldText, newText) -> {
+                if (newText != null && !newText.isEmpty()) {
+                    // Filtrer les agents selon le texte saisi
+                    List<Agent> filtered = agents.stream()
+                            .filter(agent -> agent.getCodeAgent().toLowerCase().contains(newText.toLowerCase()) ||
+                                    agent.getNom().toLowerCase().contains(newText.toLowerCase()) ||
+                                    agent.getPrenom().toLowerCase().contains(newText.toLowerCase()))
+                            .collect(Collectors.toList());
+
+                    Platform.runLater(() -> {
+                        agentCombo.getItems().setAll(filtered);
+                        if (!filtered.isEmpty()) {
+                            agentCombo.show();
+                        }
+                    });
+                } else {
+                    agentCombo.getItems().setAll(agents);
+                }
+            });
         });
 
         new Thread(loadAgentsTask).start();
 
+        // Désactiver le bouton OK si aucun agent sélectionné ou aucun rôle coché
+        Node addButton = dialog.getDialogPane().lookupButton(addButtonType);
+        addButton.setDisable(true);
+
+        // Validation
+        agentCombo.valueProperty().addListener((obs, old, newVal) -> {
+            addButton.setDisable(newVal == null || (!saisissantCheck.isSelected() && !chefCheck.isSelected()));
+        });
+
+        saisissantCheck.selectedProperty().addListener((obs, old, newVal) -> {
+            addButton.setDisable(agentCombo.getValue() == null || (!newVal && !chefCheck.isSelected()));
+        });
+
+        chefCheck.selectedProperty().addListener((obs, old, newVal) -> {
+            addButton.setDisable(agentCombo.getValue() == null || (!newVal && !saisissantCheck.isSelected()));
+        });
+
         // Convertir le résultat
         dialog.setResultConverter(dialogButton -> {
-            if (dialogButton == addButtonType) {
-                return agentCombo.getValue();
-            }
-            return null;
+            return dialogButton == addButtonType;
         });
 
-        Optional<Agent> result = dialog.showAndWait();
+        Optional<Boolean> result = dialog.showAndWait();
 
-        result.ifPresent(selectedAgent -> {
-            // Ajouter comme saisissant si coché
-            if (saisissantCheck.isSelected()) {
-                if (!isAgentAlreadyInRole(selectedAgent, "SAISISSANT")) {
-                    acteursList.add(new ActeurViewModel(selectedAgent, "SAISISSANT"));
-                } else {
-                    AlertUtil.showWarning("Doublon",
-                            "Cet agent est déjà saisissant dans cette affaire.");
+        if (result.isPresent() && result.get()) {
+            Agent selectedAgent = agentCombo.getValue();
+            if (selectedAgent != null) {
+                // Ajouter comme saisissant si coché
+                if (saisissantCheck.isSelected()) {
+                    if (!isAgentAlreadyInRole(selectedAgent, "SAISISSANT")) {
+                        acteursList.add(new ActeurViewModel(selectedAgent, "SAISISSANT"));
+                    } else {
+                        AlertUtil.showWarning("Doublon",
+                                "Cet agent est déjà saisissant dans cette affaire.");
+                    }
+                }
+
+                // Ajouter comme chef si coché (ligne séparée)
+                if (chefCheck.isSelected()) {
+                    if (!isAgentAlreadyInRole(selectedAgent, "CHEF")) {
+                        acteursList.add(new ActeurViewModel(selectedAgent, "CHEF"));
+                    } else {
+                        AlertUtil.showWarning("Doublon",
+                                "Cet agent est déjà chef dans cette affaire.");
+                    }
                 }
             }
-
-            // Ajouter comme chef si coché
-            if (chefCheck.isSelected()) {
-                if (!isAgentAlreadyInRole(selectedAgent, "CHEF")) {
-                    acteursList.add(new ActeurViewModel(selectedAgent, "CHEF"));
-                } else {
-                    AlertUtil.showWarning("Doublon",
-                            "Cet agent est déjà chef dans cette affaire.");
-                }
-            }
-        });
+        }
     }
 
     /**
@@ -355,33 +407,54 @@ public class AffaireEncaissementController implements Initializable {
      * Configuration de la validation temps réel
      */
     private void setupValidation() {
-        // Validation numérique pour les montants
-        montantAmendeField.textProperty().addListener((obs, old, val) -> {
-            if (!val.matches("\\d*")) {
-                montantAmendeField.setText(old);
-            }
-            updateSoldeRestant();
-        });
-
-        montantEncaisseField.textProperty().addListener((obs, old, val) -> {
-            if (!val.matches("\\d*")) {
-                montantEncaisseField.setText(old);
-            }
-            updateSoldeRestant();
-            validateEncaissement();
-        });
+        // Validation numérique pour les montants - uniquement pour montantEncaisseField
+        if (montantEncaisseField != null) {
+            montantEncaisseField.textProperty().addListener((obs, old, val) -> {
+                if (!val.matches("\\d*")) {
+                    montantEncaisseField.setText(old);
+                }
+                updateSoldeRestant();
+                validateEncaissement();
+            });
+        }
 
         // Mode de règlement
-        modeReglementCombo.valueProperty().addListener((obs, old, val) -> {
-            chequeSection.setVisible(val == ModeReglement.CHEQUE);
-            chequeSection.setManaged(val == ModeReglement.CHEQUE);
-        });
+        if (modeReglementCombo != null) {
+            modeReglementCombo.valueProperty().addListener((obs, old, val) -> {
+                if (chequeSection != null) {
+                    chequeSection.setVisible(val == ModeReglement.CHEQUE);
+                    chequeSection.setManaged(val == ModeReglement.CHEQUE);
+                }
+            });
+        }
 
         // Indicateur
-        indicateurCheck.selectedProperty().addListener((obs, old, val) -> {
-            nomIndicateurField.setDisable(!val);
-            indicateurAgentCombo.setDisable(!val);
-        });
+        if (indicateurCheck != null) {
+            indicateurCheck.selectedProperty().addListener((obs, old, val) -> {
+                if (nomIndicateurField != null) nomIndicateurField.setDisable(!val);
+                if (indicateurAgentCombo != null) indicateurAgentCombo.setDisable(!val);
+            });
+        }
+
+        // Listener pour la sélection de contravention
+        if (contraventionCombo != null) {
+            contraventionCombo.valueProperty().addListener((obs, old, val) -> {
+                if (val != null) {
+                    montantAmendeTotal = val.getMontant();
+                    updateMontantTotalLabel();
+                    updateSoldeRestant();
+                }
+            });
+        }
+    }
+
+    /**
+     * Met à jour l'affichage du montant total
+     */
+    private void updateMontantTotalLabel() {
+        if (montantTotalLabel != null) {
+            montantTotalLabel.setText(CurrencyFormatter.format(montantAmendeTotal) + " FCFA");
+        }
     }
 
     /**
@@ -507,29 +580,31 @@ public class AffaireEncaissementController implements Initializable {
      */
     private void setupEventHandlers() {
         // Bouton nouveau contrevenant
-        newContrevenantBtn.setOnAction(e -> {
-            try {
-                FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/contrevenant-form.fxml"));
-                Parent root = loader.load();
+        if (nouveauContrevenantBtn != null) {
+            nouveauContrevenantBtn.setOnAction(e -> {
+                try {
+                    FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/contrevenant-form.fxml"));
+                    Parent root = loader.load();
 
-                Stage stage = new Stage();
-                stage.initModality(Modality.APPLICATION_MODAL);
-                stage.initOwner(dialogStage);
-                stage.setTitle("Nouveau Contrevenant");
-                stage.setScene(new Scene(root));
+                    Stage stage = new Stage();
+                    stage.initModality(Modality.APPLICATION_MODAL);
+                    stage.initOwner(dialogStage);
+                    stage.setTitle("Nouveau Contrevenant");
+                    stage.setScene(new Scene(root));
 
-                ContrevenantFormController controller = loader.getController();
-                controller.initializeForNew();
+                    ContrevenantFormController controller = loader.getController();
+                    controller.initializeForNew();
 
-                stage.showAndWait();
+                    stage.showAndWait();
 
-                // Rafraîchir la liste
-                loadContrevenants();
-            } catch (Exception ex) {
-                logger.error("Erreur ouverture dialogue contrevenant", ex);
-                AlertUtil.showError("Erreur", "Impossible d'ouvrir le formulaire");
-            }
-        });
+                    // Rafraîchir la liste
+                    loadContrevenants();
+                } catch (Exception ex) {
+                    logger.error("Erreur ouverture dialogue contrevenant", ex);
+                    AlertUtil.showError("Erreur", "Impossible d'ouvrir le formulaire");
+                }
+            });
+        }
 
         // Bouton ajouter acteur
         if (addActeurButton != null) {
@@ -684,27 +759,36 @@ public class AffaireEncaissementController implements Initializable {
      */
     private void updateSoldeRestant() {
         try {
-            BigDecimal amende = new BigDecimal(montantAmendeField.getText());
-            BigDecimal encaisse = new BigDecimal(montantEncaisseField.getText());
-            BigDecimal solde = amende.subtract(encaisse);
+            BigDecimal encaisse = BigDecimal.ZERO;
+            if (montantEncaisseField != null && !montantEncaisseField.getText().isEmpty()) {
+                encaisse = new BigDecimal(montantEncaisseField.getText());
+            }
 
-            soldeRestantLabel.setText(CurrencyFormatter.format(solde));
+            BigDecimal solde = montantAmendeTotal.subtract(encaisse);
+
+            if (soldeRestantLabel != null) {
+                soldeRestantLabel.setText(CurrencyFormatter.format(solde));
+            }
 
             // Mettre à jour la barre de progression
-            double progress = encaisse.divide(amende, 2, RoundingMode.HALF_UP).doubleValue();
-            paiementProgress.setProgress(progress);
+            if (paiementProgress != null && montantAmendeTotal.compareTo(BigDecimal.ZERO) > 0) {
+                double progress = encaisse.divide(montantAmendeTotal, 2, RoundingMode.HALF_UP).doubleValue();
+                paiementProgress.setProgress(progress);
+            }
 
             // Colorer selon le solde
-            if (solde.compareTo(BigDecimal.ZERO) == 0) {
-                soldeRestantLabel.setStyle("-fx-text-fill: green;");
-            } else if (solde.compareTo(BigDecimal.ZERO) > 0) {
-                soldeRestantLabel.setStyle("-fx-text-fill: orange;");
-            } else {
-                soldeRestantLabel.setStyle("-fx-text-fill: red;");
+            if (soldeRestantLabel != null) {
+                if (solde.compareTo(BigDecimal.ZERO) == 0) {
+                    soldeRestantLabel.setStyle("-fx-text-fill: green;");
+                } else if (solde.compareTo(BigDecimal.ZERO) > 0) {
+                    soldeRestantLabel.setStyle("-fx-text-fill: orange;");
+                } else {
+                    soldeRestantLabel.setStyle("-fx-text-fill: red;");
+                }
             }
         } catch (Exception e) {
-            soldeRestantLabel.setText("0");
-            paiementProgress.setProgress(0);
+            if (soldeRestantLabel != null) soldeRestantLabel.setText("0");
+            if (paiementProgress != null) paiementProgress.setProgress(0);
         }
     }
 
@@ -713,14 +797,15 @@ public class AffaireEncaissementController implements Initializable {
      */
     private void validateEncaissement() {
         try {
-            BigDecimal amende = new BigDecimal(montantAmendeField.getText());
             BigDecimal encaisse = new BigDecimal(montantEncaisseField.getText());
 
-            if (encaisse.compareTo(amende) > 0) {
-                statusLabel.setText("Attention : Montant encaissé supérieur à l'amende");
-                statusLabel.setStyle("-fx-text-fill: orange;");
-            } else {
-                statusLabel.setText("");
+            if (statusLabel != null) {
+                if (encaisse.compareTo(montantAmendeTotal) > 0) {
+                    statusLabel.setText("Attention : Montant encaissé supérieur à l'amende");
+                    statusLabel.setStyle("-fx-text-fill: orange;");
+                } else {
+                    statusLabel.setText("");
+                }
             }
         } catch (Exception e) {
             // Ignorer les erreurs de parsing
@@ -790,7 +875,7 @@ public class AffaireEncaissementController implements Initializable {
                     affaire.setContraventions(contraventions);
                 }
 
-                affaire.setMontantAmendeTotal(new BigDecimal(montantAmendeField.getText()));
+                affaire.setMontantAmendeTotal(montantAmendeTotal);
 
                 // Centre n'est pas directement sur l'affaire, il est lié via le service ou le bureau
                 affaire.setService(serviceCombo.getValue());
@@ -883,13 +968,8 @@ public class AffaireEncaissementController implements Initializable {
         }
 
         // Montants
-        try {
-            BigDecimal amende = new BigDecimal(montantAmendeField.getText());
-            if (amende.compareTo(BigDecimal.ZERO) <= 0) {
-                errors.add("- Le montant de l'amende doit être positif");
-            }
-        } catch (Exception e) {
-            errors.add("- Montant de l'amende invalide");
+        if (montantAmendeTotal.compareTo(BigDecimal.ZERO) <= 0) {
+            errors.add("- Le montant de l'amende doit être sélectionné");
         }
 
         try {

@@ -1,13 +1,5 @@
 package com.regulation.contentieux;
 
-import javafx.collections.FXCollections;
-import javafx.fxml.FXML;
-import javafx.scene.control.*;
-import javafx.scene.control.cell.PropertyValueFactory;
-import javafx.beans.property.SimpleStringProperty;
-import javafx.scene.layout.GridPane;
-import javafx.util.Callback;
-
 import atlantafx.base.theme.PrimerLight;
 import com.regulation.contentieux.config.DatabaseConfig;
 import com.regulation.contentieux.dao.UtilisateurDAO;

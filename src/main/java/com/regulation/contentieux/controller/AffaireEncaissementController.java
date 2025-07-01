@@ -273,7 +273,7 @@ public class AffaireEncaissementController implements Initializable {
         agentCombo.setPromptText("Rechercher un agent...");
 
         // Charger tous les agents actifs
-        List<Agent> allAgents = agentService.getAllAgentsActifs();
+        List<Agent> allAgents = agentService.findActiveAgents();
         ObservableList<Agent> agentsList = FXCollections.observableArrayList(allAgents);
         agentCombo.setItems(agentsList);
 

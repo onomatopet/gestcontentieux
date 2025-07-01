@@ -2,8 +2,10 @@ package com.regulation.contentieux.controller;
 
 import com.regulation.contentieux.model.Mandat;
 import com.regulation.contentieux.model.enums.StatutMandat;
+import com.regulation.contentieux.model.enums.RoleUtilisateur;
 import com.regulation.contentieux.service.MandatService;
 import com.regulation.contentieux.service.MandatService.MandatStatistiques;
+import com.regulation.contentieux.service.AuthenticationService;
 import com.regulation.contentieux.util.AlertUtil;
 import com.regulation.contentieux.util.CurrencyFormatter;
 import javafx.application.Platform;
@@ -16,6 +18,8 @@ import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.scene.layout.GridPane;
+import javafx.geometry.Insets;
 import javafx.stage.Stage;
 import javafx.util.StringConverter;
 import org.slf4j.Logger;
@@ -75,6 +79,7 @@ public class MandatController implements Initializable {
     // Services
     private final MandatService mandatService = MandatService.getInstance();
     private final ObservableList<Mandat> mandatsList = FXCollections.observableArrayList();
+    private final AuthenticationService authService = AuthenticationService.getInstance();
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
@@ -89,11 +94,42 @@ public class MandatController implements Initializable {
     /**
      * Configuration de l'interface utilisateur
      */
+    /**
+     * Configuration de l'interface utilisateur
+     */
     private void setupUI() {
         // Configuration des dates par défaut
         LocalDate now = LocalDate.now();
         dateDebutPicker.setValue(now.withDayOfMonth(1));
         dateFinPicker.setValue(now.withDayOfMonth(now.lengthOfMonth()));
+
+        // Vérifier si l'utilisateur est SUPER_ADMIN pour personnaliser l'interface
+        var user = authService.getCurrentUser();
+        if (user != null && user.getRole() == RoleUtilisateur.SUPER_ADMIN) {
+            // Ajouter un indicateur visuel pour le SUPER_ADMIN
+            Label superAdminLabel = new Label("Mode SUPER_ADMIN - Dates personnalisées autorisées");
+            superAdminLabel.setStyle("-fx-text-fill: #d32f2f; -fx-font-weight: bold;");
+            creationSection.getChildren().add(0, superAdminLabel);
+
+            // Permettre la sélection de dates antérieures
+            dateDebutPicker.setDayCellFactory(picker -> new DateCell() {
+                @Override
+                public void updateItem(LocalDate date, boolean empty) {
+                    super.updateItem(date, empty);
+                    // Pas de restriction pour SUPER_ADMIN
+                }
+            });
+        } else {
+            // Pour les autres utilisateurs, bloquer les dates antérieures
+            dateDebutPicker.setDayCellFactory(picker -> new DateCell() {
+                @Override
+                public void updateItem(LocalDate date, boolean empty) {
+                    super.updateItem(date, empty);
+                    LocalDate moisEnCours = LocalDate.now().withDayOfMonth(1);
+                    setDisable(empty || date.isBefore(moisEnCours));
+                }
+            });
+        }
 
         // Configuration du filtre de statut
         statutFilterCombo.getItems().add(null); // Tous
@@ -162,16 +198,19 @@ public class MandatController implements Initializable {
         actionsColumn.setCellFactory(column -> new TableCell<>() {
             private final Button activerBtn = new Button("Activer");
             private final Button cloturerBtn = new Button("Clôturer");
+            private final Button modifierBtn = new Button("Modifier");
             private final Button statsBtn = new Button("Stats");
-            private final HBox buttons = new HBox(5, activerBtn, cloturerBtn, statsBtn);
+            private final HBox buttons = new HBox(5);
 
             {
                 activerBtn.getStyleClass().add("button-success");
                 cloturerBtn.getStyleClass().add("button-danger");
+                modifierBtn.getStyleClass().add("button-warning");
                 statsBtn.getStyleClass().add("button-info");
 
                 activerBtn.setOnAction(e -> activerMandat(getTableRow().getItem()));
                 cloturerBtn.setOnAction(e -> cloturerMandat(getTableRow().getItem()));
+                modifierBtn.setOnAction(e -> modifierMandat(getTableRow().getItem()));
                 statsBtn.setOnAction(e -> afficherStatistiques(getTableRow().getItem()));
             }
 
@@ -183,13 +222,29 @@ public class MandatController implements Initializable {
                     setGraphic(null);
                 } else {
                     Mandat mandat = getTableRow().getItem();
+                    var user = authService.getCurrentUser();
+                    boolean isSuperAdmin = user != null && user.getRole() == RoleUtilisateur.SUPER_ADMIN;
 
-                    // Visibilité des boutons selon le statut
-                    activerBtn.setVisible(mandat.peutEtreActive() && !mandat.isActif());
-                    activerBtn.setManaged(mandat.peutEtreActive() && !mandat.isActif());
+                    // Réinitialiser la liste des boutons
+                    buttons.getChildren().clear();
 
-                    cloturerBtn.setVisible(mandat.isActif());
-                    cloturerBtn.setManaged(mandat.isActif());
+                    // Bouton Activer : visible si pas actif ET (pas clôturé OU super admin)
+                    if (!mandat.isActif() && (mandat.getStatut() != StatutMandat.CLOTURE || isSuperAdmin)) {
+                        buttons.getChildren().add(activerBtn);
+                    }
+
+                    // Bouton Clôturer : visible si actif
+                    if (mandat.isActif()) {
+                        buttons.getChildren().add(cloturerBtn);
+                    }
+
+                    // Bouton Modifier : visible seulement pour SUPER_ADMIN
+                    if (isSuperAdmin) {
+                        buttons.getChildren().add(modifierBtn);
+                    }
+
+                    // Bouton Stats : toujours visible
+                    buttons.getChildren().add(statsBtn);
 
                     setGraphic(buttons);
                 }
@@ -230,6 +285,9 @@ public class MandatController implements Initializable {
     /**
      * Création d'un nouveau mandat
      */
+    /**
+     * Création d'un nouveau mandat
+     */
     private void creerNouveauMandat() {
         try {
             // Validation
@@ -243,13 +301,36 @@ public class MandatController implements Initializable {
                 return;
             }
 
+            // Récupérer les dates sélectionnées
+            LocalDate dateDebut = dateDebutPicker.getValue();
+            LocalDate dateFin = dateFinPicker.getValue();
+            String description = descriptionField.getText();
+
+            // Vérifier si c'est une période antérieure
+            LocalDate moisEnCours = LocalDate.now().withDayOfMonth(1);
+            boolean estPeriodeAnterieure = dateDebut.isBefore(moisEnCours);
+
+            // Message de confirmation adapté
+            String messageConfirmation = "Créer un nouveau mandat ?";
+            if (estPeriodeAnterieure) {
+                var user = authService.getCurrentUser();
+                if (user == null || user.getRole() != RoleUtilisateur.SUPER_ADMIN) {
+                    AlertUtil.showError("Droits insuffisants",
+                            "Seul un SUPER_ADMIN peut créer un mandat antérieur",
+                            "Vous essayez de créer un mandat pour une période passée.");
+                    return;
+                }
+                messageConfirmation = "Créer un mandat ANTÉRIEUR ?\n" +
+                        "Ce mandat sera créé avec le statut CLÔTURÉ.";
+            }
+
             // Confirmation
             Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
             confirm.setTitle("Création de mandat");
-            confirm.setHeaderText("Créer un nouveau mandat ?");
-            confirm.setContentText("Période : " + dateDebutPicker.getValue().format(
+            confirm.setHeaderText(messageConfirmation);
+            confirm.setContentText("Période : " + dateDebut.format(
                     DateTimeFormatter.ofPattern("dd/MM/yyyy")) + " au " +
-                    dateFinPicker.getValue().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+                    dateFin.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
 
             if (confirm.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK) {
                 return;
@@ -261,7 +342,19 @@ public class MandatController implements Initializable {
             Task<Mandat> createTask = new Task<>() {
                 @Override
                 protected Mandat call() throws Exception {
-                    return mandatService.creerNouveauMandat(descriptionField.getText());
+                    // Déterminer quelle méthode utiliser
+                    LocalDate now = LocalDate.now();
+                    boolean utiliserDatesPersonnalisees =
+                            !dateDebut.equals(now.withDayOfMonth(1)) ||
+                                    !dateFin.equals(now.withDayOfMonth(now.lengthOfMonth()));
+
+                    if (utiliserDatesPersonnalisees) {
+                        // Utiliser la nouvelle méthode avec dates personnalisées
+                        return mandatService.creerMandatAvecDates(description, dateDebut, dateFin);
+                    } else {
+                        // Utiliser la méthode standard pour le mois en cours
+                        return mandatService.creerNouveauMandat(description);
+                    }
                 }
             };
 
@@ -271,8 +364,12 @@ public class MandatController implements Initializable {
                     createButton.setDisable(false);
                     numeroGenereLabel.setText("Numéro généré : " + nouveauMandat.getNumeroMandat());
 
-                    AlertUtil.showSuccess("Succès",
-                            "Mandat " + nouveauMandat.getNumeroMandat() + " créé avec succès");
+                    String messageSucces = "Mandat " + nouveauMandat.getNumeroMandat() + " créé avec succès";
+                    if (nouveauMandat.getStatut() == StatutMandat.CLOTURE) {
+                        messageSucces += " (CLÔTURÉ)";
+                    }
+
+                    AlertUtil.showSuccess("Succès", messageSucces);
 
                     // Réinitialiser le formulaire
                     descriptionField.clear();
@@ -306,23 +403,121 @@ public class MandatController implements Initializable {
     /**
      * Active un mandat
      */
+    /**
+     * Active un mandat
+     */
     private void activerMandat(Mandat mandat) {
         if (mandat == null) return;
 
+        // Vérifier les droits pour les mandats clôturés
+        var user = authService.getCurrentUser();
+        boolean isSuperAdmin = user != null && user.getRole() == RoleUtilisateur.SUPER_ADMIN;
+
+        String messageConfirmation = "Activer le mandat " + mandat.getNumeroMandat() + " ?";
+        String messageDetail = "Le mandat actuellement actif sera désactivé.";
+
+        if (mandat.getStatut() == StatutMandat.CLOTURE) {
+            if (!isSuperAdmin) {
+                AlertUtil.showError("Droits insuffisants",
+                        "Seul un SUPER_ADMIN peut réactiver un mandat clôturé",
+                        "Ce mandat a été clôturé et nécessite des droits administrateur.");
+                return;
+            }
+
+            messageConfirmation = "RÉACTIVER le mandat CLÔTURÉ " + mandat.getNumeroMandat() + " ?";
+            messageDetail = "ATTENTION : Ce mandat a été clôturé. Sa réactivation permettra " +
+                    "de créer des affaires sur cette période antérieure.\n\n" +
+                    "Le mandat actuellement actif sera désactivé.";
+        }
+
         Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
         confirm.setTitle("Activation de mandat");
-        confirm.setHeaderText("Activer le mandat " + mandat.getNumeroMandat() + " ?");
-        confirm.setContentText("Le mandat actuellement actif sera désactivé.");
+        confirm.setHeaderText(messageConfirmation);
+        confirm.setContentText(messageDetail);
 
         if (confirm.showAndWait().orElse(ButtonType.CANCEL) == ButtonType.OK) {
             try {
                 mandatService.activerMandat(mandat.getNumeroMandat());
-                AlertUtil.showSuccess("Succès", "Mandat activé avec succès");
+
+                String messageSucces = "Mandat activé avec succès";
+                if (mandat.getStatut() == StatutMandat.CLOTURE) {
+                    messageSucces = "Mandat CLÔTURÉ réactivé avec succès";
+                }
+
+                AlertUtil.showSuccess("Succès", messageSucces);
                 loadData();
                 updateMandatActif();
             } catch (Exception e) {
                 logger.error("Erreur lors de l'activation du mandat", e);
                 AlertUtil.showError("Erreur", "Impossible d'activer le mandat", e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Modifie les dates d'un mandat (SUPER_ADMIN uniquement)
+     */
+    private void modifierMandat(Mandat mandat) {
+        if (mandat == null) return;
+
+        var user = authService.getCurrentUser();
+        if (user == null || user.getRole() != RoleUtilisateur.SUPER_ADMIN) {
+            AlertUtil.showError("Droits insuffisants",
+                    "Seul un SUPER_ADMIN peut modifier les dates d'un mandat",
+                    "Cette fonctionnalité est réservée aux administrateurs.");
+            return;
+        }
+
+        // Créer un dialogue de modification
+        Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.setTitle("Modifier le mandat");
+        dialog.setHeaderText("Modifier le mandat " + mandat.getNumeroMandat());
+
+        // Créer le contenu du dialogue
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20, 150, 10, 10));
+
+        TextField descriptionField = new TextField(mandat.getDescription());
+        DatePicker dateDebutPicker = new DatePicker(mandat.getDateDebut());
+        DatePicker dateFinPicker = new DatePicker(mandat.getDateFin());
+
+        grid.add(new Label("Description:"), 0, 0);
+        grid.add(descriptionField, 1, 0);
+        grid.add(new Label("Date début:"), 0, 1);
+        grid.add(dateDebutPicker, 1, 1);
+        grid.add(new Label("Date fin:"), 0, 2);
+        grid.add(dateFinPicker, 1, 2);
+
+        if (mandat.isActif()) {
+            Label warningLabel = new Label("⚠️ ATTENTION : Ce mandat est ACTIF");
+            warningLabel.setStyle("-fx-text-fill: #ff6b6b; -fx-font-weight: bold;");
+            grid.add(warningLabel, 0, 3, 2, 1);
+        }
+
+        dialog.getDialogPane().setContent(grid);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+
+        Optional<ButtonType> result = dialog.showAndWait();
+        if (result.isPresent() && result.get() == ButtonType.OK) {
+            try {
+                Mandat mandatModifie = mandatService.modifierDatesMandat(
+                        mandat.getNumeroMandat(),
+                        descriptionField.getText(),
+                        dateDebutPicker.getValue(),
+                        dateFinPicker.getValue()
+                );
+
+                AlertUtil.showSuccess("Succès",
+                        "Mandat modifié avec succès\nNouveau numéro : " + mandatModifie.getNumeroMandat());
+
+                loadData();
+                updateMandatActif();
+
+            } catch (Exception e) {
+                logger.error("Erreur lors de la modification du mandat", e);
+                AlertUtil.showError("Erreur", "Impossible de modifier le mandat", e.getMessage());
             }
         }
     }

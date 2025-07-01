@@ -3,9 +3,11 @@ package com.regulation.contentieux.service;
 import com.regulation.contentieux.config.DatabaseConfig;
 import com.regulation.contentieux.exception.BusinessException;
 import com.regulation.contentieux.model.Mandat;
+import com.regulation.contentieux.model.enums.RoleUtilisateur;
 import com.regulation.contentieux.model.enums.StatutMandat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import java.sql.Date;
 
 import java.math.BigDecimal;  // AJOUT : Import manquant pour BigDecimal
 import java.sql.*;
@@ -45,6 +47,167 @@ public class MandatService {
             instance = new MandatService();
         }
         return instance;
+    }
+
+    /**
+     * Crée un nouveau mandat avec des dates personnalisées
+     * Réservé aux SUPER_ADMIN pour créer des mandats antérieurs
+     *
+     * @param description Description du mandat
+     * @param dateDebut Date de début du mandat
+     * @param dateFin Date de fin du mandat
+     * @return Le mandat créé
+     * @throws BusinessException Si validation échoue
+     */
+    public Mandat creerMandatAvecDates(String description, LocalDate dateDebut, LocalDate dateFin) {
+        logger.info("🆕 === CRÉATION MANDAT AVEC DATES PERSONNALISÉES ===");
+        logger.info("📅 Période demandée : {} au {}", dateDebut, dateFin);
+
+        // Validation des dates
+        if (dateDebut == null || dateFin == null) {
+            throw new BusinessException("Les dates de début et fin sont obligatoires");
+        }
+
+        if (dateFin.isBefore(dateDebut)) {
+            throw new BusinessException("La date de fin doit être après la date de début");
+        }
+
+        // Vérification des droits pour les dates antérieures
+        LocalDate aujourdhui = LocalDate.now();
+        if (dateDebut.isBefore(aujourdhui.withDayOfMonth(1))) {
+            // Date antérieure au mois en cours
+            var utilisateur = AuthenticationService.getInstance().getCurrentUser();
+            if (utilisateur == null || utilisateur.getRole() != RoleUtilisateur.SUPER_ADMIN) {
+                throw new BusinessException(
+                        "Seul un SUPER_ADMIN peut créer un mandat pour une période antérieure.\n" +
+                                "Utilisateur actuel : " + (utilisateur != null ? utilisateur.getRole().getLibelle() : "Non connecté")
+                );
+            }
+            logger.warn("⚠️ Création d'un mandat antérieur par SUPER_ADMIN : {}", utilisateur.getLogin());
+        }
+
+        // Vérifier qu'aucun mandat actif n'existe (sauf si SUPER_ADMIN et mandat antérieur)
+        boolean estMandatAnterieur = dateFin.isBefore(aujourdhui.withDayOfMonth(1));
+        if (!estMandatAnterieur) {
+            // Pour les mandats actuels ou futurs, appliquer la règle standard
+            Mandat mandatActifActuel = getMandatActif();
+            if (mandatActifActuel != null) {
+                throw new BusinessException(
+                        "ERREUR : Un mandat est déjà actif (" + mandatActifActuel.getNumeroMandat() +
+                                "). Vous devez le clôturer avant de créer un nouveau mandat."
+                );
+            }
+        }
+
+        // Vérifier les chevauchements
+        if (existeMandatPourPeriode(dateDebut, dateFin)) {
+            throw new BusinessException(
+                    "Un mandat existe déjà pour cette période ou une partie de cette période.\n" +
+                            "Veuillez choisir une autre période."
+            );
+        }
+
+        // Générer le numéro basé sur la date de début
+        String numeroMandat = genererNumeroMandatPourDate(dateDebut);
+
+        // Créer le mandat
+        Mandat nouveauMandat = new Mandat();
+        nouveauMandat.setNumeroMandat(numeroMandat);
+        nouveauMandat.setDescription(description != null ? description :
+                "Mandat du " + dateDebut.format(DateTimeFormatter.ofPattern("MM/yyyy")));
+        nouveauMandat.setDateDebut(dateDebut);
+        nouveauMandat.setDateFin(dateFin);
+
+        // Statut selon la période
+        if (estMandatAnterieur) {
+            nouveauMandat.setStatut(StatutMandat.CLOTURE);
+            nouveauMandat.setActif(false);
+            nouveauMandat.setDateCloture(LocalDateTime.now());
+            logger.info("📌 Mandat antérieur créé avec statut CLÔTURÉ");
+        } else {
+            nouveauMandat.setStatut(StatutMandat.BROUILLON);
+            nouveauMandat.setActif(false);
+        }
+
+        nouveauMandat.setCreatedAt(LocalDateTime.now());
+        nouveauMandat.setCreatedBy(AuthenticationService.getInstance().getCurrentUser().getLogin());
+
+        // Sauvegarder en base
+        sauvegarderMandat(nouveauMandat);
+
+        logger.info("✅ Mandat créé avec dates personnalisées : {}", numeroMandat);
+        return nouveauMandat;
+    }
+
+    /**
+     * Vérifie si un mandat existe déjà pour une période donnée
+     */
+    private boolean existeMandatPourPeriode(LocalDate dateDebut, LocalDate dateFin) {
+        String sql = """
+        SELECT COUNT(*) FROM mandats 
+        WHERE (
+            (date_debut <= ? AND date_fin >= ?) OR  -- Chevauche le début
+            (date_debut <= ? AND date_fin >= ?) OR  -- Chevauche la fin
+            (date_debut >= ? AND date_fin <= ?)     -- Contenu dans la période
+        )
+    """;
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setDate(1, Date.valueOf(dateDebut));
+            stmt.setDate(2, Date.valueOf(dateDebut));
+            stmt.setDate(3, Date.valueOf(dateFin));
+            stmt.setDate(4, Date.valueOf(dateFin));
+            stmt.setDate(5, Date.valueOf(dateDebut));
+            stmt.setDate(6, Date.valueOf(dateFin));
+
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                int count = rs.getInt(1);
+                logger.debug("Nombre de mandats trouvés pour la période : {}", count);
+                return count > 0;
+            }
+
+        } catch (SQLException e) {
+            logger.error("Erreur lors de la vérification des chevauchements", e);
+            return true; // Par sécurité, on considère qu'il y a chevauchement
+        }
+
+        return false;
+    }
+
+    /**
+     * Génère un numéro de mandat pour une date spécifique
+     */
+    private String genererNumeroMandatPourDate(LocalDate date) {
+        String prefixe = date.format(DateTimeFormatter.ofPattern(FORMAT_PATTERN)); // yyMM'M'
+
+        String sql = """
+        SELECT numero_mandat FROM mandats 
+        WHERE numero_mandat LIKE ? 
+        ORDER BY numero_mandat DESC 
+        LIMIT 1
+    """;
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, prefixe + "%");
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                String dernierNumero = rs.getString("numero_mandat");
+                return genererProchainNumero(dernierNumero, prefixe);
+            } else {
+                // Premier mandat du mois
+                return prefixe + "0001";
+            }
+
+        } catch (SQLException e) {
+            logger.error("Erreur lors de la génération du numéro", e);
+            throw new BusinessException("Impossible de générer le numéro de mandat", e);
+        }
     }
 
     /**
@@ -126,6 +289,11 @@ public class MandatService {
      * Active un mandat (un seul actif à la fois)
      * ENRICHISSEMENT : Désactivation automatique des autres mandats
      */
+    /**
+     * Active un mandat (un seul actif à la fois)
+     * ENRICHISSEMENT : Désactivation automatique des autres mandats
+     * SUPER_ADMIN peut activer des mandats antérieurs
+     */
     public void activerMandat(String numeroMandat) {
         logger.info("🔄 Activation du mandat : {}", numeroMandat);
 
@@ -140,9 +308,22 @@ public class MandatService {
             return;
         }
 
-        // Vérifier qu'il n'est pas clôturé
+        // Pour les mandats clôturés, vérifier les droits SUPER_ADMIN
         if (mandat.getStatut() == StatutMandat.CLOTURE) {
-            throw new BusinessException("Impossible d'activer un mandat clôturé");
+            var utilisateur = AuthenticationService.getInstance().getCurrentUser();
+            if (utilisateur == null || utilisateur.getRole() != RoleUtilisateur.SUPER_ADMIN) {
+                throw new BusinessException(
+                        "Seul un SUPER_ADMIN peut réactiver un mandat clôturé.\n" +
+                                "Ce mandat a été clôturé et ne peut être réactivé que par un administrateur système."
+                );
+            }
+
+            // Vérifier si c'est un mandat antérieur
+            LocalDate aujourdhui = LocalDate.now();
+            if (mandat.getDateFin().isBefore(aujourdhui)) {
+                logger.warn("⚠️ ACTIVATION D'UN MANDAT ANTÉRIEUR par SUPER_ADMIN : {} pour la période {} au {}",
+                        utilisateur.getLogin(), mandat.getDateDebut(), mandat.getDateFin());
+            }
         }
 
         String sql = "UPDATE mandats SET actif = 0, statut = 'EN_ATTENTE', updated_at = CURRENT_TIMESTAMP";
@@ -152,7 +333,7 @@ public class MandatService {
             conn.setAutoCommit(false);
 
             try {
-                // Désactiver tous les mandats
+                // Désactiver tous les autres mandats
                 try (Statement stmt = conn.createStatement()) {
                     stmt.executeUpdate(sql);
                 }
@@ -165,22 +346,176 @@ public class MandatService {
 
                 conn.commit();
 
-                // Mettre à jour le cache
-                mandat.setStatut(StatutMandat.ACTIF);
+                // Mettre à jour le mandat actif en mémoire
                 mandat.setActif(true);
+                mandat.setStatut(StatutMandat.ACTIF);
                 this.mandatActif = mandat;
 
                 logger.info("✅ Mandat {} activé avec succès", numeroMandat);
 
-            } catch (Exception e) {
+            } catch (SQLException e) {
                 conn.rollback();
-                throw new RuntimeException("Erreur lors de l'activation du mandat", e);
+                throw e;
             }
 
         } catch (SQLException e) {
             logger.error("Erreur lors de l'activation du mandat", e);
-            throw new RuntimeException("Impossible d'activer le mandat", e);
+            throw new BusinessException("Impossible d'activer le mandat : " + e.getMessage());
         }
+    }
+
+    /**
+     * Modifie les dates d'un mandat existant
+     * Réservé aux SUPER_ADMIN pour les mandats non actifs
+     *
+     * @param numeroMandat Numéro du mandat à modifier
+     * @param nouvelleDescription Nouvelle description (null pour conserver l'ancienne)
+     * @param nouvelleDateDebut Nouvelle date de début
+     * @param nouvelleDateFin Nouvelle date de fin
+     * @return Le mandat modifié
+     */
+    public Mandat modifierDatesMandat(String numeroMandat, String nouvelleDescription,
+                                      LocalDate nouvelleDateDebut, LocalDate nouvelleDateFin) {
+        logger.info("📝 === MODIFICATION DES DATES DU MANDAT {} ===", numeroMandat);
+
+        // Vérifier les droits SUPER_ADMIN
+        var utilisateur = AuthenticationService.getInstance().getCurrentUser();
+        if (utilisateur == null || utilisateur.getRole() != RoleUtilisateur.SUPER_ADMIN) {
+            throw new BusinessException(
+                    "Seul un SUPER_ADMIN peut modifier les dates d'un mandat.\n" +
+                            "Cette opération est réservée aux administrateurs système."
+            );
+        }
+
+        // Récupérer le mandat
+        Mandat mandat = findByNumero(numeroMandat)
+                .orElseThrow(() -> new BusinessException("Mandat introuvable : " + numeroMandat));
+
+        // Vérifier que le mandat n'est pas le mandat actif actuel
+        if (mandat.isActif() && mandat.getStatut() == StatutMandat.ACTIF) {
+            // Pour un mandat actif, on peut modifier mais avec précautions
+            logger.warn("⚠️ Modification d'un mandat ACTIF par SUPER_ADMIN : {}", utilisateur.getLogin());
+        }
+
+        // Validation des nouvelles dates
+        if (nouvelleDateDebut == null || nouvelleDateFin == null) {
+            throw new BusinessException("Les dates de début et fin sont obligatoires");
+        }
+
+        if (nouvelleDateFin.isBefore(nouvelleDateDebut)) {
+            throw new BusinessException("La date de fin doit être après la date de début");
+        }
+
+        // Vérifier les chevauchements (exclure le mandat actuel)
+        if (existeMandatPourPeriodeExcluant(nouvelleDateDebut, nouvelleDateFin, mandat.getId())) {
+            throw new BusinessException(
+                    "Un autre mandat existe déjà pour cette période.\n" +
+                            "Veuillez choisir une autre période."
+            );
+        }
+
+        // Générer un nouveau numéro si le mois change
+        String nouveauNumero = numeroMandat;
+        String ancienPrefixe = numeroMandat.substring(0, 5); // YYMMM
+        String nouveauPrefixe = nouvelleDateDebut.format(DateTimeFormatter.ofPattern("yyMM")) + "M";
+
+        if (!ancienPrefixe.equals(nouveauPrefixe)) {
+            // Le mois a changé, générer un nouveau numéro
+            nouveauNumero = genererNumeroMandatPourDate(nouvelleDateDebut);
+            logger.info("📌 Changement de période : nouveau numéro généré {}", nouveauNumero);
+        }
+
+        // Mettre à jour en base
+        String sql = """
+        UPDATE mandats 
+        SET numero_mandat = ?, description = ?, date_debut = ?, date_fin = ?,
+            updated_at = CURRENT_TIMESTAMP, updated_by = ?
+        WHERE id = ?
+    """;
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, nouveauNumero);
+            stmt.setString(2, nouvelleDescription != null ? nouvelleDescription : mandat.getDescription());
+            stmt.setDate(3, Date.valueOf(nouvelleDateDebut));
+            stmt.setDate(4, Date.valueOf(nouvelleDateFin));
+            stmt.setString(5, utilisateur.getLogin());
+            stmt.setLong(6, mandat.getId());
+
+            int updated = stmt.executeUpdate();
+            if (updated == 0) {
+                throw new BusinessException("Impossible de modifier le mandat");
+            }
+
+            // Mettre à jour l'objet
+            mandat.setNumeroMandat(nouveauNumero);
+            if (nouvelleDescription != null) {
+                mandat.setDescription(nouvelleDescription);
+            }
+            mandat.setDateDebut(nouvelleDateDebut);
+            mandat.setDateFin(nouvelleDateFin);
+            mandat.setUpdatedAt(LocalDateTime.now());
+            mandat.setUpdatedBy(utilisateur.getLogin());
+
+            logger.info("✅ Mandat modifié avec succès : {} (période {} au {})",
+                    nouveauNumero, nouvelleDateDebut, nouvelleDateFin);
+
+            return mandat;
+
+        } catch (SQLException e) {
+            logger.error("Erreur lors de la modification du mandat", e);
+            throw new BusinessException("Impossible de modifier le mandat : " + e.getMessage());
+        }
+    }
+
+    /**
+     * Vérifie si un mandat existe pour une période en excluant un mandat spécifique
+     */
+    private boolean existeMandatPourPeriodeExcluant(LocalDate dateDebut, LocalDate dateFin, Long mandatIdExclu) {
+        String sql = """
+        SELECT COUNT(*) FROM mandats 
+        WHERE id != ? AND (
+            (date_debut <= ? AND date_fin >= ?) OR  -- Chevauche le début
+            (date_debut <= ? AND date_fin >= ?) OR  -- Chevauche la fin
+            (date_debut >= ? AND date_fin <= ?)     -- Contenu dans la période
+        )
+    """;
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setLong(1, mandatIdExclu);
+            stmt.setDate(2, Date.valueOf(dateDebut));
+            stmt.setDate(3, Date.valueOf(dateDebut));
+            stmt.setDate(4, Date.valueOf(dateFin));
+            stmt.setDate(5, Date.valueOf(dateFin));
+            stmt.setDate(6, Date.valueOf(dateDebut));
+            stmt.setDate(7, Date.valueOf(dateFin));
+
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                return rs.getInt(1) > 0;
+            }
+
+        } catch (SQLException e) {
+            logger.error("Erreur lors de la vérification des chevauchements", e);
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Vérifie si une date est dans le mandat actif
+     * Utilisé par AffaireService pour les validations
+     */
+    public boolean estDansMandatActif(LocalDate date) {
+        if (mandatActif == null || date == null) {
+            return false;
+        }
+
+        return mandatActif.contientDate(date);
     }
 
     /**
@@ -266,19 +601,6 @@ public class MandatService {
         }
 
         return mandats;
-    }
-
-    /**
-     * Vérifie si une date est dans le mandat actif
-     * ENRICHISSEMENT : Validation stricte des dates
-     */
-    public boolean estDansMandatActif(LocalDate date) {
-        if (mandatActif == null || date == null) {
-            return false;
-        }
-
-        return !date.isBefore(mandatActif.getDateDebut()) &&
-                !date.isAfter(mandatActif.getDateFin());
     }
 
     /**

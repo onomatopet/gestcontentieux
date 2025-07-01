@@ -1,29 +1,32 @@
 package com.regulation.contentieux.controller;
 
+import javafx.scene.control.Tooltip;
+import javafx.scene.layout.HBox;
+import javafx.animation.Timeline;
+import javafx.animation.KeyFrame;
+import javafx.util.Duration;
+
 import com.regulation.contentieux.model.*;
 import com.regulation.contentieux.model.enums.*;
 import com.regulation.contentieux.service.*;
 import com.regulation.contentieux.util.*;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
+import javafx.beans.value.ChangeListener;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
-import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
 import javafx.geometry.Insets;
-import javafx.geometry.Pos;
 import javafx.scene.Node;
-import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.*;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
-import javafx.util.Callback;
 import javafx.util.StringConverter;
 import org.slf4j.Logger;
 import com.regulation.contentieux.util.CurrencyFormatter;
@@ -185,6 +188,7 @@ public class AffaireEncaissementController implements Initializable {
         setupComboBoxes();
         setupActeursTable();
         setupEventHandlers();
+        setupContraventionHandlers(); // Pour gérer les montants modifiables
         loadInitialData();
 
         // Valeurs par défaut
@@ -203,6 +207,16 @@ public class AffaireEncaissementController implements Initializable {
             AlertUtil.showError("Erreur", "Aucun mandat actif",
                     "Vous devez activer un mandat avant de créer des affaires.");
         }
+
+        // Ajouter un délai pour le débogage après le chargement
+        Platform.runLater(() -> {
+            try {
+                Thread.sleep(1000); // Attendre 1 seconde
+            } catch (InterruptedException e) {
+                // Ignorer
+            }
+            debugComboBoxes();
+        });
     }
 
     /**
@@ -257,12 +271,12 @@ public class AffaireEncaissementController implements Initializable {
      * Affiche le dialogue d'ajout d'acteur
      */
     private void showAddActeurDialog() {
-        Dialog<Boolean> dialog = new Dialog<>();
+        Dialog<AgentRoleSelection> dialog = new Dialog<>();
         dialog.setTitle("Ajouter un agent");
         dialog.setHeaderText("Sélectionnez un agent et son(ses) rôle(s)");
 
         // Boutons
-        ButtonType addButtonType = new ButtonType("Choisir", ButtonBar.ButtonData.OK_DONE);
+        ButtonType addButtonType = new ButtonType("Ajouter", ButtonBar.ButtonData.OK_DONE);
         dialog.getDialogPane().getButtonTypes().addAll(addButtonType, ButtonType.CANCEL);
 
         // Contenu
@@ -271,188 +285,162 @@ public class AffaireEncaissementController implements Initializable {
         grid.setVgap(10);
         grid.setPadding(new Insets(20, 150, 10, 10));
 
-        // ComboBox éditable pour la recherche
-        ComboBox<Agent> agentCombo = new ComboBox<>();
-        agentCombo.setEditable(true);
-        agentCombo.setPrefWidth(300);
-        agentCombo.setPromptText("Tapez pour rechercher un agent...");
+        // TextField pour la recherche
+        TextField searchField = new TextField();
+        searchField.setPromptText("Rechercher par nom ou code (min. 2 caractères)");
+        searchField.setPrefWidth(300);
 
-        // Liste complète des agents (ne sera pas modifiée)
-        ObservableList<Agent> allAgents = FXCollections.observableArrayList();
-
-        // Configuration du converter pour l'affichage
-        agentCombo.setConverter(new StringConverter<Agent>() {
+        // ListView pour afficher les résultats
+        ListView<Agent> agentListView = new ListView<>();
+        agentListView.setPrefHeight(200);
+        agentListView.setCellFactory(lv -> new ListCell<Agent>() {
             @Override
-            public String toString(Agent agent) {
-                return agent != null ?
-                        agent.getCodeAgent() + " - " + agent.getNom() + " " + agent.getPrenom() : "";
-            }
-
-            @Override
-            public Agent fromString(String string) {
-                if (string == null || string.isEmpty()) {
-                    return null;
+            protected void updateItem(Agent agent, boolean empty) {
+                super.updateItem(agent, empty);
+                if (empty || agent == null) {
+                    setText(null);
+                } else {
+                    setText(agent.getCodeAgent() + " - " + agent.getNom() + " " + agent.getPrenom());
                 }
-                // Recherche dans la liste complète des agents
-                return allAgents.stream()
-                        .filter(agent -> {
-                            String display = agent.getCodeAgent() + " - " + agent.getNom() + " " + agent.getPrenom();
-                            return display.toLowerCase().contains(string.toLowerCase());
-                        })
-                        .findFirst()
-                        .orElse(null);
             }
         });
+
+        // Label pour afficher la sélection
+        Label selectionLabel = new Label("Aucun agent sélectionné");
+        selectionLabel.setStyle("-fx-font-weight: bold;");
 
         // CheckBox pour les rôles
         CheckBox saisissantCheck = new CheckBox("Saisissant");
         CheckBox chefCheck = new CheckBox("Chef");
 
-        grid.add(new Label("Agent:"), 0, 0);
-        grid.add(agentCombo, 1, 0, 2, 1);
-        grid.add(new Label("Rôle(s):"), 0, 1);
-        grid.add(saisissantCheck, 1, 1);
-        grid.add(chefCheck, 2, 1);
+        // Organisation du layout
+        grid.add(new Label("Recherche:"), 0, 0);
+        grid.add(searchField, 1, 0, 2, 1);
+        grid.add(new Label("Résultats:"), 0, 1);
+        grid.add(agentListView, 1, 1, 2, 2);
+        grid.add(new Label("Sélection:"), 0, 3);
+        grid.add(selectionLabel, 1, 3, 2, 1);
+        grid.add(new Label("Rôle(s):"), 0, 4);
+        grid.add(saisissantCheck, 1, 4);
+        grid.add(chefCheck, 2, 4);
 
         dialog.getDialogPane().setContent(grid);
 
-        // Charger les agents
-        Task<List<Agent>> loadAgentsTask = new Task<>() {
-            @Override
-            protected List<Agent> call() throws Exception {
-                return agentService.findActiveAgents();
+        // Variables pour la gestion
+        final Agent[] selectedAgent = {null};
+        final Timeline searchTimer = new Timeline(new KeyFrame(Duration.millis(300), ae -> {}));
+        searchTimer.setCycleCount(1);
+
+        // Gestion de la sélection dans la liste
+        agentListView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null) {
+                selectedAgent[0] = newVal;
+                selectionLabel.setText(newVal.getCodeAgent() + " - " + newVal.getNom() + " " + newVal.getPrenom());
+                selectionLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: green;");
             }
-        };
-
-        loadAgentsTask.setOnSucceeded(e -> {
-            List<Agent> agents = loadAgentsTask.getValue();
-            allAgents.setAll(agents);
-            agentCombo.getItems().setAll(agents);
-
-            // Variable pour stocker la sélection actuelle
-            final Agent[] currentSelection = {null};
-
-            // Variable pour contrôler l'affichage de la liste
-            final boolean[] shouldShowList = {false};
-
-            // Gestionnaire pour l'affichage de la liste après le chargement des items
-            agentCombo.showingProperty().addListener((obs, wasShowing, isShowing) -> {
-                if (!isShowing && shouldShowList[0]) {
-                    shouldShowList[0] = false;
-                }
-            });
-
-            // Sauvegarder la sélection quand elle change
-            agentCombo.valueProperty().addListener((obs, oldVal, newVal) -> {
-                currentSelection[0] = newVal;
-            });
-
-            // Filtrage intelligent lors de la saisie
-            agentCombo.getEditor().textProperty().addListener((obs, oldText, newText) -> {
-                // Ne pas filtrer si c'est une sélection valide
-                if (currentSelection[0] != null && agentCombo.getConverter().toString(currentSelection[0]).equals(newText)) {
-                    return;
-                }
-
-                if (newText != null && !newText.isEmpty() && !newText.equals(oldText)) {
-                    // Filtrer les agents selon le texte saisi
-                    List<Agent> filtered = allAgents.stream()
-                            .filter(agent -> {
-                                String searchText = newText.toLowerCase();
-                                return agent.getCodeAgent().toLowerCase().contains(searchText) ||
-                                        agent.getNom().toLowerCase().contains(searchText) ||
-                                        agent.getPrenom().toLowerCase().contains(searchText) ||
-                                        (agent.getCodeAgent() + " - " + agent.getNom() + " " + agent.getPrenom()).toLowerCase().contains(searchText);
-                            })
-                            .collect(Collectors.toList());
-
-                    Platform.runLater(() -> {
-                        // Sauvegarder la valeur actuelle
-                        Agent savedValue = agentCombo.getValue();
-
-                        // Mettre à jour la liste
-                        agentCombo.getItems().setAll(filtered);
-
-                        // Restaurer la valeur si elle est dans la liste filtrée
-                        if (savedValue != null && filtered.contains(savedValue)) {
-                            agentCombo.setValue(savedValue);
-                        }
-
-                        // Afficher la liste si elle n'est pas déjà visible et qu'il y a des résultats
-                        if (!filtered.isEmpty() && !agentCombo.isShowing()) {
-                            shouldShowList[0] = true;
-                            agentCombo.show();
-                        }
-                    });
-                } else if ((newText == null || newText.isEmpty()) && oldText != null && !oldText.isEmpty()) {
-                    // Réinitialiser avec tous les agents si le champ est vidé
-                    Platform.runLater(() -> {
-                        Agent savedValue = agentCombo.getValue();
-                        agentCombo.getItems().setAll(allAgents);
-                        if (savedValue != null) {
-                            agentCombo.setValue(savedValue);
-                        }
-                        // Fermer la liste si le champ est vide
-                        if (agentCombo.isShowing()) {
-                            agentCombo.hide();
-                        }
-                    });
-                }
-            });
         });
 
-        new Thread(loadAgentsTask).start();
+        // Recherche avec timer
+        searchField.textProperty().addListener((obs, oldText, newText) -> {
+            searchTimer.stop();
 
-        // Désactiver le bouton OK si aucun agent sélectionné ou aucun rôle coché
+            if (newText != null && newText.trim().length() >= 2) {
+                searchTimer.setOnFinished(event -> {
+                    Task<List<Agent>> searchTask = new Task<>() {
+                        @Override
+                        protected List<Agent> call() throws Exception {
+                            return agentService.searchAgents(newText.trim(), 50);
+                        }
+                    };
+
+                    searchTask.setOnSucceeded(e -> {
+                        Platform.runLater(() -> {
+                            agentListView.getItems().clear();
+                            agentListView.getItems().addAll(searchTask.getValue());
+                            if (!searchTask.getValue().isEmpty()) {
+                                agentListView.getSelectionModel().selectFirst();
+                            }
+                        });
+                    });
+
+                    searchTask.setOnFailed(e -> {
+                        logger.error("Erreur recherche agents", searchTask.getException());
+                    });
+
+                    new Thread(searchTask).start();
+                });
+                searchTimer.play();
+            } else {
+                agentListView.getItems().clear();
+                selectedAgent[0] = null;
+                selectionLabel.setText("Aucun agent sélectionné");
+                selectionLabel.setStyle("-fx-font-weight: bold;");
+            }
+        });
+
+        // Validation du bouton
         Node addButton = dialog.getDialogPane().lookupButton(addButtonType);
         addButton.setDisable(true);
 
-        // Validation
-        agentCombo.valueProperty().addListener((obs, old, newVal) -> {
-            addButton.setDisable(newVal == null || (!saisissantCheck.isSelected() && !chefCheck.isSelected()));
-        });
+        ChangeListener<Object> validationListener = (obs, old, newVal) -> {
+            addButton.setDisable(selectedAgent[0] == null ||
+                    (!saisissantCheck.isSelected() && !chefCheck.isSelected()));
+        };
 
-        saisissantCheck.selectedProperty().addListener((obs, old, newVal) -> {
-            addButton.setDisable(agentCombo.getValue() == null || (!newVal && !chefCheck.isSelected()));
-        });
+        agentListView.getSelectionModel().selectedItemProperty().addListener(validationListener);
+        saisissantCheck.selectedProperty().addListener(validationListener);
+        chefCheck.selectedProperty().addListener(validationListener);
 
-        chefCheck.selectedProperty().addListener((obs, old, newVal) -> {
-            addButton.setDisable(agentCombo.getValue() == null || (!newVal && !saisissantCheck.isSelected()));
-        });
-
-        // Focus sur la ComboBox au démarrage
-        Platform.runLater(() -> agentCombo.requestFocus());
+        // Focus initial
+        Platform.runLater(() -> searchField.requestFocus());
 
         // Convertir le résultat
         dialog.setResultConverter(dialogButton -> {
-            return dialogButton == addButtonType;
+            if (dialogButton == addButtonType && selectedAgent[0] != null) {
+                return new AgentRoleSelection(selectedAgent[0],
+                        saisissantCheck.isSelected(),
+                        chefCheck.isSelected());
+            }
+            return null;
         });
 
-        Optional<Boolean> result = dialog.showAndWait();
+        Optional<AgentRoleSelection> result = dialog.showAndWait();
 
-        if (result.isPresent() && result.get()) {
-            Agent selectedAgent = agentCombo.getValue();
-            if (selectedAgent != null) {
-                // Ajouter comme saisissant si coché
-                if (saisissantCheck.isSelected()) {
-                    if (!isAgentAlreadyInRole(selectedAgent, "SAISISSANT")) {
-                        acteursList.add(new ActeurViewModel(selectedAgent, "SAISISSANT"));
-                    } else {
-                        AlertUtil.showWarning("Doublon",
-                                "Cet agent est déjà saisissant dans cette affaire.");
-                    }
-                }
-
-                // Ajouter comme chef si coché (ligne séparée)
-                if (chefCheck.isSelected()) {
-                    if (!isAgentAlreadyInRole(selectedAgent, "CHEF")) {
-                        acteursList.add(new ActeurViewModel(selectedAgent, "CHEF"));
-                    } else {
-                        AlertUtil.showWarning("Doublon",
-                                "Cet agent est déjà chef dans cette affaire.");
-                    }
+        result.ifPresent(selection -> {
+            // Ajouter comme saisissant si coché
+            if (selection.isSaisissant) {
+                if (!isAgentAlreadyInRole(selection.agent, "SAISISSANT")) {
+                    acteursList.add(new ActeurViewModel(selection.agent, "SAISISSANT"));
+                } else {
+                    AlertUtil.showWarning("Doublon",
+                            "Cet agent est déjà saisissant dans cette affaire.");
                 }
             }
+
+            // Ajouter comme chef si coché
+            if (selection.isChef) {
+                if (!isAgentAlreadyInRole(selection.agent, "CHEF")) {
+                    acteursList.add(new ActeurViewModel(selection.agent, "CHEF"));
+                } else {
+                    AlertUtil.showWarning("Doublon",
+                            "Cet agent est déjà chef dans cette affaire.");
+                }
+            }
+        });
+    }
+
+    /**
+     * Classe interne pour stocker la sélection
+     */
+    private static class AgentRoleSelection {
+        final Agent agent;
+        final boolean isSaisissant;
+        final boolean isChef;
+
+        AgentRoleSelection(Agent agent, boolean isSaisissant, boolean isChef) {
+            this.agent = agent;
+            this.isSaisissant = isSaisissant;
+            this.isChef = isChef;
         }
     }
 
@@ -463,6 +451,144 @@ public class AffaireEncaissementController implements Initializable {
         return acteursList.stream()
                 .anyMatch(acteur -> acteur.getAgent().getId().equals(agent.getId()) &&
                         acteur.getRole().equals(role));
+    }
+
+    /**
+     * Configuration améliorée de la gestion des contraventions avec montant modifiable
+     * Cette méthode remplace la configuration existante dans setupValidation()
+     */
+    private void setupContraventionHandlers() {
+        // Si le bouton ajouter contravention existe
+        if (ajouterContraventionBtn != null) {
+            ajouterContraventionBtn.setOnAction(e -> {
+                if (contraventionCombo.getValue() != null) {
+                    showMontantDialog(contraventionCombo.getValue());
+                } else if (!contraventionLibreField.getText().trim().isEmpty()) {
+                    // Pour une contravention libre, créer un objet temporaire
+                    Contravention contraventionLibre = new Contravention();
+                    contraventionLibre.setDescription(contraventionLibreField.getText());
+                    contraventionLibre.setMontant(BigDecimal.ZERO);
+                    showMontantDialog(contraventionLibre);
+                } else {
+                    AlertUtil.showWarning("Attention", "Veuillez sélectionner ou saisir une contravention");
+                }
+            });
+        }
+
+        // Listener pour la sélection de contravention
+        if (contraventionCombo != null) {
+            contraventionCombo.valueProperty().addListener((obs, old, val) -> {
+                if (val != null) {
+                    // Ne plus mettre à jour automatiquement le montant total
+                    // Attendre que l'utilisateur clique sur "Ajouter"
+                    ajouterContraventionBtn.setDisable(false);
+                } else {
+                    ajouterContraventionBtn.setDisable(true);
+                }
+            });
+        }
+
+        // Listener pour la contravention libre
+        if (contraventionLibreField != null) {
+            contraventionLibreField.textProperty().addListener((obs, old, newVal) -> {
+                if (newVal != null && !newVal.trim().isEmpty()) {
+                    ajouterContraventionBtn.setDisable(false);
+                    contraventionCombo.setValue(null); // Désélectionner la contravention
+                } else if (contraventionCombo.getValue() == null) {
+                    ajouterContraventionBtn.setDisable(true);
+                }
+            });
+        }
+    }
+
+    /**
+     * Méthode alternative : Afficher une boîte de dialogue pour modifier le montant
+     */
+    private void showMontantDialog(Contravention contravention) {
+        Dialog<BigDecimal> dialog = new Dialog<>();
+        dialog.setTitle("Montant de l'amende");
+        dialog.setHeaderText("Définir le montant pour : " + contravention.getDescription());
+
+        // Boutons
+        ButtonType validerType = new ButtonType("Valider", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(validerType, ButtonType.CANCEL);
+
+        // Contenu
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20, 150, 10, 10));
+
+        TextField montantField = new TextField();
+        if (contravention.getMontant() != null && contravention.getMontant().compareTo(BigDecimal.ZERO) > 0) {
+            montantField.setText(contravention.getMontant().toString());
+        }
+        montantField.setPromptText("Montant en FCFA");
+
+        // Ajouter un label d'information
+        Label infoLabel = new Label("Le montant peut être négocié et ajusté selon l'accord avec le contrevenant");
+        infoLabel.setStyle("-fx-text-fill: gray; -fx-font-size: 11px; -fx-wrap-text: true;");
+        infoLabel.setMaxWidth(300);
+
+        grid.add(new Label("Montant négocié:"), 0, 0);
+        grid.add(montantField, 1, 0);
+        grid.add(infoLabel, 0, 1, 2, 1);
+
+        dialog.getDialogPane().setContent(grid);
+
+        // Validation
+        Node validerButton = dialog.getDialogPane().lookupButton(validerType);
+        validerButton.setDisable(true);
+
+        montantField.textProperty().addListener((obs, old, newVal) -> {
+            try {
+                BigDecimal montant = new BigDecimal(newVal.replace(" ", "").replace(",", "."));
+                validerButton.setDisable(montant.compareTo(BigDecimal.ZERO) <= 0);
+                montantField.setStyle("");
+            } catch (Exception e) {
+                validerButton.setDisable(true);
+                montantField.setStyle("-fx-border-color: red;");
+            }
+        });
+
+        // Focus
+        Platform.runLater(() -> {
+            montantField.requestFocus();
+            montantField.selectAll();
+        });
+
+        // Convertir le résultat
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == validerType) {
+                try {
+                    return new BigDecimal(montantField.getText().replace(" ", "").replace(",", "."));
+                } catch (Exception e) {
+                    return BigDecimal.ZERO;
+                }
+            }
+            return null;
+        });
+
+        Optional<BigDecimal> result = dialog.showAndWait();
+
+        result.ifPresent(montant -> {
+            montantAmendeTotal = montant;
+            updateMontantTotalLabel();
+            updateSoldeRestant();
+
+            // Afficher un message de confirmation
+            statusLabel.setText("Montant de l'amende défini : " + CurrencyFormatter.format(montant));
+            statusLabel.setStyle("-fx-text-fill: green;");
+
+            // Après 3 secondes, effacer le message
+            Timeline timeline = new Timeline(new KeyFrame(
+                    Duration.seconds(3),
+                    ae -> {
+                        statusLabel.setText("");
+                    }
+            ));
+            timeline.play();
+        });
     }
 
     /**
@@ -498,16 +624,18 @@ public class AffaireEncaissementController implements Initializable {
             });
         }
 
-        // Listener pour la sélection de contravention
-        if (contraventionCombo != null) {
-            contraventionCombo.valueProperty().addListener((obs, old, val) -> {
-                if (val != null) {
-                    montantAmendeTotal = val.getMontant();
-                    updateMontantTotalLabel();
-                    updateSoldeRestant();
-                }
-            });
-        }
+        // SUPPRIMER ou COMMENTER ce listener qui écrase le montant négocié
+    /*
+    if (contraventionCombo != null) {
+        contraventionCombo.valueProperty().addListener((obs, old, val) -> {
+            if (val != null) {
+                montantAmendeTotal = val.getMontant();
+                updateMontantTotalLabel();
+                updateSoldeRestant();
+            }
+        });
+    }
+    */
     }
 
     /**
@@ -521,13 +649,15 @@ public class AffaireEncaissementController implements Initializable {
 
     /**
      * Configuration des ComboBox
+     * Ajoutez cette méthode dans votre classe AffaireEncaissementController
      */
     private void setupComboBoxes() {
         // Configuration du StringConverter pour Contrevenant
         contrevenantCombo.setConverter(new StringConverter<Contrevenant>() {
             @Override
             public String toString(Contrevenant contrevenant) {
-                return contrevenant != null ? contrevenant.getNomComplet() : "";
+                return contrevenant != null ?
+                        contrevenant.getNomComplet() + " (" + contrevenant.getCode() + ")" : "";
             }
 
             @Override
@@ -540,7 +670,136 @@ public class AffaireEncaissementController implements Initializable {
         contraventionCombo.setConverter(new StringConverter<Contravention>() {
             @Override
             public String toString(Contravention contravention) {
-                return contravention != null ? contravention.getDescription() : "";
+                return contravention != null ?
+                        contravention.getLibelle() + " - " + CurrencyFormatter.format(contravention.getMontant()) : "";
+            }
+
+            @Override
+            public Contravention fromString(String string) {
+                return null;
+            }
+        });
+
+        // Configuration du StringConverter pour Centre
+        centreCombo.setConverter(new StringConverter<Centre>() {
+            @Override
+            public String toString(Centre centre) {
+                return centre != null ? centre.getNomCentre() : "";
+            }
+
+            @Override
+            public Centre fromString(String string) {
+                return null;
+            }
+        });
+
+        // Configuration du StringConverter pour Service
+        serviceCombo.setConverter(new StringConverter<Service>() {
+            @Override
+            public String toString(Service service) {
+                return service != null ?
+                        service.getCodeService() + " - " + service.getNomService() : "";
+            }
+
+            @Override
+            public Service fromString(String string) {
+                return null;
+            }
+        });
+
+        // Configuration du StringConverter pour Bureau
+        bureauCombo.setConverter(new StringConverter<Bureau>() {
+            @Override
+            public String toString(Bureau bureau) {
+                return bureau != null ?
+                        bureau.getCodeBureau() + " - " + bureau.getNomBureau() : "";
+            }
+
+            @Override
+            public Bureau fromString(String string) {
+                return null;
+            }
+        });
+
+        // Configuration du StringConverter pour Mode de Règlement
+        modeReglementCombo.setConverter(new StringConverter<ModeReglement>() {
+            @Override
+            public String toString(ModeReglement mode) {
+                return mode != null ? mode.getLibelle() : "";
+            }
+
+            @Override
+            public ModeReglement fromString(String string) {
+                return null;
+            }
+        });
+
+        // Configuration du StringConverter pour Banque
+        banqueCombo.setConverter(new StringConverter<Banque>() {
+            @Override
+            public String toString(Banque banque) {
+                return banque != null ? banque.getNomBanque() : "";
+            }
+
+            @Override
+            public Banque fromString(String string) {
+                return null;
+            }
+        });
+
+        indicateurAgentCombo.setConverter(new StringConverter<Agent>() {
+            @Override
+            public String toString(Agent agent) {
+                return agent != null ? agent.getNom() + " " + agent.getPrenom() : "";
+            }
+
+            @Override
+            public Agent fromString(String string) {
+                return null;
+            }
+        });
+
+        // Listener pour la sélection de contrevenant
+        // SUPPRESSION de la mise à jour des champs inexistants
+        contrevenantCombo.setOnAction(e -> {
+            Contrevenant selected = contrevenantCombo.getValue();
+            if (selected != null) {
+                logger.debug("Contrevenant sélectionné: {}", selected.getNomComplet());
+                // Les champs nomContrevenantField, adresseField et telephoneField
+                // n'existent pas dans le FXML, donc on ne peut pas les mettre à jour
+            }
+        });
+    }
+
+    /**
+     * Configuration des ComboBox
+     */
+    private void setupComboBoxesOptimized() {
+        // Configuration du StringConverter pour Contrevenant (optimisé)
+        contrevenantCombo.setConverter(new StringConverter<Contrevenant>() {
+            @Override
+            public String toString(Contrevenant contrevenant) {
+                if (contrevenant == null) return "";
+                return contrevenant.getCode() + " - " + contrevenant.getNomComplet();
+            }
+
+            @Override
+            public Contrevenant fromString(String string) {
+                return null;
+            }
+        });
+
+        // Configuration CORRIGÉE du StringConverter pour Contravention
+        contraventionCombo.setConverter(new StringConverter<Contravention>() {
+            @Override
+            public String toString(Contravention contravention) {
+                if (contravention == null) return "";
+
+                // CORRECTION : Utiliser getLibelle() au lieu de getDescription()
+                String code = contravention.getCode() != null ? contravention.getCode() : "???";
+                String libelle = contravention.getLibelle() != null ? contravention.getLibelle() : "Sans libellé";
+
+                return code + " - " + libelle;
             }
 
             @Override
@@ -636,57 +895,406 @@ public class AffaireEncaissementController implements Initializable {
             }
         });
     }
+    // Ajoutez ces méthodes dans votre classe AffaireEncaissementController
+
+    /**
+     * Méthode alternative pour créer un contrevenant rapidement
+     */
+    private void showQuickContrevenantDialog() {
+        Dialog<Contrevenant> dialog = new Dialog<>();
+        dialog.setTitle("Nouveau contrevenant rapide");
+        dialog.setHeaderText("Créer un contrevenant rapidement");
+
+        // Boutons
+        ButtonType createType = new ButtonType("Créer", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(createType, ButtonType.CANCEL);
+
+        // Formulaire
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20, 100, 10, 10));
+
+        TextField nomField = new TextField();
+        nomField.setPromptText("Nom complet");
+        TextField adresseField = new TextField();
+        adresseField.setPromptText("Adresse");
+        TextField telephoneField = new TextField();
+        telephoneField.setPromptText("Téléphone");
+
+        grid.add(new Label("Nom complet:"), 0, 0);
+        grid.add(nomField, 1, 0);
+        grid.add(new Label("Adresse:"), 0, 1);
+        grid.add(adresseField, 1, 1);
+        grid.add(new Label("Téléphone:"), 0, 2);
+        grid.add(telephoneField, 1, 2);
+
+        dialog.getDialogPane().setContent(grid);
+
+        // Validation
+        Node createButton = dialog.getDialogPane().lookupButton(createType);
+        createButton.setDisable(true);
+
+        nomField.textProperty().addListener((obs, old, newVal) -> {
+            createButton.setDisable(newVal.trim().isEmpty());
+        });
+
+        Platform.runLater(() -> nomField.requestFocus());
+
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == createType) {
+                try {
+                    Contrevenant contrevenant = new Contrevenant();
+                    contrevenant.setNomComplet(nomField.getText().trim());
+                    contrevenant.setAdresse(adresseField.getText().trim());
+                    contrevenant.setTelephone(telephoneField.getText().trim());
+                    contrevenant.setTypePersonne("Physique");
+
+                    // Sauvegarder
+                    Contrevenant saved = contrevenantService.saveContrevenant(contrevenant);
+                    logger.info("Contrevenant créé rapidement: {}", saved.getNomComplet());
+                    return saved;
+                } catch (Exception e) {
+                    logger.error("Erreur création contrevenant rapide", e);
+                    AlertUtil.showError("Erreur", "Impossible de créer le contrevenant", e.getMessage());
+                    return null;
+                }
+            }
+            return null;
+        });
+
+        Optional<Contrevenant> result = dialog.showAndWait();
+
+        result.ifPresent(contrevenant -> {
+            // Recharger la liste et sélectionner le nouveau
+            loadContrevenants();
+            Platform.runLater(() -> {
+                contrevenantCombo.setValue(contrevenant);
+            });
+        });
+    }
+
+    /**
+     * Méthode pour vérifier si les ComboBox sont correctement configurées
+     */
+    private void debugComboBoxes() {
+        logger.info("=== DEBUG COMBOBOXES ===");
+        if (contrevenantCombo != null) {
+            logger.info("ContrevenantCombo - Items: {}, Converter: {}",
+                    contrevenantCombo.getItems().size(),
+                    contrevenantCombo.getConverter() != null);
+        }
+
+        if (contraventionCombo != null) {
+            logger.info("ContraventionCombo - Items: {}, Converter: {}",
+                    contraventionCombo.getItems().size(),
+                    contraventionCombo.getConverter() != null);
+        }
+
+        if (centreCombo != null) {
+            logger.info("CentreCombo - Items: {}", centreCombo.getItems().size());
+        }
+
+        if (serviceCombo != null) {
+            logger.info("ServiceCombo - Items: {}", serviceCombo.getItems().size());
+        }
+
+        if (bureauCombo != null) {
+            logger.info("BureauCombo - Items: {}", bureauCombo.getItems().size());
+        }
+    }
 
     /**
      * Configuration des gestionnaires d'événements
      */
     private void setupEventHandlers() {
-        // Bouton nouveau contrevenant
+        // Bouton nouveau contrevenant (existant)
         if (nouveauContrevenantBtn != null) {
-            nouveauContrevenantBtn.setOnAction(e -> {
-                try {
-                    FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/contrevenant-form.fxml"));
-                    Parent root = loader.load();
-
-                    Stage stage = new Stage();
-                    stage.initModality(Modality.APPLICATION_MODAL);
-                    stage.initOwner(dialogStage);
-                    stage.setTitle("Nouveau Contrevenant");
-                    stage.setScene(new Scene(root));
-
-                    ContrevenantFormController controller = loader.getController();
-                    controller.initializeForNew();
-
-                    stage.showAndWait();
-
-                    // Rafraîchir la liste
-                    loadContrevenants();
-                } catch (Exception ex) {
-                    logger.error("Erreur ouverture dialogue contrevenant", ex);
-                    AlertUtil.showError("Erreur", "Impossible d'ouvrir le formulaire");
-                }
-            });
+            nouveauContrevenantBtn.setOnAction(e -> showQuickContrevenantDialog());
         }
 
-        // Bouton ajouter acteur
+        // NOUVEAU : Ajouter un bouton de recherche pour les contrevenants
+        Button searchContrevenantBtn = new Button("🔍");
+        searchContrevenantBtn.setTooltip(new Tooltip("Rechercher un contrevenant"));
+        searchContrevenantBtn.setOnAction(e -> showContrevenantSearchDialog());
+
+        // Ajouter le bouton à côté de la ComboBox
+        if (contrevenantCombo != null && contrevenantCombo.getParent() instanceof GridPane) {
+            GridPane parent = (GridPane) contrevenantCombo.getParent();
+            Integer row = GridPane.getRowIndex(contrevenantCombo);
+            Integer col = GridPane.getColumnIndex(contrevenantCombo);
+            if (row != null && col != null) {
+                HBox comboBox = new HBox(5);
+                comboBox.getChildren().addAll(contrevenantCombo, searchContrevenantBtn);
+                parent.add(comboBox, col, row);
+            }
+        }
+
+        // NOUVEAU : Ajouter un bouton de recherche pour les contraventions
+        Button searchContraventionBtn = new Button("🔍");
+        searchContraventionBtn.setTooltip(new Tooltip("Rechercher une contravention"));
+        searchContraventionBtn.setOnAction(e -> showContraventionSearchDialog());
+
+        // Ajouter le bouton à côté de la ComboBox
+        if (contraventionCombo != null && contraventionCombo.getParent() instanceof GridPane) {
+            GridPane parent = (GridPane) contraventionCombo.getParent();
+            Integer row = GridPane.getRowIndex(contraventionCombo);
+            Integer col = GridPane.getColumnIndex(contraventionCombo);
+            if (row != null && col != null) {
+                HBox comboBox = new HBox(5);
+                comboBox.getChildren().addAll(contraventionCombo, searchContraventionBtn);
+                parent.add(comboBox, col, row);
+            }
+        }
+
+        // Bouton ajouter acteur (existant)
         if (addActeurButton != null) {
             addActeurButton.setOnAction(e -> showAddActeurDialog());
         }
     }
 
     /**
-     * Charge les contrevenants
+     * Dialogue de recherche pour les contrevenants
+     */
+    private void showContrevenantSearchDialog() {
+        Dialog<Contrevenant> dialog = new Dialog<>();
+        dialog.setTitle("Rechercher un contrevenant");
+        dialog.setHeaderText("Tapez au moins 2 caractères pour rechercher");
+
+        ButtonType selectType = new ButtonType("Sélectionner", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(selectType, ButtonType.CANCEL);
+
+        VBox content = new VBox(10);
+        content.setPadding(new Insets(20));
+        content.setPrefWidth(500);
+
+        TextField searchField = new TextField();
+        searchField.setPromptText("Nom ou code du contrevenant...");
+
+        ListView<Contrevenant> listView = new ListView<>();
+        listView.setPrefHeight(300);
+        listView.setCellFactory(lv -> new ListCell<Contrevenant>() {
+            @Override
+            protected void updateItem(Contrevenant item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText(item.getCode() + " - " + item.getNomComplet());
+                }
+            }
+        });
+
+        Label countLabel = new Label("Entrez au moins 2 caractères");
+
+        content.getChildren().addAll(
+                new Label("Recherche:"),
+                searchField,
+                countLabel,
+                listView
+        );
+
+        dialog.getDialogPane().setContent(content);
+
+        // Timer pour recherche différée
+        Timeline searchTimer = new Timeline(new KeyFrame(Duration.millis(300), e -> {}));
+        searchTimer.setCycleCount(1);
+
+        // Recherche
+        searchField.textProperty().addListener((obs, old, newVal) -> {
+            searchTimer.stop();
+
+            if (newVal != null && newVal.trim().length() >= 2) {
+                searchTimer.setOnFinished(event -> {
+                    String search = newVal.trim().toLowerCase();
+
+                    Task<List<Contrevenant>> searchTask = new Task<>() {
+                        @Override
+                        protected List<Contrevenant> call() {
+                            return contrevenantService.getAllContrevenants().stream()
+                                    .filter(c ->
+                                            c.getCode().toLowerCase().contains(search) ||
+                                                    c.getNomComplet().toLowerCase().contains(search))
+                                    .limit(100)
+                                    .collect(Collectors.toList());
+                        }
+                    };
+
+                    searchTask.setOnSucceeded(e -> {
+                        List<Contrevenant> results = searchTask.getValue();
+                        listView.getItems().setAll(results);
+                        countLabel.setText(results.size() + " résultats trouvés");
+                    });
+
+                    new Thread(searchTask).start();
+                });
+
+                searchTimer.play();
+            } else {
+                listView.getItems().clear();
+                countLabel.setText("Entrez au moins 2 caractères");
+            }
+        });
+
+        // Validation
+        Node selectButton = dialog.getDialogPane().lookupButton(selectType);
+        selectButton.setDisable(true);
+
+        listView.getSelectionModel().selectedItemProperty().addListener((obs, old, newVal) -> {
+            selectButton.setDisable(newVal == null);
+        });
+
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == selectType) {
+                return listView.getSelectionModel().getSelectedItem();
+            }
+            return null;
+        });
+
+        Platform.runLater(() -> searchField.requestFocus());
+
+        Optional<Contrevenant> result = dialog.showAndWait();
+
+        result.ifPresent(contrevenant -> {
+            contrevenantCombo.setValue(contrevenant);
+            // Les listeners existants mettront à jour les champs
+        });
+    }
+
+    /**
+     * Dialogue de recherche pour les contraventions
+     */
+    private void showContraventionSearchDialog() {
+        Dialog<Contravention> dialog = new Dialog<>();
+        dialog.setTitle("Rechercher une contravention");
+        dialog.setHeaderText("Tapez au moins 2 caractères pour rechercher");
+
+        ButtonType selectType = new ButtonType("Sélectionner", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(selectType, ButtonType.CANCEL);
+
+        VBox content = new VBox(10);
+        content.setPadding(new Insets(20));
+        content.setPrefWidth(600);
+
+        TextField searchField = new TextField();
+        searchField.setPromptText("Code ou libellé de la contravention...");
+
+        ListView<Contravention> listView = new ListView<>();
+        listView.setPrefHeight(300);
+        listView.setCellFactory(lv -> new ListCell<Contravention>() {
+            @Override
+            protected void updateItem(Contravention item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    String montant = item.getMontant() != null ?
+                            " - " + CurrencyFormatter.format(item.getMontant()) + " FCFA" : "";
+                    setText(item.getCode() + " - " + item.getLibelle() + montant);
+                }
+            }
+        });
+
+        Label countLabel = new Label("Entrez au moins 2 caractères");
+
+        content.getChildren().addAll(
+                new Label("Recherche:"),
+                searchField,
+                countLabel,
+                listView
+        );
+
+        dialog.getDialogPane().setContent(content);
+
+        // Timer pour recherche différée
+        Timeline searchTimer = new Timeline(new KeyFrame(Duration.millis(300), e -> {}));
+        searchTimer.setCycleCount(1);
+
+        // Recherche
+        searchField.textProperty().addListener((obs, old, newVal) -> {
+            searchTimer.stop();
+
+            if (newVal != null && newVal.trim().length() >= 2) {
+                searchTimer.setOnFinished(event -> {
+                    String search = newVal.trim().toLowerCase();
+
+                    Task<List<Contravention>> searchTask = new Task<>() {
+                        @Override
+                        protected List<Contravention> call() {
+                            return contraventionService.getAllContraventions().stream()
+                                    .filter(c ->
+                                            c.getCode().toLowerCase().contains(search) ||
+                                                    c.getLibelle().toLowerCase().contains(search))
+                                    .limit(100)
+                                    .collect(Collectors.toList());
+                        }
+                    };
+
+                    searchTask.setOnSucceeded(e -> {
+                        List<Contravention> results = searchTask.getValue();
+                        listView.getItems().setAll(results);
+                        countLabel.setText(results.size() + " résultats trouvés");
+                    });
+
+                    new Thread(searchTask).start();
+                });
+
+                searchTimer.play();
+            } else {
+                listView.getItems().clear();
+                countLabel.setText("Entrez au moins 2 caractères");
+            }
+        });
+
+        // Validation
+        Node selectButton = dialog.getDialogPane().lookupButton(selectType);
+        selectButton.setDisable(true);
+
+        listView.getSelectionModel().selectedItemProperty().addListener((obs, old, newVal) -> {
+            selectButton.setDisable(newVal == null);
+        });
+
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == selectType) {
+                return listView.getSelectionModel().getSelectedItem();
+            }
+            return null;
+        });
+
+        Platform.runLater(() -> searchField.requestFocus());
+
+        Optional<Contravention> result = dialog.showAndWait();
+
+        result.ifPresent(contravention -> {
+            // Si vous voulez afficher le dialogue du montant directement
+            showMontantDialog(contravention);
+        });
+    }
+
+    /**
+     * Version améliorée de loadContrevenants() avec débogage et gestion d'erreur
      */
     private void loadContrevenants() {
+        logger.info("Chargement limité des contrevenants...");
+
         Task<List<Contrevenant>> task = new Task<>() {
             @Override
             protected List<Contrevenant> call() throws Exception {
-                return contrevenantService.getAllContrevenants();
+                // Ne charger que les 50 derniers contrevenants
+                List<Contrevenant> all = contrevenantService.getAllContrevenants();
+                return all.stream()
+                        .sorted((a, b) -> b.getId().compareTo(a.getId())) // Plus récents d'abord
+                        .limit(50)
+                        .collect(Collectors.toList());
             }
         };
 
         task.setOnSucceeded(e -> {
-            contrevenantCombo.getItems().setAll(task.getValue());
+            Platform.runLater(() -> {
+                contrevenantCombo.getItems().clear();
+                contrevenantCombo.getItems().addAll(task.getValue());
+                contrevenantCombo.setPromptText("50 derniers (utilisez 🔍 pour plus)");
+            });
         });
 
         new Thread(task).start();
@@ -696,15 +1304,24 @@ public class AffaireEncaissementController implements Initializable {
      * Charge les contraventions
      */
     private void loadContraventions() {
+        logger.info("Chargement limité des contraventions...");
+
         Task<List<Contravention>> task = new Task<>() {
             @Override
             protected List<Contravention> call() throws Exception {
-                return contraventionService.getAllContraventions();
+                // Ne charger que les 50 contraventions les plus courantes
+                return contraventionService.getAllContraventions().stream()
+                        .limit(50)
+                        .collect(Collectors.toList());
             }
         };
 
         task.setOnSucceeded(e -> {
-            contraventionCombo.getItems().setAll(task.getValue());
+            Platform.runLater(() -> {
+                contraventionCombo.getItems().clear();
+                contraventionCombo.getItems().addAll(task.getValue());
+                contraventionCombo.setPromptText("50 plus courantes (utilisez 🔍 pour plus)");
+            });
         });
 
         new Thread(task).start();
@@ -1024,9 +1641,9 @@ public class AffaireEncaissementController implements Initializable {
             errors.add("- Sélectionnez ou créez un contrevenant");
         }
 
-        // Infraction
-        if (contraventionCombo.getValue() == null && contraventionLibreField.getText().isEmpty()) {
-            errors.add("- Sélectionnez ou saisissez une contravention");
+        // Infraction - Validation modifiée pour ne plus utiliser contraventionLibreField
+        if (contraventionCombo.getValue() == null) {
+            errors.add("- Sélectionnez une contravention");
         }
 
         // Montants

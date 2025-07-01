@@ -44,26 +44,25 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
     @Override
     protected String getInsertQuery() {
         return """
-            INSERT INTO affaires (numero_affaire, date_creation, date_constatation, 
-                                lieu_constatation, description, montant_total, montant_encaisse,
-                                montant_amende_total, statut, observations, 
-                                contrevenant_id, agent_verbalisateur_id,
-                                bureau_id, service_id, created_by, created_at) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """;
+        INSERT INTO affaires (numero_affaire, date_creation, 
+                            montant_amende_total, montant_encaisse,
+                            montant_amende_total, statut, 
+                            contrevenant_id,
+                            bureau_id, service_id, created_by, created_at) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """;
     }
 
     @Override
     protected String getUpdateQuery() {
         return """
-            UPDATE affaires 
-            SET date_constatation = ?, lieu_constatation = ?, description = ?,
-                montant_total = ?, montant_encaisse = ?, montant_amende_total = ?,
-                statut = ?, observations = ?,
-                contrevenant_id = ?, agent_verbalisateur_id = ?, bureau_id = ?, 
-                service_id = ?, updated_by = ?, updated_at = ?
-            WHERE id = ?
-        """;
+        UPDATE affaires 
+        SET date_constatation = ?, lieu_constatation = ?, description = ?,
+            montant_amende_total = ?, statut = ?, observations = ?,
+            contrevenant_id = ?, agent_verbalisateur_id = ?, bureau_id = ?, 
+            service_id = ?, updated_by = ?, updated_at = ?
+        WHERE id = ?
+    """;
     }
 
     @Override
@@ -118,7 +117,7 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
             affaire.setDateCreation(dateCreation.toLocalDate());
         }
 
-        // ✅ CORRECTION : montant_amende_total au lieu de montant_total
+        // ✅ CORRECTION : montant_amende_total au lieu de montant_amende_total
         BigDecimal montantAmendeTotal = rs.getBigDecimal("montant_amende_total");
         affaire.setMontantTotal(montantAmendeTotal != null ? montantAmendeTotal : BigDecimal.ZERO);
 
@@ -217,84 +216,121 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
 
     @Override
     protected void setInsertParameters(PreparedStatement stmt, Affaire affaire) throws SQLException {
+        // 1. numero_affaire
         stmt.setString(1, affaire.getNumeroAffaire());
+
+        // 2. date_creation
         stmt.setDate(2, Date.valueOf(affaire.getDateCreation()));
-        stmt.setDate(3, Date.valueOf(affaire.getDateConstatation()));
-        stmt.setString(4, affaire.getLieuConstatation());
-        stmt.setString(5, affaire.getDescription());
-        stmt.setBigDecimal(6, affaire.getMontantTotal());
-        stmt.setBigDecimal(7, affaire.getMontantEncaisse());
-        stmt.setBigDecimal(8, affaire.getMontantAmendeTotal());
-        stmt.setString(9, affaire.getStatut().name());
-        stmt.setString(10, affaire.getObservations());
 
-        // IDs des relations
-        if (affaire.getContrevenantId() != null) {
-            stmt.setLong(11, affaire.getContrevenantId());
+        // 3. montant_amende_total
+        stmt.setBigDecimal(3, affaire.getMontantTotal() != null ? affaire.getMontantTotal() : BigDecimal.ZERO);
+
+        // 4. statut
+        if (affaire.getStatut() != null) {
+            stmt.setString(4, affaire.getStatut().name());
         } else {
-            stmt.setNull(11, Types.BIGINT);
+            stmt.setString(4, StatutAffaire.EN_COURS.name());
         }
 
-        if (affaire.getAgentVerbalisateur() != null && affaire.getAgentVerbalisateur().getId() != null) {
-            stmt.setLong(12, affaire.getAgentVerbalisateur().getId());
+        // 5. contrevenant_id
+        if (affaire.getContrevenant() != null && affaire.getContrevenant().getId() != null) {
+            stmt.setLong(5, affaire.getContrevenant().getId());
+        } else if (affaire.getContrevenantId() != null) {
+            stmt.setLong(5, affaire.getContrevenantId());
         } else {
-            stmt.setNull(12, Types.BIGINT);
+            stmt.setNull(5, Types.BIGINT);
         }
 
-        if (affaire.getBureauId() != null) {
-            stmt.setLong(13, affaire.getBureauId());
+        // 6. contravention_id
+        if (affaire.getContraventionId() != null) {
+            stmt.setLong(6, affaire.getContraventionId());
         } else {
-            stmt.setNull(13, Types.BIGINT);
+            stmt.setNull(6, Types.BIGINT);
         }
 
-        if (affaire.getServiceId() != null) {
-            stmt.setLong(14, affaire.getServiceId());
+        // 7. bureau_id (optionnel)
+        if (affaire.getBureau() != null && affaire.getBureau().getId() != null) {
+            stmt.setLong(7, affaire.getBureau().getId());
+        } else if (affaire.getBureauId() != null) {
+            stmt.setLong(7, affaire.getBureauId());
         } else {
-            stmt.setNull(14, Types.BIGINT);
+            stmt.setNull(7, Types.BIGINT);
         }
 
-        stmt.setString(15, affaire.getCreatedBy());
-        stmt.setTimestamp(16, Timestamp.valueOf(affaire.getCreatedAt()));
+        // 8. service_id (optionnel)
+        if (affaire.getService() != null && affaire.getService().getId() != null) {
+            stmt.setLong(8, affaire.getService().getId());
+        } else if (affaire.getServiceId() != null) {
+            stmt.setLong(8, affaire.getServiceId());
+        } else {
+            stmt.setNull(8, Types.BIGINT);
+        }
+
+        // 9. created_by
+        stmt.setString(9, affaire.getCreatedBy() != null ? affaire.getCreatedBy() : "System");
+
+        // 10. created_at
+        if (affaire.getCreatedAt() != null) {
+            stmt.setTimestamp(10, Timestamp.valueOf(affaire.getCreatedAt()));
+        } else {
+            stmt.setTimestamp(10, Timestamp.valueOf(LocalDateTime.now()));
+        }
     }
 
     @Override
     protected void setUpdateParameters(PreparedStatement stmt, Affaire affaire) throws SQLException {
-        stmt.setDate(1, Date.valueOf(affaire.getDateConstatation()));
-        stmt.setString(2, affaire.getLieuConstatation());
-        stmt.setString(3, affaire.getDescription());
-        stmt.setBigDecimal(4, affaire.getMontantTotal());
-        stmt.setBigDecimal(5, affaire.getMontantEncaisse());
-        stmt.setBigDecimal(6, affaire.getMontantAmendeTotal());
-        stmt.setString(7, affaire.getStatut().name());
-        stmt.setString(8, affaire.getObservations());
+        // 1. montant_amende_total
+        stmt.setBigDecimal(1, affaire.getMontantTotal() != null ? affaire.getMontantTotal() : BigDecimal.ZERO);
 
-        if (affaire.getContrevenantId() != null) {
-            stmt.setLong(9, affaire.getContrevenantId());
+        // 2. statut
+        if (affaire.getStatut() != null) {
+            stmt.setString(2, affaire.getStatut().name());
         } else {
-            stmt.setNull(9, Types.BIGINT);
+            stmt.setString(2, StatutAffaire.EN_COURS.name());
         }
 
-        if (affaire.getAgentVerbalisateur() != null && affaire.getAgentVerbalisateur().getId() != null) {
-            stmt.setLong(10, affaire.getAgentVerbalisateur().getId());
+        // 3. contrevenant_id
+        if (affaire.getContrevenant() != null && affaire.getContrevenant().getId() != null) {
+            stmt.setLong(3, affaire.getContrevenant().getId());
+        } else if (affaire.getContrevenantId() != null) {
+            stmt.setLong(3, affaire.getContrevenantId());
         } else {
-            stmt.setNull(10, Types.BIGINT);
+            stmt.setNull(3, Types.BIGINT);
         }
 
-        if (affaire.getBureauId() != null) {
-            stmt.setLong(11, affaire.getBureauId());
+        // 4. contravention_id
+        if (affaire.getContraventionId() != null) {
+            stmt.setLong(4, affaire.getContraventionId());
         } else {
-            stmt.setNull(11, Types.BIGINT);
+            stmt.setNull(4, Types.BIGINT);
         }
 
-        if (affaire.getServiceId() != null) {
-            stmt.setLong(12, affaire.getServiceId());
+        // 5. bureau_id
+        if (affaire.getBureau() != null && affaire.getBureau().getId() != null) {
+            stmt.setLong(5, affaire.getBureau().getId());
+        } else if (affaire.getBureauId() != null) {
+            stmt.setLong(5, affaire.getBureauId());
         } else {
-            stmt.setNull(12, Types.BIGINT);
+            stmt.setNull(5, Types.BIGINT);
         }
 
-        stmt.setString(13, affaire.getUpdatedBy());
-        stmt.setTimestamp(14, Timestamp.valueOf(LocalDateTime.now()));
-        stmt.setLong(15, affaire.getId());
+        // 6. service_id
+        if (affaire.getService() != null && affaire.getService().getId() != null) {
+            stmt.setLong(6, affaire.getService().getId());
+        } else if (affaire.getServiceId() != null) {
+            stmt.setLong(6, affaire.getServiceId());
+        } else {
+            stmt.setNull(6, Types.BIGINT);
+        }
+
+        // 7. updated_by
+        stmt.setString(7, affaire.getUpdatedBy() != null ? affaire.getUpdatedBy() : "System");
+
+        // 8. updated_at
+        stmt.setTimestamp(8, Timestamp.valueOf(LocalDateTime.now()));
+
+        // 9. WHERE id = ?
+        stmt.setLong(9, affaire.getId());
     }
 
     @Override

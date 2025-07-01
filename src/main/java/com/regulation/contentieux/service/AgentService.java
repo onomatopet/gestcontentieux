@@ -5,6 +5,7 @@ import com.regulation.contentieux.model.Agent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -26,6 +27,22 @@ public class AgentService {
 
     /**
      * Recherche d'agents avec pagination
+     */
+    public List<Agent> searchAgents(String searchText, int limit) {
+        if (searchText == null || searchText.trim().length() < 2) {
+            return new ArrayList<>();
+        }
+
+        String search = searchText.trim();
+
+        // Utilise la méthode du DAO avec les paramètres appropriés
+        // Recherche uniquement les agents actifs avec une limite
+        return agentDAO.searchAgents(search, null, null, true, 0, limit);
+    }
+
+    /**
+     * Recherche d'agents avec pagination (méthode existante)
+     * Cette méthode est utilisée pour la liste principale avec tous les filtres
      */
     public List<Agent> searchAgents(String nomOuPrenom, String grade, Long serviceId,
                                     Boolean actif, int page, int pageSize) {

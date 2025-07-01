@@ -1539,19 +1539,20 @@ public class AffaireEncaissementController implements Initializable {
                 affaire.setContrevenant(contrevenantCombo.getValue());
                 affaire.setStatut(StatutAffaire.OUVERTE);
 
-                // Infraction
+                // CORRECTION : Définir contraventionId pour la compatibilité avec la BD
                 if (contraventionCombo.getValue() != null) {
-                    // L'affaire a maintenant une liste de contraventions, pas une seule
+                    Contravention contraventionSelectionnee = contraventionCombo.getValue();
+                    // Définir l'ID de la contravention pour la colonne NOT NULL de la BD
+                    affaire.setContraventionId(contraventionSelectionnee.getId());
+
+                    // Aussi créer la liste pour le modèle
                     List<Contravention> contraventions = new ArrayList<>();
-                    contraventions.add(contraventionCombo.getValue());
+                    contraventions.add(contraventionSelectionnee);
                     affaire.setContraventions(contraventions);
-                } else {
-                    // Créer une contravention libre
-                    Contravention contraventionLibre = new Contravention();
-                    contraventionLibre.setDescription(contraventionLibreField.getText());
-                    List<Contravention> contraventions = new ArrayList<>();
-                    contraventions.add(contraventionLibre);
-                    affaire.setContraventions(contraventions);
+                } else if (!contraventionLibreField.getText().trim().isEmpty()) {
+                    // Pour une contravention libre, il faut d'abord la créer dans la BD
+                    // puis utiliser son ID. Pour l'instant, on doit avoir une contravention existante
+                    throw new IllegalStateException("Une contravention existante doit être sélectionnée");
                 }
 
                 affaire.setMontantAmendeTotal(montantAmendeTotal);

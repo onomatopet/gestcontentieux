@@ -44,13 +44,12 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
     @Override
     protected String getInsertQuery() {
         return """
-        INSERT INTO affaires (numero_affaire, date_creation, 
-                            montant_amende_total, montant_encaisse,
-                            montant_amende_total, statut, 
-                            contrevenant_id,
-                            bureau_id, service_id, created_by, created_at) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """;
+    INSERT INTO affaires (numero_affaire, date_creation, 
+                        montant_amende_total, statut, 
+                        contrevenant_id, contravention_id,
+                        bureau_id, service_id, created_by, created_at) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+""";
     }
 
     @Override
@@ -223,7 +222,8 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
         stmt.setDate(2, Date.valueOf(affaire.getDateCreation()));
 
         // 3. montant_amende_total
-        stmt.setBigDecimal(3, affaire.getMontantTotal() != null ? affaire.getMontantTotal() : BigDecimal.ZERO);
+        stmt.setBigDecimal(3, affaire.getMontantTotal() != null ?
+                affaire.getMontantTotal() : BigDecimal.ZERO);
 
         // 4. statut
         if (affaire.getStatut() != null) {

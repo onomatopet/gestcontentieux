@@ -25,7 +25,10 @@ import javafx.stage.Stage;
 import javafx.util.Callback;
 import javafx.util.StringConverter;
 import org.slf4j.Logger;
+import com.regulation.contentieux.util.CurrencyFormatter;
 import org.slf4j.LoggerFactory;
+
+import java.math.RoundingMode;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -222,12 +225,12 @@ public class AffaireEncaissementController implements Initializable {
                     public TableCell<ActeurViewModel, Void> call(final TableColumn<ActeurViewModel, Void> param) {
                         final TableCell<ActeurViewModel, Void> cell = new TableCell<ActeurViewModel, Void>() {
                             private final Button btn = new Button("Retirer");
+
                             {
                                 btn.setOnAction((ActionEvent event) -> {
                                     ActeurViewModel data = getTableView().getItems().get(getIndex());
                                     acteursList.remove(data);
                                 });
-                                btn.setStyle("-fx-font-size: 11px; -fx-padding: 2 5;");
                             }
 
                             @Override
@@ -253,36 +256,26 @@ public class AffaireEncaissementController implements Initializable {
     /**
      * Affiche le dialogue d'ajout d'acteur
      */
-    @FXML
     private void showAddActeurDialog() {
-        Dialog<ButtonType> dialog = new Dialog<>();
+        Dialog<Agent> dialog = new Dialog<>();
         dialog.setTitle("Ajouter un acteur");
-        dialog.setHeaderText("Sélectionner un agent et son rôle");
-        dialog.initOwner(dialogStage);
+        dialog.setHeaderText("Sélectionnez un agent et son rôle");
 
-        // Créer le contenu du dialogue
+        // Boutons
+        ButtonType addButtonType = new ButtonType("Ajouter", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(addButtonType, ButtonType.CANCEL);
+
+        // Contenu
         GridPane grid = new GridPane();
         grid.setHgap(10);
         grid.setVgap(10);
         grid.setPadding(new Insets(20, 150, 10, 10));
 
-        // ComboBox éditable pour la recherche
         ComboBox<Agent> agentCombo = new ComboBox<>();
-        agentCombo.setEditable(true);
-        agentCombo.setPrefWidth(300);
-        agentCombo.setPromptText("Rechercher un agent...");
-
-        // Charger tous les agents actifs
-        List<Agent> allAgents = agentService.findActiveAgents();
-        ObservableList<Agent> agentsList = FXCollections.observableArrayList(allAgents);
-        agentCombo.setItems(agentsList);
-
-        // Configurer la recherche
         agentCombo.setConverter(new StringConverter<Agent>() {
             @Override
             public String toString(Agent agent) {
-                return agent != null ?
-                        agent.getCodeAgent() + " - " + agent.getNom() + " " + agent.getPrenom() : "";
+                return agent != null ? agent.getCodeAgent() + " - " + agent.getNom() + " " + agent.getPrenom() : "";
             }
 
             @Override
@@ -291,69 +284,42 @@ public class AffaireEncaissementController implements Initializable {
             }
         });
 
-        // Auto-complétion
-        agentCombo.getEditor().textProperty().addListener((obs, oldValue, newValue) -> {
-            if (newValue != null && !newValue.isEmpty()) {
-                ObservableList<Agent> filteredList = FXCollections.observableArrayList(
-                        allAgents.stream()
-                                .filter(agent -> {
-                                    String searchText = newValue.toLowerCase();
-                                    return agent.getCodeAgent().toLowerCase().contains(searchText) ||
-                                            agent.getNom().toLowerCase().contains(searchText) ||
-                                            agent.getPrenom().toLowerCase().contains(searchText);
-                                })
-                                .collect(Collectors.toList())
-                );
-                agentCombo.setItems(filteredList);
-                if (!filteredList.isEmpty()) {
-                    agentCombo.show();
-                }
-            } else {
-                agentCombo.setItems(FXCollections.observableArrayList(allAgents));
-            }
-        });
-
-        // Checkboxes pour les rôles
         CheckBox saisissantCheck = new CheckBox("Saisissant");
         CheckBox chefCheck = new CheckBox("Chef");
 
-        // Layout
         grid.add(new Label("Agent:"), 0, 0);
-        grid.add(agentCombo, 1, 0, 2, 1);
-
-        grid.add(new Label("Rôle(s):"), 0, 1);
+        grid.add(agentCombo, 1, 0);
+        grid.add(new Label("Rôles:"), 0, 1);
         grid.add(saisissantCheck, 1, 1);
-        grid.add(chefCheck, 2, 1);
+        grid.add(chefCheck, 1, 2);
 
         dialog.getDialogPane().setContent(grid);
 
-        // Boutons
-        ButtonType choisirButtonType = new ButtonType("Choisir", ButtonBar.ButtonData.OK_DONE);
-        dialog.getDialogPane().getButtonTypes().addAll(choisirButtonType, ButtonType.CANCEL);
-
-        // Validation
-        Button choisirButton = (Button) dialog.getDialogPane().lookupButton(choisirButtonType);
-        choisirButton.setDisable(true);
-
-        // Activer le bouton Choisir seulement si un agent est sélectionné et au moins un rôle coché
-        Runnable validation = () -> {
-            boolean valid = agentCombo.getValue() != null &&
-                    (saisissantCheck.isSelected() || chefCheck.isSelected());
-            choisirButton.setDisable(!valid);
+        // Charger les agents
+        Task<List<Agent>> loadAgentsTask = new Task<>() {
+            @Override
+            protected List<Agent> call() throws Exception {
+                return agentService.findActiveAgents();
+            }
         };
 
-        agentCombo.valueProperty().addListener((obs, oldVal, newVal) -> validation.run());
-        saisissantCheck.selectedProperty().addListener((obs, oldVal, newVal) -> validation.run());
-        chefCheck.selectedProperty().addListener((obs, oldVal, newVal) -> validation.run());
+        loadAgentsTask.setOnSucceeded(e -> {
+            agentCombo.getItems().setAll(loadAgentsTask.getValue());
+        });
 
-        // Focus sur la combo
-        Platform.runLater(() -> agentCombo.requestFocus());
+        new Thread(loadAgentsTask).start();
 
-        // Traiter le résultat
-        Optional<ButtonType> result = dialog.showAndWait();
-        if (result.isPresent() && result.get() == choisirButtonType) {
-            Agent selectedAgent = agentCombo.getValue();
+        // Convertir le résultat
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == addButtonType) {
+                return agentCombo.getValue();
+            }
+            return null;
+        });
 
+        Optional<Agent> result = dialog.showAndWait();
+
+        result.ifPresent(selectedAgent -> {
             // Ajouter comme saisissant si coché
             if (saisissantCheck.isSelected()) {
                 if (!isAgentAlreadyInRole(selectedAgent, "SAISISSANT")) {
@@ -373,7 +339,7 @@ public class AffaireEncaissementController implements Initializable {
                             "Cet agent est déjà chef dans cette affaire.");
                 }
             }
-        }
+        });
     }
 
     /**
@@ -439,8 +405,7 @@ public class AffaireEncaissementController implements Initializable {
         contraventionCombo.setConverter(new StringConverter<Contravention>() {
             @Override
             public String toString(Contravention contravention) {
-                return contravention != null ?
-                        contravention.getCode() + " - " + contravention.getLibelle() : "";
+                return contravention != null ? contravention.getDescription() : "";
             }
 
             @Override
@@ -449,11 +414,7 @@ public class AffaireEncaissementController implements Initializable {
             }
         });
 
-        // Mode de règlement
-        modeReglementCombo.setItems(FXCollections.observableArrayList(ModeReglement.values()));
-        modeReglementCombo.setValue(ModeReglement.ESPECES);
-
-        // Configuration des autres ComboBox
+        // Configuration du StringConverter pour Centre
         centreCombo.setConverter(new StringConverter<Centre>() {
             @Override
             public String toString(Centre centre) {
@@ -466,6 +427,7 @@ public class AffaireEncaissementController implements Initializable {
             }
         });
 
+        // Configuration du StringConverter pour Service
         serviceCombo.setConverter(new StringConverter<Service>() {
             @Override
             public String toString(Service service) {
@@ -478,6 +440,7 @@ public class AffaireEncaissementController implements Initializable {
             }
         });
 
+        // Configuration du StringConverter pour Bureau
         bureauCombo.setConverter(new StringConverter<Bureau>() {
             @Override
             public String toString(Bureau bureau) {
@@ -490,6 +453,20 @@ public class AffaireEncaissementController implements Initializable {
             }
         });
 
+        // Configuration du StringConverter pour ModeReglement
+        modeReglementCombo.setConverter(new StringConverter<ModeReglement>() {
+            @Override
+            public String toString(ModeReglement mode) {
+                return mode != null ? mode.getLibelle() : "";
+            }
+
+            @Override
+            public ModeReglement fromString(String string) {
+                return null;
+            }
+        });
+
+        // Configuration du StringConverter pour Banque
         banqueCombo.setConverter(new StringConverter<Banque>() {
             @Override
             public String toString(Banque banque) {
@@ -558,10 +535,6 @@ public class AffaireEncaissementController implements Initializable {
         if (addActeurButton != null) {
             addActeurButton.setOnAction(e -> showAddActeurDialog());
         }
-
-        // Boutons de contrôle
-        validerBtn.setOnAction(e -> validerCreation());
-        annulerBtn.setOnAction(e -> dialogStage.close());
     }
 
     /**
@@ -571,195 +544,257 @@ public class AffaireEncaissementController implements Initializable {
         Task<List<Contrevenant>> task = new Task<>() {
             @Override
             protected List<Contrevenant> call() throws Exception {
-                return contrevenantService.getAllContrevenants(1, Integer.MAX_VALUE);
+                return contrevenantService.getAllContrevenants();
             }
         };
 
         task.setOnSucceeded(e -> {
-            List<Contrevenant> contrevenants = task.getValue();
-            contrevenantCombo.setItems(FXCollections.observableArrayList(contrevenants));
+            contrevenantCombo.getItems().setAll(task.getValue());
         });
 
         new Thread(task).start();
     }
 
     /**
-     * Mise à jour du solde restant et de la barre de progression
+     * Charge les contraventions
+     */
+    private void loadContraventions() {
+        Task<List<Contravention>> task = new Task<>() {
+            @Override
+            protected List<Contravention> call() throws Exception {
+                return contraventionService.getAllContraventions();
+            }
+        };
+
+        task.setOnSucceeded(e -> {
+            contraventionCombo.getItems().setAll(task.getValue());
+        });
+
+        new Thread(task).start();
+    }
+
+    /**
+     * Charge les centres
+     */
+    private void loadCentres() {
+        Task<List<Centre>> task = new Task<>() {
+            @Override
+            protected List<Centre> call() throws Exception {
+                return centreService.getAllCentres();
+            }
+        };
+
+        task.setOnSucceeded(e -> {
+            centreCombo.getItems().setAll(task.getValue());
+        });
+
+        new Thread(task).start();
+    }
+
+    /**
+     * Charge les services
+     */
+    private void loadServices() {
+        Task<List<Service>> task = new Task<>() {
+            @Override
+            protected List<Service> call() throws Exception {
+                return serviceService.getAllServices();
+            }
+        };
+
+        task.setOnSucceeded(e -> {
+            serviceCombo.getItems().setAll(task.getValue());
+        });
+
+        new Thread(task).start();
+    }
+
+    /**
+     * Charge les bureaux
+     */
+    private void loadBureaux() {
+        Task<List<Bureau>> task = new Task<>() {
+            @Override
+            protected List<Bureau> call() throws Exception {
+                return bureauService.getAllBureaux();
+            }
+        };
+
+        task.setOnSucceeded(e -> {
+            bureauCombo.getItems().setAll(task.getValue());
+        });
+
+        new Thread(task).start();
+    }
+
+    /**
+     * Charge les banques
+     */
+    private void loadBanques() {
+        Task<List<Banque>> task = new Task<>() {
+            @Override
+            protected List<Banque> call() throws Exception {
+                return banqueService.getAllBanques();
+            }
+        };
+
+        task.setOnSucceeded(e -> {
+            banqueCombo.getItems().setAll(task.getValue());
+        });
+
+        new Thread(task).start();
+    }
+
+    /**
+     * Charge les agents pour l'indicateur
+     */
+    private void loadIndicateurAgents() {
+        Task<List<Agent>> task = new Task<>() {
+            @Override
+            protected List<Agent> call() throws Exception {
+                return agentService.findActiveAgents();
+            }
+        };
+
+        task.setOnSucceeded(e -> {
+            indicateurAgentCombo.getItems().setAll(task.getValue());
+        });
+
+        new Thread(task).start();
+    }
+
+    /**
+     * Charge toutes les données initiales
+     */
+    private void loadInitialData() {
+        loadContrevenants();
+        loadContraventions();
+        loadCentres();
+        loadServices();
+        loadBureaux();
+        loadBanques();
+        loadIndicateurAgents();
+
+        // Modes de règlement
+        modeReglementCombo.getItems().setAll(ModeReglement.values());
+    }
+
+    /**
+     * Met à jour le solde restant
      */
     private void updateSoldeRestant() {
         try {
-            BigDecimal amende = new BigDecimal(montantAmendeField.getText().trim());
-            BigDecimal encaisse = new BigDecimal(montantEncaisseField.getText().trim());
+            BigDecimal amende = new BigDecimal(montantAmendeField.getText());
+            BigDecimal encaisse = new BigDecimal(montantEncaisseField.getText());
             BigDecimal solde = amende.subtract(encaisse);
 
             soldeRestantLabel.setText(CurrencyFormatter.format(solde));
 
-            // Barre de progression
-            double progress = encaisse.doubleValue() / amende.doubleValue();
-            paiementProgress.setProgress(Math.min(progress, 1.0));
+            // Mettre à jour la barre de progression
+            double progress = encaisse.divide(amende, 2, RoundingMode.HALF_UP).doubleValue();
+            paiementProgress.setProgress(progress);
 
-            // Style selon le statut
-            if (progress >= 1.0) {
-                paiementProgress.setStyle("-fx-accent: green;");
+            // Colorer selon le solde
+            if (solde.compareTo(BigDecimal.ZERO) == 0) {
                 soldeRestantLabel.setStyle("-fx-text-fill: green;");
-            } else if (progress >= 0.5) {
-                paiementProgress.setStyle("-fx-accent: orange;");
+            } else if (solde.compareTo(BigDecimal.ZERO) > 0) {
                 soldeRestantLabel.setStyle("-fx-text-fill: orange;");
             } else {
-                paiementProgress.setStyle("-fx-accent: red;");
                 soldeRestantLabel.setStyle("-fx-text-fill: red;");
             }
-
-        } catch (NumberFormatException e) {
-            soldeRestantLabel.setText("0 FCFA");
+        } catch (Exception e) {
+            soldeRestantLabel.setText("0");
             paiementProgress.setProgress(0);
         }
     }
 
     /**
-     * Validation du montant encaissé
+     * Valide l'encaissement
      */
     private void validateEncaissement() {
         try {
-            BigDecimal amende = new BigDecimal(montantAmendeField.getText().trim());
-            BigDecimal encaisse = new BigDecimal(montantEncaisseField.getText().trim());
+            BigDecimal amende = new BigDecimal(montantAmendeField.getText());
+            BigDecimal encaisse = new BigDecimal(montantEncaisseField.getText());
 
             if (encaisse.compareTo(amende) > 0) {
-                montantEncaisseField.setStyle("-fx-border-color: red;");
-                statusLabel.setText("⚠️ Le montant encaissé ne peut pas dépasser l'amende");
-                statusLabel.setStyle("-fx-text-fill: red;");
+                statusLabel.setText("Attention : Montant encaissé supérieur à l'amende");
+                statusLabel.setStyle("-fx-text-fill: orange;");
             } else {
-                montantEncaisseField.setStyle("");
                 statusLabel.setText("");
             }
-
-        } catch (NumberFormatException e) {
-            // Ignorer
+        } catch (Exception e) {
+            // Ignorer les erreurs de parsing
         }
     }
 
     /**
-     * Chargement des données initiales
+     * Handler pour le bouton Valider
      */
-    private void loadInitialData() {
-        Task<Void> loadTask = new Task<>() {
-            @Override
-            protected Void call() throws Exception {
-                // Chargement complet des données
-                List<Contrevenant> contrevenants = contrevenantService.getAllContrevenants(1, Integer.MAX_VALUE);
-                List<Contravention> contraventions = contraventionService.getAllContraventions(1, Integer.MAX_VALUE);
-                List<Centre> centres = centreService.getAllCentres();
-                List<Service> services = serviceService.getAllServices();
-                List<Bureau> bureaux = bureauService.getAllBureaux();
-                List<Banque> banques = banqueService.getAllBanques();
-                List<Agent> agents = agentService.getAllAgents(1, Integer.MAX_VALUE);
-
-                // Générer les numéros
-                String numeroAffaire = affaireService.genererNumeroAffaire();
-                String numeroEncaissement = encaissementService.generateNextNumeroEncaissement();
-
-                Platform.runLater(() -> {
-                    contrevenantCombo.setItems(FXCollections.observableArrayList(contrevenants));
-                    contraventionCombo.setItems(FXCollections.observableArrayList(contraventions));
-                    centreCombo.setItems(FXCollections.observableArrayList(centres));
-                    serviceCombo.setItems(FXCollections.observableArrayList(services));
-                    bureauCombo.setItems(FXCollections.observableArrayList(bureaux));
-                    banqueCombo.setItems(FXCollections.observableArrayList(banques));
-
-                    // Filtrer les agents actifs pour l'indicateur
-                    List<Agent> agentsActifs = agents.stream()
-                            .filter(Agent::isActif)
-                            .collect(Collectors.toList());
-
-                    indicateurAgentCombo.setItems(FXCollections.observableArrayList(agentsActifs));
-
-                    // Afficher les numéros générés
-                    numeroAffaireField.setText(numeroAffaire);
-                    numeroEncaissementField.setText(numeroEncaissement);
-                });
-
-                return null;
-            }
-        };
-
-        loadTask.setOnFailed(e -> {
-            logger.error("Erreur chargement données", loadTask.getException());
-            Platform.runLater(() ->
-                    AlertUtil.showError("Erreur", "Erreur lors du chargement des données")
-            );
-        });
-
-        new Thread(loadTask).start();
+    @FXML
+    private void handleValider() {
+        validerCreation();
     }
 
     /**
-     * Validation et création de l'affaire avec encaissement
+     * Handler pour le bouton Annuler
+     */
+    @FXML
+    private void handleAnnuler() {
+        if (dialogStage != null) {
+            dialogStage.close();
+        }
+    }
+
+    /**
+     * Valide et crée l'affaire avec encaissement
      */
     private void validerCreation() {
-        if (isCreating) return;
-
-        // Validation complète
+        // Valider le formulaire
         List<String> errors = validateForm();
         if (!errors.isEmpty()) {
-            AlertUtil.showError("Erreurs de validation", String.join("\n", errors));
+            AlertUtil.showError("Erreur de validation",
+                    "Veuillez corriger les erreurs suivantes :",
+                    String.join("\n", errors));
             return;
         }
 
-        isCreating = true;
+        // Désactiver les boutons pendant la création
         validerBtn.setDisable(true);
+        annulerBtn.setDisable(true);
         statusLabel.setText("Création en cours...");
+        statusLabel.setStyle("-fx-text-fill: blue;");
 
-        Task<Affaire> createTask = new Task<>() {
+        // Créer l'affaire et l'encaissement
+        Task<Void> createTask = new Task<>() {
             @Override
-            protected Affaire call() throws Exception {
+            protected Void call() throws Exception {
                 // Créer l'affaire
                 Affaire affaire = new Affaire();
                 affaire.setNumeroAffaire(numeroAffaireField.getText());
                 affaire.setDateCreation(dateCreationPicker.getValue());
+                affaire.setContrevenant(contrevenantCombo.getValue());
+                affaire.setStatut(StatutAffaire.OUVERTE);
 
-                // Contrevenant
-                if (contrevenantCombo.getValue() != null) {
-                    affaire.setContrevenant(contrevenantCombo.getValue());
-                    affaire.setContrevenantId(contrevenantCombo.getValue().getId());
-                }
-
-                // Montant
-                affaire.setMontantAmendeTotal(new BigDecimal(montantAmendeField.getText()));
-                affaire.setStatut(StatutAffaire.EN_COURS);
-
-                // Localisation
-                if (serviceCombo.getValue() != null) {
-                    affaire.setService(serviceCombo.getValue());
-                    affaire.setServiceId(serviceCombo.getValue().getId());
-                }
-                if (bureauCombo.getValue() != null) {
-                    affaire.setBureau(bureauCombo.getValue());
-                    affaire.setBureauId(bureauCombo.getValue().getId());
-                }
-
-                // Gestion de la relation many-to-many avec Centre
-                List<AffaireCentre> centresAssocies = new ArrayList<>();
-                if (centreCombo.getValue() != null) {
-                    AffaireCentre affaireCentre = new AffaireCentre();
-                    affaireCentre.setCentreId(centreCombo.getValue().getId());
-                    affaireCentre.setCentre(centreCombo.getValue());
-                    affaireCentre.setMontantBase(new BigDecimal(montantAmendeField.getText()));
-                    affaireCentre.setMontantIndicateur(BigDecimal.ZERO);
-                    centresAssocies.add(affaireCentre);
-                }
-                affaire.setCentresAssocies(centresAssocies);
-
-                // Contraventions
-                List<Contravention> contraventions = new ArrayList<>();
+                // Infraction
                 if (contraventionCombo.getValue() != null) {
+                    // L'affaire a maintenant une liste de contraventions, pas une seule
+                    List<Contravention> contraventions = new ArrayList<>();
                     contraventions.add(contraventionCombo.getValue());
-                } else if (!contraventionLibreField.getText().isEmpty()) {
-                    Contravention libre = new Contravention();
-                    libre.setLibelle(contraventionLibreField.getText());
-                    libre.setMontant(new BigDecimal(montantAmendeField.getText()));
-                    contraventions.add(libre);
+                    affaire.setContraventions(contraventions);
+                } else {
+                    // Créer une contravention libre
+                    Contravention contraventionLibre = new Contravention();
+                    contraventionLibre.setDescription(contraventionLibreField.getText());
+                    List<Contravention> contraventions = new ArrayList<>();
+                    contraventions.add(contraventionLibre);
+                    affaire.setContraventions(contraventions);
                 }
-                affaire.setContraventions(contraventions);
+
+                affaire.setMontantAmendeTotal(new BigDecimal(montantAmendeField.getText()));
+
+                // Centre n'est pas directement sur l'affaire, il est lié via le service ou le bureau
+                affaire.setService(serviceCombo.getValue());
+                affaire.setBureau(bureauCombo.getValue());
 
                 // Créer l'encaissement
                 Encaissement encaissement = new Encaissement();
@@ -767,60 +802,65 @@ public class AffaireEncaissementController implements Initializable {
                 encaissement.setDateEncaissement(dateEncaissementPicker.getValue());
                 encaissement.setMontantEncaisse(new BigDecimal(montantEncaisseField.getText()));
                 encaissement.setModeReglement(modeReglementCombo.getValue());
-                encaissement.setStatut(StatutEncaissement.VALIDE);
 
                 if (modeReglementCombo.getValue() == ModeReglement.CHEQUE) {
-                    if (banqueCombo.getValue() != null) {
-                        encaissement.setBanqueId(banqueCombo.getValue().getId());
-                    }
+                    encaissement.setBanqueId(banqueCombo.getValue().getId());
                     encaissement.setNumeroPiece(numeroChequeField.getText());
                 }
 
-                // Créer les acteurs depuis la TableView
+                // Préparer les acteurs
                 List<AffaireActeur> acteurs = new ArrayList<>();
-                for (ActeurViewModel acteurVM : acteursList) {
+                for (ActeurViewModel vm : acteursList) {
                     AffaireActeur acteur = new AffaireActeur();
-                    acteur.setAgent(acteurVM.getAgent());
-                    acteur.setAgentId(acteurVM.getAgent().getId());
-                    acteur.setRoleSurAffaire(acteurVM.getRole());
+                    acteur.setAgent(vm.getAgent());
+                    acteur.setRoleSurAffaire(vm.getRole());
                     acteurs.add(acteur);
                 }
 
-                // Gérer l'indicateur
+                // Indicateur
                 if (indicateurCheck.isSelected()) {
                     if (indicateurAgentCombo.getValue() != null) {
                         AffaireActeur indicateur = new AffaireActeur();
                         indicateur.setAgent(indicateurAgentCombo.getValue());
-                        indicateur.setAgentId(indicateurAgentCombo.getValue().getId());
                         indicateur.setRoleSurAffaire("INDICATEUR");
                         acteurs.add(indicateur);
+                    } else if (!nomIndicateurField.getText().isEmpty()) {
+                        // Note: Le nom de l'indicateur externe n'est pas stocké directement dans l'affaire
+                        // Vous devrez peut-être ajouter cette propriété au modèle Affaire si nécessaire
                     }
                 }
 
-                // Appeler le service pour créer le tout
-                return affaireService.createAffaireAvecEncaissement(affaire, encaissement, acteurs);
+                // Sauvegarder via le service
+                createdAffaire = affaireService.createAffaireAvecEncaissement(affaire, encaissement, acteurs);
+
+                return null;
             }
         };
 
         createTask.setOnSucceeded(e -> {
-            createdAffaire = createTask.getValue();
             Platform.runLater(() -> {
+                statusLabel.setText("Affaire créée avec succès !");
+                statusLabel.setStyle("-fx-text-fill: green;");
+
                 AlertUtil.showSuccess("Succès",
-                        String.format("Affaire %s créée avec succès\nEncaissement de %s FCFA enregistré",
-                                createdAffaire.getNumeroAffaire(),
-                                montantEncaisseField.getText()));
+                        "L'affaire " + createdAffaire.getNumeroAffaire() + " a été créée avec succès.");
+
                 closeDialog();
             });
         });
 
         createTask.setOnFailed(e -> {
-            isCreating = false;
-            validerBtn.setDisable(false);
-            statusLabel.setText("");
+            Platform.runLater(() -> {
+                validerBtn.setDisable(false);
+                annulerBtn.setDisable(false);
+                statusLabel.setText("Erreur lors de la création");
+                statusLabel.setStyle("-fx-text-fill: red;");
 
-            Throwable error = createTask.getException();
-            logger.error("Erreur lors de la création", error);
-            AlertUtil.showError("Erreur", "Impossible de créer l'affaire", error.getMessage());
+                logger.error("Erreur création affaire", createTask.getException());
+                AlertUtil.showError("Erreur",
+                        "Impossible de créer l'affaire",
+                        createTask.getException().getMessage());
+            });
         });
 
         new Thread(createTask).start();

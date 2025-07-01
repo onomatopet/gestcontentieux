@@ -1098,3 +1098,86 @@
 2025-07-01 13:05:52.565 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des raccourcis globaux
 2025-07-01 13:05:52.565 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Gestionnaires d'événements configurés
 2025-07-01 13:05:52.566 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration du menu Gestion des Mandats
+2025-07-01 13:27:59.992 [JavaFX-Launcher] DEBUG c.r.c.util.DatabaseSchemaUpdate - Schéma de base de données à jour
+2025-07-01 13:28:08.080 [JavaFX-Launcher] DEBUG com.regulation.contentieux.Main - ✅ Connexion SQLite établie
+2025-07-01 13:28:08.244 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - 🔧 Vérification de la base de données...
+2025-07-01 13:28:08.316 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - ✅ Tables manquantes initialisées
+2025-07-01 13:28:08.317 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - 🔍 Vérification des tables de base de données...
+2025-07-01 13:28:08.370 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Table utilisateurs vérifiée: 1 enregistrements
+2025-07-01 13:28:08.404 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Table affaires vérifiée: 30377 enregistrements
+2025-07-01 13:28:08.412 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Table contrevenants vérifiée: 20222 enregistrements
+2025-07-01 13:28:08.416 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Table agents vérifiée: 2890 enregistrements
+2025-07-01 13:28:08.419 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - ✅ Table affaire_contraventions: 0 enregistrements
+2025-07-01 13:28:08.419 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - ✅ Table affaire_acteurs: 570601 enregistrements
+2025-07-01 13:28:08.419 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - ✅ Table roles_speciaux: 0 enregistrements
+2025-07-01 13:28:08.427 [JavaFX Application Thread] DEBUG c.r.contentieux.util.StageManager - ⚠️ Icône non trouvée: /images/icon.png
+2025-07-01 13:28:08.431 [JavaFX Application Thread] DEBUG c.r.contentieux.util.StageManager - ✅ Stage principal configuré
+2025-07-01 13:28:08.432 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Icône d'application non trouvée: /images/app-icon.png
+2025-07-01 13:28:08.433 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - 🎭 Chargement de l'interface de connexion...
+2025-07-01 13:28:08.433 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - 🎭 Chargement robuste de l'interface de connexion...
+2025-07-01 13:28:08.712 [JavaFX Application Thread] DEBUG c.r.c.controller.LoginController - LoginController initialisé
+2025-07-01 13:28:48.296 [JavaFX Application Thread] DEBUG c.r.contentieux.dao.UtilisateurDAO - Entité mise à jour avec succès: Utilisateur{id=1, login='admin', nom='Système', prenom='Administrateur', role=Super Administrateur, actif=true}
+2025-07-01 13:28:48.391 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Informations utilisateur configurées: Administrateur Système
+2025-07-01 13:28:48.392 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Affaires - Accès: true
+2025-07-01 13:28:48.392 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Agents - Accès: true
+2025-07-01 13:28:48.392 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Contrevenants - Accès: true
+2025-07-01 13:28:48.392 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Encaissements - Accès: true
+2025-07-01 13:28:48.392 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Rapports - Accès: true
+2025-07-01 13:28:48.392 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Administration - Accès: true
+2025-07-01 13:28:48.402 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des handlers ToolBar...
+2025-07-01 13:28:48.430 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration de la navigation clavier...
+2025-07-01 13:28:48.430 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des gestionnaires de menus
+2025-07-01 13:28:48.431 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des raccourcis globaux
+2025-07-01 13:28:48.431 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Gestionnaires d'événements configurés
+2025-07-01 13:28:48.432 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration du menu Gestion des Mandats
+2025-07-01 13:28:53.733 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Nettoyage des ressources terminé
+2025-07-01 13:29:08.574 [JavaFX-Launcher] DEBUG c.r.c.util.DatabaseSchemaUpdate - Schéma de base de données à jour
+2025-07-01 13:29:10.770 [JavaFX-Launcher] DEBUG c.r.c.util.DatabaseSchemaUpdate - Schéma de base de données à jour
+2025-07-01 13:29:16.908 [JavaFX-Launcher] DEBUG com.regulation.contentieux.Main - ✅ Connexion SQLite établie
+2025-07-01 13:29:17.806 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - 🔧 Vérification de la base de données...
+2025-07-01 13:29:18.380 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - ✅ Tables manquantes initialisées
+2025-07-01 13:29:18.380 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - 🔍 Vérification des tables de base de données...
+2025-07-01 13:29:18.587 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Table utilisateurs vérifiée: 1 enregistrements
+2025-07-01 13:29:18.751 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Table affaires vérifiée: 30377 enregistrements
+2025-07-01 13:29:18.812 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Table contrevenants vérifiée: 20222 enregistrements
+2025-07-01 13:29:18.909 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Table agents vérifiée: 2890 enregistrements
+2025-07-01 13:29:18.911 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - ✅ Table affaire_contraventions: 0 enregistrements
+2025-07-01 13:29:18.933 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - ✅ Table affaire_acteurs: 570601 enregistrements
+2025-07-01 13:29:18.934 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - ✅ Table roles_speciaux: 0 enregistrements
+2025-07-01 13:29:18.969 [JavaFX Application Thread] DEBUG c.r.contentieux.util.StageManager - ⚠️ Icône non trouvée: /images/icon.png
+2025-07-01 13:29:18.989 [JavaFX Application Thread] DEBUG c.r.contentieux.util.StageManager - ✅ Stage principal configuré
+2025-07-01 13:29:18.990 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Icône d'application non trouvée: /images/app-icon.png
+2025-07-01 13:29:18.991 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - 🎭 Chargement de l'interface de connexion...
+2025-07-01 13:29:18.991 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - 🎭 Chargement robuste de l'interface de connexion...
+2025-07-01 13:29:19.719 [JavaFX-Launcher] DEBUG com.regulation.contentieux.Main - ✅ Connexion SQLite établie
+2025-07-01 13:29:19.895 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - 🔧 Vérification de la base de données...
+2025-07-01 13:29:19.953 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - ✅ Tables manquantes initialisées
+2025-07-01 13:29:19.954 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - 🔍 Vérification des tables de base de données...
+2025-07-01 13:29:19.973 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Table utilisateurs vérifiée: 1 enregistrements
+2025-07-01 13:29:19.987 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Table affaires vérifiée: 30377 enregistrements
+2025-07-01 13:29:19.993 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Table contrevenants vérifiée: 20222 enregistrements
+2025-07-01 13:29:20.002 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Table agents vérifiée: 2890 enregistrements
+2025-07-01 13:29:20.003 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - ✅ Table affaire_contraventions: 0 enregistrements
+2025-07-01 13:29:20.005 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - ✅ Table affaire_acteurs: 570601 enregistrements
+2025-07-01 13:29:20.005 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - ✅ Table roles_speciaux: 0 enregistrements
+2025-07-01 13:29:20.011 [JavaFX Application Thread] DEBUG c.r.contentieux.util.StageManager - ⚠️ Icône non trouvée: /images/icon.png
+2025-07-01 13:29:20.019 [JavaFX Application Thread] DEBUG c.r.contentieux.util.StageManager - ✅ Stage principal configuré
+2025-07-01 13:29:20.020 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Icône d'application non trouvée: /images/app-icon.png
+2025-07-01 13:29:20.021 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - 🎭 Chargement de l'interface de connexion...
+2025-07-01 13:29:20.021 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - 🎭 Chargement robuste de l'interface de connexion...
+2025-07-01 13:29:20.268 [JavaFX Application Thread] DEBUG c.r.c.controller.LoginController - LoginController initialisé
+2025-07-01 13:29:20.473 [JavaFX Application Thread] DEBUG c.r.c.controller.LoginController - LoginController initialisé
+2025-07-01 13:29:25.505 [JavaFX Application Thread] DEBUG c.r.contentieux.dao.UtilisateurDAO - Entité mise à jour avec succès: Utilisateur{id=1, login='admin', nom='Administrateur', prenom='Système', role=Super Administrateur, actif=true}
+2025-07-01 13:29:25.585 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Informations utilisateur configurées: Système Administrateur
+2025-07-01 13:29:25.585 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Affaires - Accès: true
+2025-07-01 13:29:25.586 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Agents - Accès: true
+2025-07-01 13:29:25.586 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Contrevenants - Accès: true
+2025-07-01 13:29:25.586 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Encaissements - Accès: true
+2025-07-01 13:29:25.586 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Rapports - Accès: true
+2025-07-01 13:29:25.586 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Administration - Accès: true
+2025-07-01 13:29:25.594 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des handlers ToolBar...
+2025-07-01 13:29:25.616 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration de la navigation clavier...
+2025-07-01 13:29:25.616 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des gestionnaires de menus
+2025-07-01 13:29:25.616 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des raccourcis globaux
+2025-07-01 13:29:25.616 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Gestionnaires d'événements configurés
+2025-07-01 13:29:25.618 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration du menu Gestion des Mandats

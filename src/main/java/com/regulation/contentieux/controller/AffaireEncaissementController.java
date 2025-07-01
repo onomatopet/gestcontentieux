@@ -11,8 +11,8 @@ import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
-import javafx.geometry.Insets;
 import javafx.scene.Parent;
+import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
@@ -319,7 +319,7 @@ public class AffaireEncaissementController implements Initializable {
         Task<List<Service>> loadTask = new Task<>() {
             @Override
             protected List<Service> call() throws Exception {
-                return serviceService.findByCentreId(centreId);
+                return serviceService.getServicesByCentre(centreId);
             }
         };
 
@@ -347,7 +347,7 @@ public class AffaireEncaissementController implements Initializable {
         Task<List<Bureau>> loadTask = new Task<>() {
             @Override
             protected List<Bureau> call() throws Exception {
-                return bureauService.findByServiceId(serviceId);
+                return bureauService.getBureauxByService(serviceId);
             }
         };
 

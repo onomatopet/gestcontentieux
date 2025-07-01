@@ -185,12 +185,18 @@ public class AgentService {
         return result;
     }
 
-    /**
-     * Liste tous les agents avec pagination
-     */
     public List<Agent> getAllAgents(int page, int pageSize) {
         int offset = (page - 1) * pageSize;
         return agentDAO.findAll(offset, pageSize);
+    }
+
+    /**
+     * Récupère tous les agents sans pagination
+     * Surcharge pour compatibilité avec AffaireEncaissementController
+     * @return Liste de tous les agents
+     */
+    public List<Agent> getAllAgents() {
+        return getAllAgents(1, Integer.MAX_VALUE);
     }
 
     /**

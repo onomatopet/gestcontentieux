@@ -82,35 +82,6 @@ public class ContrevenantService {
     }
 
     /**
-     * Récupère tous les contrevenants sans pagination
-     * Surcharge pour compatibilité avec AffaireEncaissementController
-     * @return Liste de tous les contrevenants
-     */
-    public List<Contrevenant> getAllContrevenants() {
-        return getAllContrevenants(1, Integer.MAX_VALUE);
-    }
-
-// === Dans ContraventionService.java ===
-    /**
-     * Récupère toutes les contraventions sans pagination
-     * Surcharge pour compatibilité avec AffaireEncaissementController
-     * @return Liste de toutes les contraventions
-     */
-    public List<Contravention> getAllContraventions() {
-        return getAllContraventions(1, Integer.MAX_VALUE);
-    }
-
-// === Dans AgentService.java ===
-    /**
-     * Récupère tous les agents sans pagination
-     * Surcharge pour compatibilité avec AffaireEncaissementController
-     * @return Liste de tous les agents
-     */
-    public List<Agent> getAllAgents() {
-        return getAllAgents(1, Integer.MAX_VALUE);
-    }
-
-    /**
      * Met à jour un contrevenant existant
      */
     public Contrevenant updateContrevenant(Contrevenant contrevenant) {
@@ -161,6 +132,15 @@ public class ContrevenantService {
     public List<Contrevenant> getAllContrevenants(int page, int pageSize) {
         int offset = (page - 1) * pageSize;
         return contrevenantDAO.findAll(offset, pageSize);
+    }
+
+    /**
+     * Récupère tous les contrevenants sans pagination
+     * Surcharge pour compatibilité avec AffaireEncaissementController
+     * @return Liste de tous les contrevenants
+     */
+    public List<Contrevenant> getAllContrevenants() {
+        return getAllContrevenants(1, Integer.MAX_VALUE);
     }
 
     /**

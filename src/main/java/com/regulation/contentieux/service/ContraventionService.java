@@ -147,6 +147,15 @@ public class ContraventionService {
     }
 
     /**
+     * Récupère toutes les contraventions sans pagination
+     * Surcharge pour compatibilité avec AffaireEncaissementController
+     * @return Liste de toutes les contraventions
+     */
+    public List<Contravention> getAllContraventions() {
+        return getAllContraventions(1, Integer.MAX_VALUE);
+    }
+
+    /**
      * Compte le nombre total de contraventions
      */
     public long getTotalCount() {

@@ -50,6 +50,8 @@ public class AffaireService {
         this.transactionManager = TransactionManager.getInstance();
     }
 
+    private final NumerotationService numerotationService = NumerotationService.getInstance();
+
     /**
      * NOUVELLE MÉTHODE : Crée une affaire avec son premier encaissement
      * Respecte la règle métier : "Pas d'affaire sans paiement"
@@ -187,6 +189,21 @@ public class AffaireService {
                 throw new BusinessException("Erreur lors de la création de l'affaire : " + e.getMessage());
             }
         });
+    }
+
+    public String genererNumeroAffaire() {
+        logger.debug("Génération d'un nouveau numéro d'affaire via NumerotationService");
+
+        try {
+            // Utiliser le service de numérotation centralisé
+            String numeroGenere = numerotationService.genererNumeroAffaire();
+            logger.info("Numéro d'affaire généré: {}", numeroGenere);
+            return numeroGenere;
+
+        } catch (Exception e) {
+            logger.error("Erreur lors de la génération du numéro d'affaire", e);
+            throw new RuntimeException("Impossible de générer le numéro d'affaire: " + e.getMessage(), e);
+        }
     }
 
     /**

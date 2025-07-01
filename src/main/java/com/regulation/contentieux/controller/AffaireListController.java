@@ -16,6 +16,7 @@ import javafx.fxml.Initializable;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.CheckBoxTableCell;
 import javafx.scene.layout.HBox;
+import javafx.stage.Stage;
 import javafx.util.StringConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -481,7 +482,19 @@ public class AffaireListController implements Initializable {
 
     private void onNewAffaire() {
         logger.info("Action: Nouvelle Affaire");
-        AlertUtil.showInfoAlert("Info", "Nouvelle Affaire", "Fonctionnalité en cours de développement");
+        try {
+            Stage currentStage = (Stage) affairesTableView.getScene().getWindow();
+            AffaireEncaissementController controller = new AffaireEncaissementController();
+            controller.showDialog(currentStage);
+
+            if (controller.getCreatedAffaire() != null) {
+                logger.info("Nouvelle affaire créée : {}", controller.getCreatedAffaire().getNumeroAffaire());
+                loadData();
+            }
+        } catch (Exception e) {
+            logger.error("Erreur lors de l'ouverture du dialogue", e);
+            AlertUtil.showErrorAlert("Erreur", "Impossible d'ouvrir le formulaire", e.getMessage());
+        }
     }
 
     private void onEditSelectedAffaire() {

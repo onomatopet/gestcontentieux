@@ -3,6 +3,7 @@ package com.regulation.contentieux.service;
 import com.regulation.contentieux.config.DatabaseConfig;
 import com.regulation.contentieux.exception.BusinessException;
 import com.regulation.contentieux.model.Mandat;
+import com.regulation.contentieux.model.enums.RoleUtilisateur;
 import com.regulation.contentieux.model.enums.StatutMandat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,8 +52,45 @@ public class MandatService {
      * Crée un nouveau mandat pour le mois en cours
      * ENRICHISSEMENT : Validation stricte et gestion d'état
      */
-    public Mandat creerNouveauMandat(String description) {
+    public Mandat creerNouveauMandat(String description, LocalDate dateDebut, LocalDate dateFin) {
         logger.info("🆕 === CRÉATION NOUVEAU MANDAT ===");
+
+        // Récupérer le rôle de l'utilisateur courant
+        RoleUtilisateur roleUtilisateur = AuthenticationService.getInstance().getCurrentUser().getRole();
+        boolean isSuperAdmin = (roleUtilisateur == RoleUtilisateur.SUPER_ADMIN);
+
+        // Validation des dates selon le rôle
+        LocalDate now = LocalDate.now();
+        LocalDate debutMoisCourant = now.withDayOfMonth(1);
+        LocalDate finMoisCourant = now.withDayOfMonth(now.lengthOfMonth());
+
+        if (!isSuperAdmin) {
+            // Pour les non SUPER_ADMIN, forcer les dates au mois courant
+            if (!dateDebut.equals(debutMoisCourant) || !dateFin.equals(finMoisCourant)) {
+                throw new BusinessException(
+                        "ERREUR : Vous ne pouvez créer des mandats que pour le mois en cours.\n" +
+                                "Pour créer un mandat d'une période différente, contactez un Super Administrateur."
+                );
+            }
+        } else {
+            // Pour SUPER_ADMIN, valider la cohérence des dates
+            if (dateDebut.isAfter(dateFin)) {
+                throw new BusinessException("La date de début doit être avant la date de fin");
+            }
+
+            // Vérifier que les dates sont dans le même mois
+            if (dateDebut.getMonth() != dateFin.getMonth() || dateDebut.getYear() != dateFin.getYear()) {
+                throw new BusinessException("Un mandat doit couvrir un seul mois calendaire");
+            }
+
+            // Vérifier que dateDebut est le premier jour du mois et dateFin le dernier
+            if (dateDebut.getDayOfMonth() != 1) {
+                throw new BusinessException("La date de début doit être le premier jour du mois");
+            }
+            if (dateFin.getDayOfMonth() != dateFin.lengthOfMonth()) {
+                throw new BusinessException("La date de fin doit être le dernier jour du mois");
+            }
+        }
 
         // VÉRIFICATION STRICTE : Un seul mandat actif autorisé
         Mandat mandatActifActuel = getMandatActif();
@@ -75,17 +113,16 @@ public class MandatService {
             );
         }
 
-        // Générer le numéro (format corrigé YYMMM0001)
-        String numeroMandat = genererNouveauMandat();
+        // Générer le numéro avec la date fournie
+        String numeroMandat = genererNouveauMandat(dateDebut);
 
         // Créer le mandat
         Mandat nouveauMandat = new Mandat();
         nouveauMandat.setNumeroMandat(numeroMandat);
         nouveauMandat.setDescription(description != null ? description :
-                "Mandat du mois " + YearMonth.now().format(DateTimeFormatter.ofPattern("MM/yyyy")));
-        nouveauMandat.setDateDebut(LocalDate.now().withDayOfMonth(1));
-        nouveauMandat.setDateFin(LocalDate.now().withDayOfMonth(
-                LocalDate.now().lengthOfMonth()));
+                "Mandat du mois " + dateDebut.format(DateTimeFormatter.ofPattern("MM/yyyy")));
+        nouveauMandat.setDateDebut(dateDebut);
+        nouveauMandat.setDateFin(dateFin);
         nouveauMandat.setStatut(StatutMandat.BROUILLON);
         nouveauMandat.setCreatedAt(LocalDateTime.now());
         nouveauMandat.setCreatedBy(AuthenticationService.getInstance().getCurrentUser().getLogin());
@@ -93,7 +130,8 @@ public class MandatService {
         // Sauvegarder en base
         sauvegarderMandat(nouveauMandat);
 
-        logger.info("✅ Mandat créé avec format corrigé : {}", numeroMandat);
+        logger.info("✅ Mandat créé avec format corrigé : {} pour la période {} - {}",
+                numeroMandat, dateDebut, dateFin);
         return nouveauMandat;
     }
 
@@ -332,41 +370,65 @@ public class MandatService {
      * Génère un nouveau numéro de mandat selon le format YYMM0001
      * ENRICHISSEMENT : Gestion robuste avec vérification d'unicité
      */
-    private String genererNouveauMandat() {
-        LocalDate now = LocalDate.now();
-        // Format : yyMM + M + 0001
-        String yearMonth = now.format(DateTimeFormatter.ofPattern("yyMM"));
-        String prefixe = yearMonth + "M";  // Ajouter le M obligatoire
+    private String genererNouveauMandat(LocalDate dateReference) {
+        logger.info("🔢 Génération d'un nouveau numéro de mandat pour la date : {}", dateReference);
 
-        logger.debug("🔍 Génération mandat pour période : {}", prefixe);
+        // Format CORRECT : YYMMM0001 (avec M séparateur) basé sur la date fournie
+        String prefixe = dateReference.format(DateTimeFormatter.ofPattern("yyMM")) + "M";
 
         // Rechercher le dernier mandat du mois
         String sql = """
-        SELECT numero_mandat FROM mandats
-        WHERE numero_mandat LIKE ?
-        ORDER BY numero_mandat DESC
+        SELECT numero_mandat 
+        FROM mandats 
+        WHERE numero_mandat LIKE ? 
+        ORDER BY numero_mandat DESC 
         LIMIT 1
     """;
+
+        String dernierNumero = null;
 
         try (Connection conn = DatabaseConfig.getSQLiteConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-            stmt.setString(1, prefixe + "%");
+            stmt.setString(1, prefixe.substring(0, 4) + "%"); // Recherche par YYMM%
             ResultSet rs = stmt.executeQuery();
 
             if (rs.next()) {
-                String lastMandat = rs.getString("numero_mandat");
-                return genererProchainNumero(lastMandat, prefixe);
-            } else {
-                // Premier mandat du mois
-                String numero = prefixe + "0001";
-                logger.info("🆕 Premier mandat du mois : {}", numero);
-                return numero;
+                dernierNumero = rs.getString("numero_mandat");
+                logger.debug("Dernier mandat trouvé : {}", dernierNumero);
             }
 
         } catch (SQLException e) {
-            logger.error("Erreur lors de la génération du numéro de mandat", e);
-            throw new RuntimeException("Impossible de générer le numéro de mandat", e);
+            logger.error("Erreur lors de la recherche du dernier mandat", e);
+        }
+
+        // Si aucun mandat ce mois-ci ou format invalide
+        if (dernierNumero == null || !dernierNumero.startsWith(prefixe)) {
+            return prefixe + "0001";
+        }
+
+        try {
+            // Extraire le numéro séquentiel (4 derniers caractères après le M)
+            String sequenceStr = dernierNumero.substring(prefixe.length());
+            int sequence = Integer.parseInt(sequenceStr);
+
+            // Incrémenter
+            sequence++;
+
+            // Vérifier la limite
+            if (sequence > 9999) {
+                throw new BusinessException("Limite de mandats atteinte pour ce mois (9999)");
+            }
+
+            // Formater avec padding
+            String nouveauNumero = prefixe + String.format("%04d", sequence);
+            logger.info("✅ Nouveau mandat généré : {}", nouveauNumero);
+
+            return nouveauNumero;
+
+        } catch (NumberFormatException e) {
+            logger.warn("Format invalide, génération d'un nouveau : {}", prefixe + "0001");
+            return prefixe + "0001";
         }
     }
 

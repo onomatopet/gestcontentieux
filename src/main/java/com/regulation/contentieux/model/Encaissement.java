@@ -108,12 +108,11 @@ public class Encaissement {
     }
 
     /**
-     * Alias pour getMontantEncaisse() - compatibilité RapportService
+     * Alias pour getMontantEncaisse(). Compatibilité RapportService
      */
 
-    public long getMontant() {
-        BigDecimal montant = getMontantEncaisse();
-        return montant != null ? montant.longValue() : 0L;
+    public BigDecimal getMontant() {
+        return getMontantEncaisse();
     }
 
     public boolean peutEtreAnnule() {
@@ -197,7 +196,6 @@ public class Encaissement {
 
     public BigDecimal getMontantEncaisse() { return montantEncaisse; }
     public void setMontantEncaisse(BigDecimal montantEncaisse) { this.montantEncaisse = montantEncaisse; }
-
 
     public ModeReglement getModeReglement() {
         return modeReglement;

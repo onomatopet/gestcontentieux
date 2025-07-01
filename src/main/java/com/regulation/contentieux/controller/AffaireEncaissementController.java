@@ -277,6 +277,9 @@ public class AffaireEncaissementController implements Initializable {
         agentCombo.setPrefWidth(300);
         agentCombo.setPromptText("Tapez pour rechercher un agent...");
 
+        // Liste complète des agents (ne sera pas modifiée)
+        ObservableList<Agent> allAgents = FXCollections.observableArrayList();
+
         // Configuration du converter pour l'affichage
         agentCombo.setConverter(new StringConverter<Agent>() {
             @Override
@@ -286,11 +289,15 @@ public class AffaireEncaissementController implements Initializable {
 
             @Override
             public Agent fromString(String string) {
-                // Recherche dans la liste des agents
-                return agentCombo.getItems().stream()
-                        .filter(agent -> agent.getCodeAgent().toLowerCase().contains(string.toLowerCase()) ||
-                                agent.getNom().toLowerCase().contains(string.toLowerCase()) ||
-                                agent.getPrenom().toLowerCase().contains(string.toLowerCase()))
+                if (string == null || string.isEmpty()) {
+                    return null;
+                }
+                // Recherche dans la liste complète des agents
+                return allAgents.stream()
+                        .filter(agent -> {
+                            String display = agent.getCodeAgent() + " - " + agent.getNom() + " " + agent.getPrenom();
+                            return display.toLowerCase().contains(string.toLowerCase());
+                        })
                         .findFirst()
                         .orElse(null);
             }
@@ -318,26 +325,62 @@ public class AffaireEncaissementController implements Initializable {
 
         loadAgentsTask.setOnSucceeded(e -> {
             List<Agent> agents = loadAgentsTask.getValue();
+            allAgents.setAll(agents);
             agentCombo.getItems().setAll(agents);
 
-            // Activer la recherche automatique lors de la saisie
+            // Variable pour stocker la sélection actuelle
+            final Agent[] currentSelection = {null};
+
+            // Sauvegarder la sélection quand elle change
+            agentCombo.valueProperty().addListener((obs, oldVal, newVal) -> {
+                currentSelection[0] = newVal;
+            });
+
+            // Filtrage intelligent lors de la saisie
             agentCombo.getEditor().textProperty().addListener((obs, oldText, newText) -> {
+                // Ne pas filtrer si c'est une sélection valide
+                if (currentSelection[0] != null && agentCombo.getConverter().toString(currentSelection[0]).equals(newText)) {
+                    return;
+                }
+
                 if (newText != null && !newText.isEmpty()) {
                     // Filtrer les agents selon le texte saisi
-                    List<Agent> filtered = agents.stream()
-                            .filter(agent -> agent.getCodeAgent().toLowerCase().contains(newText.toLowerCase()) ||
-                                    agent.getNom().toLowerCase().contains(newText.toLowerCase()) ||
-                                    agent.getPrenom().toLowerCase().contains(newText.toLowerCase()))
+                    List<Agent> filtered = allAgents.stream()
+                            .filter(agent -> {
+                                String searchText = newText.toLowerCase();
+                                return agent.getCodeAgent().toLowerCase().contains(searchText) ||
+                                        agent.getNom().toLowerCase().contains(searchText) ||
+                                        agent.getPrenom().toLowerCase().contains(searchText) ||
+                                        (agent.getCodeAgent() + " - " + agent.getNom() + " " + agent.getPrenom()).toLowerCase().contains(searchText);
+                            })
                             .collect(Collectors.toList());
 
                     Platform.runLater(() -> {
+                        // Sauvegarder la valeur actuelle
+                        Agent savedValue = agentCombo.getValue();
+
+                        // Mettre à jour la liste
                         agentCombo.getItems().setAll(filtered);
-                        if (!filtered.isEmpty()) {
+
+                        // Restaurer la valeur si elle est dans la liste filtrée
+                        if (savedValue != null && filtered.contains(savedValue)) {
+                            agentCombo.setValue(savedValue);
+                        }
+
+                        // Afficher la liste déroulante
+                        if (!agentCombo.isShowing() && !filtered.isEmpty()) {
                             agentCombo.show();
                         }
                     });
                 } else {
-                    agentCombo.getItems().setAll(agents);
+                    // Réinitialiser avec tous les agents
+                    Platform.runLater(() -> {
+                        Agent savedValue = agentCombo.getValue();
+                        agentCombo.getItems().setAll(allAgents);
+                        if (savedValue != null) {
+                            agentCombo.setValue(savedValue);
+                        }
+                    });
                 }
             });
         });
@@ -360,6 +403,9 @@ public class AffaireEncaissementController implements Initializable {
         chefCheck.selectedProperty().addListener((obs, old, newVal) -> {
             addButton.setDisable(agentCombo.getValue() == null || (!newVal && !saisissantCheck.isSelected()));
         });
+
+        // Focus sur la ComboBox au démarrage
+        Platform.runLater(() -> agentCombo.requestFocus());
 
         // Convertir le résultat
         dialog.setResultConverter(dialogButton -> {

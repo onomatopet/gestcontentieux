@@ -405,7 +405,8 @@ public class AffaireFormController implements Initializable {
         banqueComboBox.setConverter(new StringConverter<Banque>() {
             @Override
             public String toString(Banque banque) {
-                return banque != null ? banque.getCodeBanque() + " - " + banque.getNomBanque() : "";
+                return banque != null ?
+                        banque.getCodeBanque() + " - " + banque.getNomBanque() : "";
             }
 
             @Override
@@ -413,6 +414,9 @@ public class AffaireFormController implements Initializable {
                 return null;
             }
         });
+
+        // Charger les banques
+        loadBanques();
     }
 
     /**
@@ -668,16 +672,25 @@ public class AffaireFormController implements Initializable {
     }
 
     private void loadBanques() {
-        try {
-            List<Banque> list = banqueDAO.findAll();
-            Platform.runLater(() -> {
-                if (banqueComboBox != null) {
-                    banqueComboBox.setItems(FXCollections.observableArrayList(list));
-                }
-            });
-        } catch (Exception e) {
-            logger.error("Erreur chargement banques", e);
-        }
+        Task<List<Banque>> loadTask = new Task<List<Banque>>() {
+            @Override
+            protected List<Banque> call() throws Exception {
+                return banqueDAO.findAll();
+            }
+        };
+
+        loadTask.setOnSucceeded(e -> {
+            List<Banque> banques = loadTask.getValue();
+            if (banqueComboBox != null) {
+                banqueComboBox.setItems(FXCollections.observableArrayList(banques));
+            }
+        });
+
+        loadTask.setOnFailed(e -> {
+            logger.error("Erreur lors du chargement des banques", loadTask.getException());
+        });
+
+        new Thread(loadTask).start();
     }
 
     // AJOUT : Chargement des statuts
@@ -1358,16 +1371,12 @@ public class AffaireFormController implements Initializable {
                 if (!isEditMode) {
                     // En création, collecter aussi l'encaissement
                     encaissement = collectEncaissementData();
-                    affaireService.createAffaireWithEncaissement(affaire, encaissement, acteurs);
+                    // CORRECTION: Utiliser createAffaireAvecEncaissement au lieu de createAffaireWithEncaissement
+                    affaireService.createAffaireAvecEncaissement(affaire, encaissement, acteurs);
                 } else {
                     // En édition, mise à jour simple
                     affaire.setId(currentAffaire.getId());
                     affaireService.updateAffaire(affaire);
-                    // Note : Si vous avez besoin de mettre à jour les acteurs aussi,
-                    // ajoutez ces lignes après :
-                    // for (AffaireActeur acteur : acteurs) {
-                    //     acteurService.updateActeur(acteur);
-                    // }
                 }
 
                 return null;
@@ -1382,15 +1391,17 @@ public class AffaireFormController implements Initializable {
                 }
 
                 String message = isEditMode ?
-                        "L'affaire a été modifiée avec succès" :
-                        "L'affaire a été créée avec succès";
-                AlertUtil.showInfoAlert("Succès", message, "");
+                        "Affaire mise à jour avec succès" :
+                        "Affaire créée avec succès";
+
+                AlertUtil.showSuccessAlert("Succès", message,
+                        "L'affaire " + numeroAffaireField.getText() + " a été enregistrée");
 
                 if (createNew && !isEditMode) {
                     resetForm();
                     initializeForNew();
                 } else {
-                    hasUnsavedChanges = false;
+                    // CORRECTION: Utiliser closeWindow() au lieu de closeForm()
                     closeWindow();
                 }
             });
@@ -1405,13 +1416,7 @@ public class AffaireFormController implements Initializable {
 
                 Throwable error = saveTask.getException();
                 logger.error("Erreur lors de la sauvegarde", error);
-
-                String errorMessage = "Une erreur est survenue lors de l'enregistrement";
-                if (error instanceof BusinessException) {
-                    errorMessage = error.getMessage();
-                }
-
-                AlertUtil.showErrorAlert("Erreur", errorMessage, "");
+                showError("Erreur lors de la sauvegarde : " + error.getMessage());
             });
         });
 
@@ -1425,19 +1430,23 @@ public class AffaireFormController implements Initializable {
         Affaire affaire = new Affaire();
 
         // Numéro et dates
-        if (numeroAffaireField != null) {
-            affaire.setNumeroAffaire(numeroAffaireField.getText());
+        affaire.setNumeroAffaire(numeroAffaireField.getText());
+        affaire.setDateCreation(dateCreationPicker.getValue());
+        affaire.setDateConstatation(dateConstatationPicker.getValue());
+
+        // Lieu et description
+        if (lieuConstatationField != null) {
+            affaire.setLieuConstatation(lieuConstatationField.getText().trim());
         }
-        if (dateCreationPicker != null) {
-            affaire.setDateCreation(dateCreationPicker.getValue());
-        }
-        if (dateConstatationPicker != null) {
-            affaire.setDateConstatation(dateConstatationPicker.getValue());
+        if (descriptionTextArea != null) {
+            affaire.setDescription(descriptionTextArea.getText().trim());
         }
 
         // Statut
         if (statutComboBox != null) {
             affaire.setStatut(statutComboBox.getValue());
+        } else {
+            affaire.setStatut(StatutAffaire.OUVERTE);
         }
 
         // Contrevenant
@@ -1445,36 +1454,35 @@ public class AffaireFormController implements Initializable {
             affaire.setContrevenant(contrevenantComboBox.getValue());
         }
 
-        // Localisation
+        // Bureau et Service
         if (bureauComboBox != null) {
             affaire.setBureau(bureauComboBox.getValue());
         }
         if (serviceComboBox != null) {
             affaire.setService(serviceComboBox.getValue());
         }
-        if (lieuConstatationField != null) {
-            affaire.setLieuConstatation(lieuConstatationField.getText());
-        }
-        if (descriptionTextArea != null) {
-            affaire.setDescription(descriptionTextArea.getText());
-        }
+
+        // Centre (dérivé du bureau ou service)
+        // CORRECTION: Affaire n'a pas setCentreId(), le centre est dérivé du bureau/service
+        // Supprimer cette partie car le centre est automatiquement déterminé par le bureau/service
 
         // Agent verbalisateur
         if (agentVerbalisateurComboBox != null) {
             affaire.setAgentVerbalisateur(agentVerbalisateurComboBox.getValue());
         }
 
-        // Montant total et contraventions
-        affaire.setMontantAmendeTotal(getTotalMontantContraventions());
+        // Calcul du montant total des amendes
+        BigDecimal montantTotal = contraventionsList.stream()
+                .map(ContraventionViewModel::getMontant)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        affaire.setMontantAmendeTotal(montantTotal);
 
         // Contraventions
         List<Contravention> contraventions = new ArrayList<>();
         for (ContraventionViewModel vm : contraventionsList) {
-            Contravention c = new Contravention();
-            c.setCode(vm.getCode());
-            c.setLibelle(vm.getLibelle());
-            c.setMontant(vm.getMontant());
-            contraventions.add(c);
+            // Trouver la contravention correspondante
+            Optional<Contravention> contravention = contraventionDAO.findByCode(vm.getCode());
+            contravention.ifPresent(contraventions::add);
         }
         affaire.setContraventions(contraventions);
 
@@ -1485,37 +1493,46 @@ public class AffaireFormController implements Initializable {
      * ENRICHISSEMENT : Collecte les données du premier encaissement
      */
     private Encaissement collectEncaissementData() {
-        if (isEditMode) {
-            return null; // Pas d'encaissement en mode édition
-        }
-
         Encaissement encaissement = new Encaissement();
 
-        if (montantEncaisseField != null) {
+        // Date d'encaissement
+        encaissement.setDateEncaissement(
+                dateEncaissementPicker != null ? dateEncaissementPicker.getValue() : LocalDate.now()
+        );
+
+        // Montant encaissé
+        if (montantEncaisseField != null && !montantEncaisseField.getText().trim().isEmpty()) {
             try {
-                encaissement.setMontantEncaisse(parseMontant(montantEncaisseField.getText()));
-            } catch (Exception e) {
-                encaissement.setMontantEncaisse(BigDecimal.ZERO);
+                String montantStr = montantEncaisseField.getText().trim().replace(" ", "").replace(",", ".");
+                BigDecimal montant = new BigDecimal(montantStr);
+                encaissement.setMontantEncaisse(montant);
+            } catch (NumberFormatException e) {
+                throw new BusinessException("Montant encaissé invalide");
             }
         }
-        if (dateEncaissementPicker != null) {
-            encaissement.setDateEncaissement(dateEncaissementPicker.getValue());
-        }
+
+        // Mode de règlement
         if (modeReglementComboBox != null) {
             encaissement.setModeReglement(modeReglementComboBox.getValue());
         }
 
-        // Informations supplémentaires selon le mode
-        if (modeReglementComboBox != null && modeReglementComboBox.getValue() != null) {
-            if (modeReglementComboBox.getValue().isNecessiteBanque() && banqueComboBox != null) {
-                if (banqueComboBox.getValue() != null) {
-                    encaissement.setBanque(banqueComboBox.getValue().getNomBanque());
-                }
-            }
-            if (modeReglementComboBox.getValue().isNecessiteReference() && numeroChequeField != null) {
-                encaissement.setNumeroPiece(numeroChequeField.getText());
+        // Banque (si mode chèque)
+        if (banqueComboBox != null && banqueComboBox.getValue() != null) {
+            // CORRECTION: getId() retourne Long, donc pas de conversion nécessaire
+            Banque banque = banqueComboBox.getValue();
+            if (banque.getId() != null) {
+                encaissement.setBanqueId(banque.getId());
             }
         }
+
+        // Numéro de chèque
+        // CORRECTION: Utiliser setNumeroPiece() au lieu de setNumeroCheque()
+        if (numeroChequeField != null && !numeroChequeField.getText().trim().isEmpty()) {
+            encaissement.setNumeroPiece(numeroChequeField.getText().trim());
+        }
+
+        // Statut initial
+        encaissement.setStatut(StatutEncaissement.VALIDE);
 
         return encaissement;
     }
@@ -1559,8 +1576,9 @@ public class AffaireFormController implements Initializable {
         }
 
         if (typeContrevenantLabel != null) {
+            // CORRECTION: getTypePersonne() retourne déjà un String, pas besoin d'appeler getLibelle()
             typeContrevenantLabel.setText(contrevenant.getTypePersonne() != null ?
-                    contrevenant.getTypePersonne().getLibelle() : "");
+                    contrevenant.getTypePersonne() : "");
         }
         if (nomContrevenantLabel != null) {
             nomContrevenantLabel.setText(contrevenant.getNom() + " " + contrevenant.getPrenom());
@@ -1599,7 +1617,8 @@ public class AffaireFormController implements Initializable {
         }
 
         if (montantEnLettresLabel != null) {
-            montantEnLettresLabel.setText(NumberToWords.convert(total));
+            // CORRECTION: Convertir BigDecimal en long pour NumberToWords
+            montantEnLettresLabel.setText(NumberToWords.convert(total.longValue()));
         }
 
         // Nombre de contraventions
@@ -2039,8 +2058,14 @@ public class AffaireFormController implements Initializable {
         public String getCode() { return agent.getCodeAgent(); }
         public String getNom() { return agent.getNom() + " " + agent.getPrenom(); }
         public String getGrade() { return agent.getGrade(); }
+
+        // CORRECTION: La méthode getService() doit retourner directement le nom du service
         public String getService() {
-            return agent.getService() != null ? agent.getService().getNomService() : "";
+            // Ne pas appeler getLibelle() sur le résultat qui est déjà un String
+            if (agent.getService() != null) {
+                return agent.getService().getNomService();
+            }
+            return "";
         }
     }
 

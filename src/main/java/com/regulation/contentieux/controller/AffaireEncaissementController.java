@@ -12,6 +12,7 @@ import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
 import javafx.geometry.Insets;
+import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
@@ -161,35 +162,34 @@ public class AffaireEncaissementController implements Initializable {
     }
 
     /**
-     * Configuration de la validation temps réel
+     * Configuration de la validation des champs
      */
     private void setupValidation() {
-        // Validation numérique pour les montants
-        montantAmendeField.textProperty().addListener((obs, old, val) -> {
-            if (!val.matches("\\d*")) {
-                montantAmendeField.setText(old);
+        // Validation numérique des montants
+        montantAmendeField.setTextFormatter(new TextFormatter<>(change -> {
+            String newText = change.getControlNewText();
+            if (newText.matches("\\d*\\.?\\d*") || newText.isEmpty()) {
+                return change;
             }
-            updateSoldeRestant();
-        });
+            return null;
+        }));
 
-        montantEncaisseField.textProperty().addListener((obs, old, val) -> {
-            if (!val.matches("\\d*")) {
-                montantEncaisseField.setText(old);
+        montantEncaisseField.setTextFormatter(new TextFormatter<>(change -> {
+            String newText = change.getControlNewText();
+            if (newText.matches("\\d*\\.?\\d*") || newText.isEmpty()) {
+                return change;
             }
-            updateSoldeRestant();
-            validateEncaissement();
-        });
+            return null;
+        }));
+
+        // Mise à jour du solde en temps réel
+        montantAmendeField.textProperty().addListener((obs, old, newVal) -> updateSoldeRestant());
+        montantEncaisseField.textProperty().addListener((obs, old, newVal) -> updateSoldeRestant());
 
         // Mode de règlement
-        modeReglementCombo.valueProperty().addListener((obs, old, val) -> {
-            chequeSection.setVisible(val == ModeReglement.CHEQUE);
-            chequeSection.setManaged(val == ModeReglement.CHEQUE);
-        });
-
-        // Indicateur
-        indicateurCheck.selectedProperty().addListener((obs, old, val) -> {
-            nomIndicateurField.setDisable(!val);
-            indicateurAgentCombo.setDisable(!val);
+        modeReglementCombo.valueProperty().addListener((obs, old, newVal) -> {
+            chequeSection.setVisible(newVal == ModeReglement.CHEQUE);
+            chequeSection.setManaged(newVal == ModeReglement.CHEQUE);
         });
     }
 
@@ -201,7 +201,7 @@ public class AffaireEncaissementController implements Initializable {
         contrevenantCombo.setConverter(new StringConverter<Contrevenant>() {
             @Override
             public String toString(Contrevenant c) {
-                return c != null ? c.getNomComplet() : "";
+                return c != null ? c.getCode() + " - " + c.getNomComplet() : "";
             }
             @Override
             public Contrevenant fromString(String s) { return null; }
@@ -211,7 +211,7 @@ public class AffaireEncaissementController implements Initializable {
         contraventionCombo.setConverter(new StringConverter<Contravention>() {
             @Override
             public String toString(Contravention c) {
-                return c != null ? c.getLibelle() : "";
+                return c != null ? c.getCode() + " - " + c.getLibelle() : "";
             }
             @Override
             public Contravention fromString(String s) { return null; }
@@ -304,82 +304,112 @@ public class AffaireEncaissementController implements Initializable {
     }
 
     /**
-     * Ferme le dialogue
+     * MÉTHODES MANQUANTES À AJOUTER ICI (dans la classe)
      */
-    private void closeDialog() {
-        if (dialogStage != null) {
-            dialogStage.close();
-        }
-    }
 
     /**
-     * Mise à jour du solde restant et de la barre de progression
+     * Charge les services d'un centre
      */
-    private void updateSoldeRestant() {
-        try {
-            BigDecimal amende = new BigDecimal(montantAmendeField.getText().trim());
-            BigDecimal encaisse = new BigDecimal(montantEncaisseField.getText().trim());
-            BigDecimal solde = amende.subtract(encaisse);
+    private void loadServices(Long centreId) {
+        if (centreId == null) {
+            serviceCombo.setItems(FXCollections.observableArrayList());
+            return;
+        }
 
-            soldeRestantLabel.setText(CurrencyFormatter.format(solde));
-
-            // Barre de progression
-            double progress = encaisse.doubleValue() / amende.doubleValue();
-            paiementProgress.setProgress(Math.min(progress, 1.0));
-
-            // Style selon le statut
-            if (progress >= 1.0) {
-                paiementProgress.setStyle("-fx-accent: green;");
-                soldeRestantLabel.setStyle("-fx-text-fill: green;");
-            } else if (progress >= 0.5) {
-                paiementProgress.setStyle("-fx-accent: orange;");
-                soldeRestantLabel.setStyle("-fx-text-fill: orange;");
-            } else {
-                paiementProgress.setStyle("-fx-accent: red;");
-                soldeRestantLabel.setStyle("-fx-text-fill: red;");
+        Task<List<Service>> loadTask = new Task<>() {
+            @Override
+            protected List<Service> call() throws Exception {
+                return serviceService.findByCentreId(centreId);
             }
+        };
 
-        } catch (NumberFormatException e) {
-            soldeRestantLabel.setText("0 FCFA");
-            paiementProgress.setProgress(0);
-        }
+        loadTask.setOnSucceeded(e -> {
+            List<Service> services = loadTask.getValue();
+            serviceCombo.setItems(FXCollections.observableArrayList(services));
+        });
+
+        loadTask.setOnFailed(e -> {
+            logger.error("Erreur chargement services", loadTask.getException());
+        });
+
+        new Thread(loadTask).start();
     }
 
     /**
-     * Validation du montant encaissé
+     * Charge les bureaux d'un service
      */
-    private void validateEncaissement() {
-        try {
-            BigDecimal amende = new BigDecimal(montantAmendeField.getText().trim());
-            BigDecimal encaisse = new BigDecimal(montantEncaisseField.getText().trim());
+    private void loadBureaux(Long serviceId) {
+        if (serviceId == null) {
+            bureauCombo.setItems(FXCollections.observableArrayList());
+            return;
+        }
 
-            if (encaisse.compareTo(amende) > 0) {
-                montantEncaisseField.setStyle("-fx-border-color: red;");
-                statusLabel.setText("⚠️ Le montant encaissé ne peut pas dépasser l'amende");
-                statusLabel.setStyle("-fx-text-fill: red;");
-            } else {
-                montantEncaisseField.setStyle("");
-                statusLabel.setText("");
+        Task<List<Bureau>> loadTask = new Task<>() {
+            @Override
+            protected List<Bureau> call() throws Exception {
+                return bureauService.findByServiceId(serviceId);
             }
+        };
 
-        } catch (NumberFormatException e) {
-            // Ignorer
+        loadTask.setOnSucceeded(e -> {
+            List<Bureau> bureaux = loadTask.getValue();
+            bureauCombo.setItems(FXCollections.observableArrayList(bureaux));
+        });
+
+        loadTask.setOnFailed(e -> {
+            logger.error("Erreur chargement bureaux", loadTask.getException());
+        });
+
+        new Thread(loadTask).start();
+    }
+
+    /**
+     * Configure les boutons de sélection d'agents
+     */
+    private void setupAgentSelectionButtons() {
+        // Cette méthode sera appelée depuis setupEventHandlers
+        // Les boutons peuvent être créés dynamiquement ou référencés depuis FXML
+    }
+
+    /**
+     * Ouvre le dialogue de création de contrevenant
+     */
+    private void createNewContrevenant() {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/contrevenant-form.fxml"));
+            Parent root = loader.load();
+
+            Stage stage = new Stage();
+            stage.initModality(Modality.WINDOW_MODAL);
+            stage.initOwner(dialogStage);
+            stage.setTitle("Nouveau Contrevenant");
+
+            Scene scene = new Scene(root);
+            stage.setScene(scene);
+            stage.showAndWait();
+
+            // Recharger la liste des contrevenants
+            loadContrevenants();
+
+        } catch (IOException e) {
+            logger.error("Erreur ouverture formulaire contrevenant", e);
+            AlertUtil.showError("Erreur", "Impossible d'ouvrir le formulaire");
         }
     }
 
     /**
-     * Chargement des données initiales
+     * Charge les données initiales
      */
     private void loadInitialData() {
-        Task<Void> loadTask = new Task<>() {
+        Task<Void> loadTask = new Task<Void>() {
             @Override
             protected Void call() throws Exception {
-                // Charger toutes les données nécessaires
+                // CORRECTION: Appeler les méthodes avec les bons paramètres
                 List<Contrevenant> contrevenants = contrevenantService.getAllContrevenants();
-                List<Contravention> contraventions = contraventionService.getAllContraventions();
+                List<Contravention> contraventions = contraventionService.getAllContraventions(1, Integer.MAX_VALUE);
                 List<Centre> centres = centreService.getAllCentres();
                 List<Banque> banques = banqueService.getAllBanques();
-                List<Agent> agents = agentService.getAllAgents();
+                List<Agent> agents = agentService.getAllAgents(1, Integer.MAX_VALUE);
 
                 Platform.runLater(() -> {
                     contrevenantCombo.setItems(FXCollections.observableArrayList(contrevenants));
@@ -418,6 +448,53 @@ public class AffaireEncaissementController implements Initializable {
         });
 
         new Thread(loadTask).start();
+    }
+
+    /**
+     * Recharge la liste des contrevenants
+     */
+    private void loadContrevenants() {
+        Task<List<Contrevenant>> task = new Task<>() {
+            @Override
+            protected List<Contrevenant> call() throws Exception {
+                return contrevenantService.getAllContrevenants();
+            }
+        };
+
+        task.setOnSucceeded(e -> {
+            contrevenantCombo.setItems(FXCollections.observableArrayList(task.getValue()));
+        });
+
+        new Thread(task).start();
+    }
+
+    /**
+     * Ferme le dialogue
+     */
+    private void closeDialog() {
+        if (dialogStage != null) {
+            dialogStage.close();
+        }
+    }
+
+    /**
+     * Mise à jour du solde restant et de la barre de progression
+     */
+    private void updateSoldeRestant() {
+        try {
+            BigDecimal amende = new BigDecimal(montantAmendeField.getText().trim());
+            BigDecimal encaisse = new BigDecimal(montantEncaisseField.getText().trim());
+            BigDecimal solde = amende.subtract(encaisse);
+
+            soldeRestantLabel.setText(CurrencyFormatter.format(solde));
+
+            // Barre de progression
+            double progress = encaisse.doubleValue() / amende.doubleValue();
+            paiementProgress.setProgress(Math.min(progress, 1.0));
+        } catch (Exception e) {
+            soldeRestantLabel.setText("0 FCFA");
+            paiementProgress.setProgress(0);
+        }
     }
 
     /**
@@ -536,11 +613,117 @@ public class AffaireEncaissementController implements Initializable {
         return errors;
     }
 
-    // Méthodes de construction des objets...
-    // [buildAffaire(), buildEncaissement(), buildActeurs()]
+    /**
+     * Construit l'objet Affaire à partir du formulaire
+     */
+    private Affaire buildAffaire() {
+        Affaire affaire = new Affaire();
 
-    // Méthodes utilitaires...
-    // [loadServices(), loadBureaux(), createNewContrevenant(), etc.]
+        // Numéro et dates
+        affaire.setNumeroAffaire(numeroAffaireField.getText());
+        affaire.setDateCreation(dateCreationPicker.getValue());
+        affaire.setDateConstatation(dateCreationPicker.getValue());
+
+        // Contrevenant
+        if (contrevenantCombo.getValue() != null) {
+            affaire.setContrevenant(contrevenantCombo.getValue());
+        } else {
+            // Créer un nouveau contrevenant si nécessaire
+            Contrevenant nouveau = new Contrevenant();
+            nouveau.setNom(nomContrevenantField.getText());
+            nouveau.setAdresse(adresseField.getText());
+            nouveau.setTelephone(telephoneField.getText());
+            nouveau.setTypePersonne("PHYSIQUE");
+            affaire.setContrevenant(nouveau);
+        }
+
+        // Contravention
+        List<Contravention> contraventions = new ArrayList<>();
+        if (contraventionCombo.getValue() != null) {
+            contraventions.add(contraventionCombo.getValue());
+        } else if (!contraventionLibreField.getText().isEmpty()) {
+            // Créer une contravention libre
+            Contravention libre = new Contravention();
+            libre.setCode("AUTRE");
+            libre.setLibelle(contraventionLibreField.getText());
+            libre.setMontant(new BigDecimal(montantAmendeField.getText()));
+            contraventions.add(libre);
+        }
+        affaire.setContraventions(contraventions);
+
+        // Montant total
+        affaire.setMontantAmendeTotal(new BigDecimal(montantAmendeField.getText()));
+
+        // Localisation
+        if (bureauCombo.getValue() != null) {
+            affaire.setBureau(bureauCombo.getValue());
+        }
+        if (serviceCombo.getValue() != null) {
+            affaire.setService(serviceCombo.getValue());
+        }
+
+        // Statut
+        affaire.setStatut(StatutAffaire.EN_COURS);
+
+        return affaire;
+    }
+
+    /**
+     * Construit l'objet Encaissement à partir du formulaire
+     */
+    private Encaissement buildEncaissement() {
+        Encaissement encaissement = new Encaissement();
+
+        encaissement.setReference(numeroEncaissementField.getText());
+        encaissement.setDateEncaissement(dateEncaissementPicker.getValue());
+        encaissement.setMontantEncaisse(new BigDecimal(montantEncaisseField.getText()));
+        encaissement.setModeReglement(modeReglementCombo.getValue());
+
+        // Si paiement par chèque
+        if (modeReglementCombo.getValue() == ModeReglement.CHEQUE) {
+            if (banqueCombo.getValue() != null) {
+                encaissement.setBanqueId(banqueCombo.getValue().getId());
+            }
+            encaissement.setNumeroPiece(numeroChequeField.getText());
+        }
+
+        encaissement.setStatut(StatutEncaissement.VALIDE);
+
+        return encaissement;
+    }
+
+    /**
+     * Construit la liste des acteurs de l'affaire
+     */
+    private List<AffaireActeur> buildActeurs() {
+        List<AffaireActeur> acteurs = new ArrayList<>();
+
+        // Agents saisissants
+        for (Agent agent : selectedAgents) {
+            AffaireActeur acteur = new AffaireActeur();
+            acteur.setAgentId(agent.getId());
+            acteur.setRoleSurAffaire("SAISISSANT");
+            acteurs.add(acteur);
+        }
+
+        // Chefs
+        for (Agent chef : selectedChefs) {
+            AffaireActeur acteur = new AffaireActeur();
+            acteur.setAgentId(chef.getId());
+            acteur.setRoleSurAffaire("CHEF");
+            acteurs.add(acteur);
+        }
+
+        // Indicateur si présent
+        if (indicateurCheck.isSelected() && indicateurAgentCombo.getValue() != null) {
+            AffaireActeur indicateur = new AffaireActeur();
+            indicateur.setAgentId(indicateurAgentCombo.getValue().getId());
+            indicateur.setRoleSurAffaire("INDICATEUR");
+            acteurs.add(indicateur);
+        }
+
+        return acteurs;
+    }
 
     /**
      * Retourne l'affaire créée

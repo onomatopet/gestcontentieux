@@ -25,11 +25,13 @@ public class EncaissementService {
     private final EncaissementDAO encaissementDAO;
     private final AffaireDAO affaireDAO;
     private final ValidationService validationService;
+    private final NumerotationService numerotationService;
 
     public EncaissementService() {
         this.encaissementDAO = new EncaissementDAO();
         this.affaireDAO = new AffaireDAO();
         this.validationService = ValidationService.getInstance();
+        this.numerotationService = NumerotationService.getInstance();
     }
 
     /**

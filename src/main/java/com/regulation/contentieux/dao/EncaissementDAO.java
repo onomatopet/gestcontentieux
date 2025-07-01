@@ -1,11 +1,14 @@
 package com.regulation.contentieux.dao;
 
 import com.regulation.contentieux.dao.impl.AbstractSQLiteDAO;
+import com.regulation.contentieux.model.Banque;
 import com.regulation.contentieux.model.Encaissement;
 import com.regulation.contentieux.model.Affaire;
+import com.regulation.contentieux.model.Mandat;
 import com.regulation.contentieux.model.enums.ModeReglement;
 import com.regulation.contentieux.model.enums.StatutEncaissement;
 import com.regulation.contentieux.config.DatabaseConfig;
+import com.regulation.contentieux.service.MandatService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -187,29 +190,76 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
 
     @Override
     protected void setInsertParameters(PreparedStatement stmt, Encaissement encaissement) throws SQLException {
-        stmt.setString(1, encaissement.getReference()); // numero_encaissement
-        stmt.setString(2, "2506M0001"); // numero_mandat par défaut - À adapter selon votre logique
+        // 1. numero_encaissement
+        stmt.setString(1, encaissement.getReference());
+
+        // 2. numero_mandat - Utiliser le mandat actif
+        String numeroMandat = null;
+        try {
+            MandatService mandatService = MandatService.getInstance();
+            Mandat mandatActif = mandatService.getMandatActif();
+            if (mandatActif != null) {
+                numeroMandat = mandatActif.getNumeroMandat();
+            }
+        } catch (Exception e) {
+            logger.warn("Impossible de récupérer le mandat actif: {}", e.getMessage());
+        }
+
+        if (numeroMandat == null) {
+            // Générer un numéro par défaut basé sur la date
+            LocalDate now = LocalDate.now();
+            numeroMandat = now.format(DateTimeFormatter.ofPattern("yyMM")) + "M0001";
+            logger.warn("Aucun mandat actif trouvé, utilisation du numéro par défaut: {}", numeroMandat);
+        }
+        stmt.setString(2, numeroMandat);
+
+        // 3. date_encaissement
         stmt.setDate(3, Date.valueOf(encaissement.getDateEncaissement()));
+
+        // 4. montant_encaisse
         stmt.setBigDecimal(4, encaissement.getMontantEncaisse());
+
+        // 5. mode_reglement
         stmt.setString(5, encaissement.getModeReglement().name());
 
-        // banque_id - À adapter selon votre logique de gestion des banques
-        if (encaissement.getBanque() != null && !encaissement.getBanque().isEmpty()) {
-            // TODO: Récupérer l'ID de la banque par son nom
-            stmt.setNull(6, Types.INTEGER); // Temporaire
+        // 6. banque_id - Correction pour gérer correctement la banque
+        if (encaissement.getBanqueId() != null) {
+            stmt.setLong(6, encaissement.getBanqueId());
+        } else if (encaissement.getModeReglement() == ModeReglement.CHEQUE &&
+                encaissement.getBanque() != null && !encaissement.getBanque().isEmpty()) {
+            // Essayer de trouver la banque par nom
+            try {
+                BanqueDAO banqueDAO = new BanqueDAO();
+                Optional<Banque> banque = banqueDAO.findByNom(encaissement.getBanque());
+                if (banque.isPresent()) {
+                    stmt.setLong(6, banque.get().getId());
+                } else {
+                    stmt.setNull(6, Types.INTEGER);
+                }
+            } catch (Exception e) {
+                logger.error("Erreur lors de la recherche de la banque", e);
+                stmt.setNull(6, Types.INTEGER);
+            }
         } else {
             stmt.setNull(6, Types.INTEGER);
         }
 
-        stmt.setString(7, encaissement.getNumeroPiece()); // numero_cheque
+        // 7. numero_cheque
+        stmt.setString(7, encaissement.getNumeroPiece());
 
+        // 8. affaire_id
         if (encaissement.getAffaire() != null) {
             stmt.setLong(8, encaissement.getAffaire().getId());
+        } else if (encaissement.getAffaireId() != null) {
+            stmt.setLong(8, encaissement.getAffaireId());
         } else {
             stmt.setNull(8, Types.BIGINT);
         }
 
-        stmt.setTimestamp(9, Timestamp.valueOf(encaissement.getCreatedAt()));
+        // 9. created_at
+        stmt.setTimestamp(9, Timestamp.valueOf(LocalDateTime.now()));
+
+        // 10. updated_at
         stmt.setTimestamp(10, Timestamp.valueOf(LocalDateTime.now()));
     }
 
@@ -257,7 +307,7 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
      */
     public Optional<Encaissement> findByReference(String reference) {
         String sql = getSelectAllQuery().replace("ORDER BY e.date_encaissement DESC",
-                "WHERE e.reference = ?");
+                "WHERE e.numero_encaissement = ?");
 
         try (Connection conn = getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -280,7 +330,7 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
      * Vérifie si une référence existe déjà
      */
     public boolean existsByReference(String reference) {
-        String sql = "SELECT COUNT(*) FROM encaissements WHERE reference = ?";
+        String sql = "SELECT COUNT(*) FROM encaissements WHERE numero_encaissement = ?";
 
         try (Connection conn = getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -307,28 +357,18 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
         Encaissement encaissement = new Encaissement();
 
         try {
-            // Mapping des colonnes de base
             encaissement.setId(rs.getLong("id"));
-            encaissement.setReference(rs.getString("reference"));
+            encaissement.setReference(rs.getString("numero_encaissement"));
             encaissement.setMontantEncaisse(rs.getBigDecimal("montant_encaisse"));
 
-            // Gestion de la date d'encaissement
             Date dateEnc = rs.getDate("date_encaissement");
             if (dateEnc != null) {
                 encaissement.setDateEncaissement(dateEnc.toLocalDate());
             }
 
-            // Gestion du statut avec enum
-            String statutStr = rs.getString("statut");
-            if (statutStr != null && !statutStr.trim().isEmpty()) {
-                try {
-                    encaissement.setStatut(StatutEncaissement.valueOf(statutStr.toUpperCase()));
-                } catch (IllegalArgumentException e) {
-                    encaissement.setStatut(StatutEncaissement.EN_ATTENTE); // Valeur par défaut
-                }
-            }
+            // Pas de colonne statut dans la table encaissements
+            encaissement.setStatut(StatutEncaissement.VALIDE);
 
-            // Gestion des timestamps
             Timestamp createdAt = rs.getTimestamp("created_at");
             if (createdAt != null) {
                 encaissement.setCreatedAt(createdAt.toLocalDateTime());
@@ -339,17 +379,16 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
                 encaissement.setUpdatedAt(updatedAt.toLocalDateTime());
             }
 
-            // Gestion des clés étrangères si présentes dans le ResultSet
+            // Gestion des clés étrangères
             try {
                 Long affaireId = rs.getLong("affaire_id");
                 if (affaireId != null && affaireId > 0) {
-                    // Créer un objet Affaire minimal avec juste l'ID
                     Affaire affaire = new Affaire();
                     affaire.setId(affaireId);
                     encaissement.setAffaire(affaire);
                 }
             } catch (SQLException e) {
-                // La colonne affaire_id n'est pas présente, ignorer
+                // La colonne affaire_id n'est pas présente
             }
 
             try {
@@ -358,11 +397,10 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
                     encaissement.getAffaire().setNumeroAffaire(numeroAffaire);
                 }
             } catch (SQLException e) {
-                // La colonne numero_affaire n'est pas présente, ignorer
+                // La colonne numero_affaire n'est pas présente
             }
 
         } catch (SQLException e) {
-            // Logger l'erreur mais continuer le traitement
             LoggerFactory.getLogger(EncaissementDAO.class)
                     .warn("Erreur lors du mapping de l'encaissement ID {}: {}",
                             rs.getLong("id"), e.getMessage());
@@ -376,88 +414,47 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
      * MÉTHODE UNIFIÉE ET ENRICHIE - REMPLACE L'ANCIENNE VERSION
      */
     public String generateNextNumeroEncaissement() {
-        // ENRICHISSEMENT : Diagnostic du format
         logger.debug("🔍 === GÉNÉRATION NUMÉRO ENCAISSEMENT ===");
         logger.debug("🔍 Format cahier des charges: YYMMRNNNNN (R = littéral 'R')");
 
         LocalDate now = LocalDate.now();
         String yearMonth = now.format(DateTimeFormatter.ofPattern("yyMM"));
-
-        // ENRICHISSEMENT : Le cahier des charges spécifie YYMMRNNNNN avec R littéral
         String expectedPrefix = yearMonth + "R";
         logger.debug("🔍 Préfixe attendu pour ce mois: {}", expectedPrefix);
 
-        // D'abord essayer avec le nouveau format
         String sql = """
-            SELECT reference FROM encaissements
-            WHERE reference LIKE ?
-            ORDER BY reference DESC
-            LIMIT 1
-        """;
+        SELECT numero_encaissement FROM encaissements
+        WHERE numero_encaissement LIKE ?
+        ORDER BY numero_encaissement DESC
+        LIMIT 1
+    """;
 
         try (Connection conn = DatabaseConfig.getSQLiteConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-            // ENRICHISSEMENT : Recherche avec le format du cahier des charges
             stmt.setString(1, expectedPrefix + "%");
             ResultSet rs = stmt.executeQuery();
 
             if (rs.next()) {
-                String lastNumero = rs.getString("reference");
+                String lastNumero = rs.getString("numero_encaissement");
                 logger.debug("🔍 Dernier numéro trouvé: {}", lastNumero);
 
-                // ENRICHISSEMENT : Validation du format
-                if (isValidEncaissementFormat(lastNumero)) {
-                    return generateNextFromValidFormat(lastNumero, expectedPrefix);
-                } else {
-                    logger.warn("⚠️ Format non conforme détecté: {}", lastNumero);
-                    return handleFormatMigration(lastNumero, expectedPrefix);
-                }
+                // Extraire la partie numérique et incrémenter
+                String numberPart = lastNumero.substring(5); // Après YYMMR
+                int lastNumber = Integer.parseInt(numberPart);
+                String newNumero = expectedPrefix + String.format("%05d", lastNumber + 1);
+                logger.info("✅ Nouveau numéro généré: {}", newNumero);
+                return newNumero;
             } else {
-                // Pas de numéro au nouveau format, vérifier l'ancien format
-                logger.debug("🔍 Aucun numéro au format YYMMRNNNNN trouvé, recherche de l'ancien format");
-
-                // Recherche avec l'ancien format ENC-YYYY-NNNNN
-                String oldFormatSql = """
-                    SELECT COUNT(*) + 1 as next_num 
-                    FROM encaissements 
-                    WHERE strftime('%Y', date_encaissement) = strftime('%Y', 'now')
-                      AND reference LIKE 'ENC-%'
-                """;
-
-                try (Statement stmt2 = conn.createStatement();
-                     ResultSet rs2 = stmt2.executeQuery(oldFormatSql)) {
-
-                    if (rs2.next() && rs2.getInt("next_num") > 1) {
-                        // Il existe des anciens numéros
-                        logger.warn("⚠️ Ancien format détecté, migration progressive recommandée");
-
-                        // Pour la compatibilité, on peut continuer avec l'ancien format
-                        // ou forcer le nouveau format selon la configuration
-                        if (shouldUseNewFormat()) {
-                            String firstNumero = expectedPrefix + "00001";
-                            logger.info("🆕 Migration vers nouveau format: {}", firstNumero);
-                            return firstNumero;
-                        } else {
-                            int nextNum = rs2.getInt("next_num");
-                            int year = LocalDate.now().getYear();
-                            String oldFormat = String.format("ENC-%d-%05d", year, nextNum);
-                            logger.info("⏳ Conservation temporaire ancien format: {}", oldFormat);
-                            return oldFormat;
-                        }
-                    }
-                }
-
-                // Premier encaissement du mois
-                String firstNumero = expectedPrefix + "00001";
-                logger.info("🆕 Premier encaissement du mois: {}", firstNumero);
-                return firstNumero;
+                String newNumero = expectedPrefix + "00001";
+                logger.info("✅ Premier numéro du mois généré: {}", newNumero);
+                return newNumero;
             }
 
-        } catch (SQLException e) {
+        } catch (Exception e) {
             logger.error("❌ Erreur lors de la génération du numéro d'encaissement", e);
-            // ENRICHISSEMENT : Fallback intelligent
-            String fallback = expectedPrefix + String.format("%05d", System.currentTimeMillis() % 100000);
+            // Numéro de secours avec timestamp
+            String fallback = yearMonth + "R" + String.format("%05d", System.currentTimeMillis() % 100000);
             logger.error("🔄 Numéro de secours généré: {}", fallback);
             return fallback;
         }
@@ -773,9 +770,6 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
             parameters.add("%" + reference.trim() + "%");
         }
 
-        // CORRECTION : Ignorer le statut car la colonne n'existe pas
-        // if (statut != null) { ... }
-
         if (modeReglement != null) {
             sql.append("AND e.mode_reglement = ? ");
             parameters.add(modeReglement.name());
@@ -834,13 +828,8 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
         List<Object> parameters = new ArrayList<>();
 
         if (reference != null && !reference.trim().isEmpty()) {
-            sql.append("AND reference LIKE ? ");
+            sql.append("AND numero_encaissement LIKE ? ");
             parameters.add("%" + reference.trim() + "%");
-        }
-
-        if (statut != null) {
-            sql.append("AND statut = ? ");
-            parameters.add(statut.name());
         }
 
         if (modeReglement != null) {
@@ -871,7 +860,6 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
             }
 
             ResultSet rs = stmt.executeQuery();
-
             if (rs.next()) {
                 return rs.getLong(1);
             }

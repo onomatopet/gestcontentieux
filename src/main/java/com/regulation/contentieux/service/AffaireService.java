@@ -211,9 +211,9 @@ public class AffaireService {
      */
     private void saveAffaireActeur(AffaireActeur acteur) {
         String sql = """
-            INSERT INTO affaire_acteurs (affaire_id, agent_id, role_sur_affaire, assigned_at, assigned_by)
-            VALUES (?, ?, ?, ?, ?)
-        """;
+        INSERT INTO affaire_acteurs (affaire_id, agent_id, role_sur_affaire, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?)
+    """;
 
         try (var conn = com.regulation.contentieux.config.DatabaseConfig.getSQLiteConnection();
              var stmt = conn.prepareStatement(sql)) {
@@ -221,8 +221,8 @@ public class AffaireService {
             stmt.setLong(1, acteur.getAffaireId());
             stmt.setLong(2, acteur.getAgentId());
             stmt.setString(3, acteur.getRoleSurAffaire());
-            stmt.setTimestamp(4, java.sql.Timestamp.valueOf(acteur.getAssignedAt()));
-            stmt.setString(5, acteur.getAssignedBy());
+            stmt.setTimestamp(4, java.sql.Timestamp.valueOf(LocalDateTime.now()));
+            stmt.setTimestamp(5, java.sql.Timestamp.valueOf(LocalDateTime.now()));
 
             stmt.executeUpdate();
             logger.debug("Acteur ajouté à l'affaire: {} - {}", acteur.getAgentId(), acteur.getRoleSurAffaire());

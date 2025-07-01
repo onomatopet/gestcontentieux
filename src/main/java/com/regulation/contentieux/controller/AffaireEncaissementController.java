@@ -284,7 +284,8 @@ public class AffaireEncaissementController implements Initializable {
         agentCombo.setConverter(new StringConverter<Agent>() {
             @Override
             public String toString(Agent agent) {
-                return agent != null ? agent.getCodeAgent() + " - " + agent.getNom() + " " + agent.getPrenom() : "";
+                return agent != null ?
+                        agent.getCodeAgent() + " - " + agent.getNom() + " " + agent.getPrenom() : "";
             }
 
             @Override
@@ -331,6 +332,16 @@ public class AffaireEncaissementController implements Initializable {
             // Variable pour stocker la sélection actuelle
             final Agent[] currentSelection = {null};
 
+            // Variable pour contrôler l'affichage de la liste
+            final boolean[] shouldShowList = {false};
+
+            // Gestionnaire pour l'affichage de la liste après le chargement des items
+            agentCombo.showingProperty().addListener((obs, wasShowing, isShowing) -> {
+                if (!isShowing && shouldShowList[0]) {
+                    shouldShowList[0] = false;
+                }
+            });
+
             // Sauvegarder la sélection quand elle change
             agentCombo.valueProperty().addListener((obs, oldVal, newVal) -> {
                 currentSelection[0] = newVal;
@@ -343,7 +354,7 @@ public class AffaireEncaissementController implements Initializable {
                     return;
                 }
 
-                if (newText != null && !newText.isEmpty()) {
+                if (newText != null && !newText.isEmpty() && !newText.equals(oldText)) {
                     // Filtrer les agents selon le texte saisi
                     List<Agent> filtered = allAgents.stream()
                             .filter(agent -> {
@@ -367,18 +378,23 @@ public class AffaireEncaissementController implements Initializable {
                             agentCombo.setValue(savedValue);
                         }
 
-                        // Afficher la liste déroulante
-                        if (!agentCombo.isShowing() && !filtered.isEmpty()) {
+                        // Afficher la liste si elle n'est pas déjà visible et qu'il y a des résultats
+                        if (!filtered.isEmpty() && !agentCombo.isShowing()) {
+                            shouldShowList[0] = true;
                             agentCombo.show();
                         }
                     });
-                } else {
-                    // Réinitialiser avec tous les agents
+                } else if ((newText == null || newText.isEmpty()) && oldText != null && !oldText.isEmpty()) {
+                    // Réinitialiser avec tous les agents si le champ est vidé
                     Platform.runLater(() -> {
                         Agent savedValue = agentCombo.getValue();
                         agentCombo.getItems().setAll(allAgents);
                         if (savedValue != null) {
                             agentCombo.setValue(savedValue);
+                        }
+                        // Fermer la liste si le champ est vide
+                        if (agentCombo.isShowing()) {
+                            agentCombo.hide();
                         }
                     });
                 }

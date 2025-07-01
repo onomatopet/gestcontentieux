@@ -33,8 +33,8 @@ public class BanqueDAO extends AbstractSQLiteDAO<Banque, Long> {
     @Override
     protected String getInsertQuery() {
         return """
-            INSERT INTO banques (code_banque, nom_banque, description, adresse, telephone, email) 
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO banques (code_banque, nom_banque) 
+            VALUES (?, ?)
         """;
     }
 
@@ -42,8 +42,7 @@ public class BanqueDAO extends AbstractSQLiteDAO<Banque, Long> {
     protected String getUpdateQuery() {
         return """
             UPDATE banques 
-            SET code_banque = ?, nom_banque = ?, description = ?, 
-                adresse = ?, telephone = ?, email = ? 
+            SET code_banque = ?, nom_banque = ?
             WHERE id = ?
         """;
     }
@@ -51,8 +50,7 @@ public class BanqueDAO extends AbstractSQLiteDAO<Banque, Long> {
     @Override
     protected String getSelectAllQuery() {
         return """
-            SELECT id, code_banque, nom_banque, description, adresse, 
-                   telephone, email, created_at 
+            SELECT id, code_banque, nom_banque, created_at 
             FROM banques 
             ORDER BY nom_banque ASC
         """;
@@ -61,8 +59,7 @@ public class BanqueDAO extends AbstractSQLiteDAO<Banque, Long> {
     @Override
     protected String getSelectByIdQuery() {
         return """
-            SELECT id, code_banque, nom_banque, description, adresse, 
-                   telephone, email, created_at 
+            SELECT id, code_banque, nom_banque, created_at 
             FROM banques 
             WHERE id = ?
         """;
@@ -75,12 +72,15 @@ public class BanqueDAO extends AbstractSQLiteDAO<Banque, Long> {
         banque.setId(rs.getLong("id"));
         banque.setCodeBanque(rs.getString("code_banque"));
         banque.setNomBanque(rs.getString("nom_banque"));
-        banque.setDescription(rs.getString("description"));
-        banque.setAdresse(rs.getString("adresse"));
-        banque.setTelephone(rs.getString("telephone"));
-        banque.setEmail(rs.getString("email"));
 
-        // Gestion des timestamps - COMME DANS LES AUTRES DAOs
+        // Les colonnes description, adresse, telephone, email n'existent pas dans la table
+        banque.setDescription("");  // Valeur par défaut
+        banque.setAdresse("");      // Valeur par défaut
+        banque.setTelephone("");    // Valeur par défaut
+        banque.setEmail("");        // Valeur par défaut
+        banque.setActif(true);      // Valeur par défaut
+
+        // Gestion des timestamps
         try {
             Timestamp createdAt = rs.getTimestamp("created_at");
             if (createdAt != null) {
@@ -94,36 +94,17 @@ public class BanqueDAO extends AbstractSQLiteDAO<Banque, Long> {
         return banque;
     }
 
-    /**
-     * Trouve toutes les banques actives
-     * Note: Banque n'a pas de champ actif dans le modèle actuel,
-     * donc on retourne toutes les banques
-     */
-    public List<Banque> findAllActive() {
-        // Comme Banque n'a pas de champ actif, on retourne toutes les banques
-        // Si un champ actif est ajouté plus tard, modifier cette méthode
-        return findAll();
-    }
-
     @Override
     protected void setInsertParameters(PreparedStatement stmt, Banque banque) throws SQLException {
         stmt.setString(1, banque.getCodeBanque());
         stmt.setString(2, banque.getNomBanque());
-        stmt.setString(3, banque.getDescription());
-        stmt.setString(4, banque.getAdresse());
-        stmt.setString(5, banque.getTelephone());
-        stmt.setString(6, banque.getEmail());
     }
 
     @Override
     protected void setUpdateParameters(PreparedStatement stmt, Banque banque) throws SQLException {
         stmt.setString(1, banque.getCodeBanque());
         stmt.setString(2, banque.getNomBanque());
-        stmt.setString(3, banque.getDescription());
-        stmt.setString(4, banque.getAdresse());
-        stmt.setString(5, banque.getTelephone());
-        stmt.setString(6, banque.getEmail());
-        stmt.setLong(7, banque.getId());
+        stmt.setLong(3, banque.getId());
     }
 
     @Override
@@ -136,15 +117,14 @@ public class BanqueDAO extends AbstractSQLiteDAO<Banque, Long> {
         banque.setId(id);
     }
 
-    // Méthodes spécifiques aux banques
+    // ========== MÉTHODES SPÉCIFIQUES AUX BANQUES ==========
 
     /**
      * Trouve une banque par son code
      */
     public Optional<Banque> findByCodeBanque(String codeBanque) {
         String sql = """
-            SELECT id, code_banque, nom_banque, description, adresse, 
-                   telephone, email, created_at 
+            SELECT id, code_banque, nom_banque, created_at 
             FROM banques 
             WHERE code_banque = ?
         """;
@@ -169,14 +149,9 @@ public class BanqueDAO extends AbstractSQLiteDAO<Banque, Long> {
     /**
      * Recherche de banques avec critères multiples
      */
-    /**
-     * Recherche de banques avec critères multiples
-     * Version corrigée avec signature compatible avec BanqueService
-     */
     public List<Banque> searchBanques(String nomOuCode, Boolean actifOnly, int offset, int limit) {
         StringBuilder sql = new StringBuilder();
-        sql.append("SELECT id, code_banque, nom_banque, description, adresse, ");
-        sql.append("telephone, email, created_at ");
+        sql.append("SELECT id, code_banque, nom_banque, created_at ");
         sql.append("FROM banques WHERE 1=1 ");
 
         List<Object> parameters = new ArrayList<>();
@@ -188,7 +163,7 @@ public class BanqueDAO extends AbstractSQLiteDAO<Banque, Long> {
             parameters.add(searchPattern);
         }
 
-        // Note: Banque n'a pas de champ actif, donc on ignore le paramètre actifOnly
+        // Ignorer actifOnly car la colonne n'existe pas
 
         sql.append("ORDER BY nom_banque ASC LIMIT ? OFFSET ?");
         parameters.add(limit);
@@ -217,84 +192,11 @@ public class BanqueDAO extends AbstractSQLiteDAO<Banque, Long> {
     }
 
     /**
-     * Compte les banques correspondant aux critères
+     * Trouve toutes les banques actives
+     * Comme il n'y a pas de colonne actif, on retourne toutes les banques
      */
-    public long countSearchBanques(String nomOuCode) {
-        StringBuilder sql = new StringBuilder();
-        sql.append("SELECT COUNT(*) FROM banques WHERE 1=1 ");
-
-        List<Object> parameters = new ArrayList<>();
-
-        if (nomOuCode != null && !nomOuCode.trim().isEmpty()) {
-            sql.append("AND (nom_banque LIKE ? OR code_banque LIKE ?) ");
-            String searchPattern = "%" + nomOuCode.trim() + "%";
-            parameters.add(searchPattern);
-            parameters.add(searchPattern);
-        }
-
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
-
-            for (int i = 0; i < parameters.size(); i++) {
-                stmt.setObject(i + 1, parameters.get(i));
-            }
-
-            ResultSet rs = stmt.executeQuery();
-            if (rs.next()) {
-                return rs.getLong(1);
-            }
-
-        } catch (SQLException e) {
-            logger.error("Erreur lors du comptage des banques", e);
-        }
-
-        return 0;
-    }
-
-    /**
-     * Génère le prochain code banque selon le format BQNNN
-     */
-    public String generateNextCodeBanque() {
-        String prefix = "BQ";
-
-        String sql = """
-            SELECT code_banque FROM banques 
-            WHERE code_banque LIKE ? 
-            ORDER BY code_banque DESC 
-            LIMIT 1
-        """;
-
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-            stmt.setString(1, prefix + "%");
-            ResultSet rs = stmt.executeQuery();
-
-            if (rs.next()) {
-                String lastCode = rs.getString("code_banque");
-                return generateNextCodeFromLast(lastCode, prefix);
-            } else {
-                return prefix + "001";
-            }
-
-        } catch (SQLException e) {
-            logger.error("Erreur lors de la génération du code banque", e);
-            return prefix + "001";
-        }
-    }
-
-    private String generateNextCodeFromLast(String lastCode, String prefix) {
-        try {
-            if (lastCode != null && lastCode.startsWith(prefix) && lastCode.length() == 5) {
-                String numericPart = lastCode.substring(2);
-                int lastNumber = Integer.parseInt(numericPart);
-                return prefix + String.format("%03d", lastNumber + 1);
-            }
-            return prefix + "001";
-        } catch (Exception e) {
-            logger.warn("Erreur lors du parsing du dernier code banque: {}", lastCode, e);
-            return prefix + "001";
-        }
+    public List<Banque> findAllActive() {
+        return findAll();
     }
 
     /**
@@ -318,32 +220,9 @@ public class BanqueDAO extends AbstractSQLiteDAO<Banque, Long> {
 
     /**
      * Récupère les banques actives uniquement
+     * Comme il n'y a pas de colonne actif, on retourne toutes les banques
      */
     public List<Banque> findActiveBanques() {
-        String sql = """
-            SELECT id, code_banque, nom_banque, description, adresse, 
-                   telephone, email, created_at 
-            FROM banques 
-            ORDER BY nom_banque ASC
-        """;
-
-        List<Banque> banques = new ArrayList<>();
-
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
-
-            while (rs.next()) {
-                Banque banque = mapResultSetToEntity(rs);
-                if (banque.isActif()) {
-                    banques.add(banque);
-                }
-            }
-
-        } catch (SQLException e) {
-            logger.error("Erreur lors de la récupération des banques actives", e);
-        }
-
-        return banques;
+        return findAll();
     }
 }

@@ -96,18 +96,15 @@ public class NumerotationService {
     }
 
     /**
-     * Génère le prochain numéro à partir du dernier
-     * Gère la remise à zéro mensuelle automatique
+     * Génère le prochain numéro d'affaire
      */
     private String genererProchainNumeroAffaire(String dernierNumero, String yearMonth) {
         try {
-            // Vérifier si on est dans le même mois
             if (dernierNumero.startsWith(yearMonth)) {
                 // Même mois : incrémenter
                 String numeroPart = dernierNumero.substring(4);
                 int numero = Integer.parseInt(numeroPart);
 
-                // Vérifier la limite (99999 max)
                 if (numero >= 99999) {
                     throw new BusinessException("Limite mensuelle d'affaires atteinte (99999)");
                 }
@@ -117,7 +114,7 @@ public class NumerotationService {
                 return nouveauNumero;
 
             } else {
-                // Nouveau mois : redémarrer à 00001
+                // Nouveau mois - réinitialiser
                 String nouveauNumero = yearMonth + "00001";
                 logger.info("🔄 Nouveau mois - Numéro d'affaire réinitialisé: {}", nouveauNumero);
                 return nouveauNumero;
@@ -145,11 +142,12 @@ public class NumerotationService {
 
             logger.debug("🔢 Génération numéro encaissement pour période: {}", prefixe);
 
+            // CORRECTION : Utiliser numero_encaissement au lieu de reference
             String sql = """
-                SELECT reference 
+                SELECT numero_encaissement 
                 FROM encaissements 
-                WHERE reference LIKE ? 
-                ORDER BY reference DESC 
+                WHERE numero_encaissement LIKE ? 
+                ORDER BY numero_encaissement DESC 
                 LIMIT 1
             """;
 
@@ -160,7 +158,7 @@ public class NumerotationService {
                 ResultSet rs = stmt.executeQuery();
 
                 if (rs.next()) {
-                    String lastReference = rs.getString("reference");
+                    String lastReference = rs.getString("numero_encaissement");
                     return genererProchainNumeroEncaissement(lastReference, prefixe);
                 } else {
                     // Premier encaissement du mois
@@ -290,82 +288,18 @@ public class NumerotationService {
         }
     }
 
-    // ==================== MÉTHODES DE VALIDATION ====================
+    // ==================== MÉTHODES DE DIAGNOSTIC ====================
 
     /**
-     * Valide et corrige un numéro d'affaire si nécessaire
+     * Vérifie la cohérence des séquences de numérotation
+     * Utile pour diagnostiquer les problèmes
      */
-    public String validerEtCorrigerNumeroAffaire(String numero) {
-        if (numero == null || numero.trim().isEmpty()) {
-            return genererNumeroAffaire();
-        }
-
-        // Vérifier le format
-        if (numero.length() == 9 && numero.matches("\\d{9}")) {
-            // Vérifier la cohérence temporelle
-            String moisAffaire = numero.substring(2, 4);
-            String moisCourant = LocalDate.now().format(DateTimeFormatter.ofPattern("MM"));
-
-            if (!moisAffaire.equals(moisCourant)) {
-                logger.warn("⚠️ Numéro d'affaire hors période: {}, génération nouveau", numero);
-                return genererNumeroAffaire();
-            }
-
-            return numero;
-        }
-
-        logger.warn("⚠️ Format numéro d'affaire invalide: {}, génération nouveau", numero);
-        return genererNumeroAffaire();
-    }
-
-    /**
-     * Vérifier l'unicité d'un numéro en base
-     */
-    public boolean estNumeroUniqueAffaire(String numero) {
-        String sql = "SELECT COUNT(*) FROM affaires WHERE numero_affaire = ?";
-
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-            stmt.setString(1, numero);
-            ResultSet rs = stmt.executeQuery();
-
-            if (rs.next()) {
-                return rs.getInt(1) == 0;
-            }
-
-        } catch (SQLException e) {
-            logger.error("Erreur lors de la vérification d'unicité", e);
-        }
-
-        return false;
-    }
-
-    // ==================== MÉTHODES DE MAINTENANCE ====================
-
-    /**
-     * Vérifie et répare les séquences de numérotation
-     * Utile pour la maintenance et la migration de données
-     */
-    public void verifierEtReparerSequences() {
-        logger.info("🔧 Vérification et réparation des séquences de numérotation...");
-
-        try {
-            // Vérifier les affaires
-            verifierSequenceAffaires();
-
-            // Vérifier les encaissements
-            verifierSequenceEncaissements();
-
-            // Vérifier les mandats
-            verifierSequenceMandats();
-
-            logger.info("✅ Vérification des séquences terminée");
-
-        } catch (Exception e) {
-            logger.error("❌ Erreur lors de la vérification des séquences", e);
-            throw new BusinessException("Échec de la vérification des séquences", e);
-        }
+    public void verifierCoherenceGlobale() {
+        logger.info("🔍 === VÉRIFICATION COHÉRENCE NUMÉROTATION ===");
+        verifierSequenceAffaires();
+        verifierSequenceEncaissements();
+        verifierSequenceMandats();
+        logger.info("🔍 === FIN VÉRIFICATION ===");
     }
 
     /**
@@ -377,7 +311,7 @@ public class NumerotationService {
         String sql = """
             SELECT numero_affaire, date_creation 
             FROM affaires 
-            WHERE numero_affaire REGEXP '^[0-9]{9}
+            WHERE numero_affaire REGEXP '^[0-9]{9}$' 
             ORDER BY numero_affaire
         """;
 
@@ -427,11 +361,12 @@ public class NumerotationService {
     private void verifierSequenceEncaissements() {
         logger.debug("Vérification séquence encaissements...");
 
+        // CORRECTION : Utiliser numero_encaissement au lieu de reference
         String sql = """
-            SELECT reference, date_encaissement 
+            SELECT numero_encaissement, date_encaissement 
             FROM encaissements 
-            WHERE reference REGEXP '^[0-9]{4}R[0-9]{5}
-            ORDER BY reference
+            WHERE numero_encaissement REGEXP '^[0-9]{4}R[0-9]{5}$' 
+            ORDER BY numero_encaissement
         """;
 
         try (Connection conn = DatabaseConfig.getSQLiteConnection();
@@ -443,7 +378,7 @@ public class NumerotationService {
             int anomalies = 0;
 
             while (rs.next()) {
-                String reference = rs.getString("reference");
+                String reference = rs.getString("numero_encaissement");
                 String prefix = reference.substring(0, 5); // YYMMR
                 int sequence = Integer.parseInt(reference.substring(5));
 
@@ -483,7 +418,7 @@ public class NumerotationService {
         String sql = """
             SELECT numero_mandat, date_creation 
             FROM mandats 
-            WHERE numero_mandat REGEXP '^[0-9]{4}M[0-9]{4}
+            WHERE numero_mandat REGEXP '^[0-9]{4}M[0-9]{4}$' 
             ORDER BY numero_mandat
         """;
 
@@ -527,83 +462,18 @@ public class NumerotationService {
         }
     }
 
-    /**
-     * Répare les gaps dans une séquence (utilisation avancée)
-     */
-    public void reparerGapsAffaires(String yearMonth) {
-        logger.warn("🔧 Réparation des gaps pour les affaires du mois: {}", yearMonth);
-
-        // Cette méthode est délicate car elle modifie les numéros existants
-        // À utiliser uniquement en maintenance avec backup
-
-        try (Connection conn = DatabaseConfig.getSQLiteConnection()) {
-            conn.setAutoCommit(false);
-
-            String selectSql = """
-                SELECT id, numero_affaire 
-                FROM affaires 
-                WHERE numero_affaire LIKE ?
-                ORDER BY date_creation, id
-            """;
-
-            try (PreparedStatement selectStmt = conn.prepareStatement(selectSql)) {
-                selectStmt.setString(1, yearMonth + "%");
-                ResultSet rs = selectStmt.executeQuery();
-
-                int sequence = 1;
-                while (rs.next()) {
-                    long id = rs.getLong("id");
-                    String nouveauNumero = yearMonth + String.format("%05d", sequence);
-
-                    String updateSql = "UPDATE affaires SET numero_affaire = ? WHERE id = ?";
-                    try (PreparedStatement updateStmt = conn.prepareStatement(updateSql)) {
-                        updateStmt.setString(1, nouveauNumero);
-                        updateStmt.setLong(2, id);
-                        updateStmt.executeUpdate();
-                    }
-
-                    sequence++;
-                }
-
-                conn.commit();
-                logger.info("✅ Réparation terminée pour {} affaires", sequence - 1);
-
-            } catch (SQLException e) {
-                conn.rollback();
-                throw e;
-            }
-
-        } catch (SQLException e) {
-            logger.error("❌ Erreur lors de la réparation des gaps", e);
-            throw new BusinessException("Échec de la réparation des gaps", e);
-        }
-    }
-
-    // ==================== STATISTIQUES ET RAPPORTS ====================
+    // ==================== RAPPORTS ET STATISTIQUES ====================
 
     /**
-     * Génère un rapport de l'état des séquences
+     * Génère un rapport sur l'état des séquences
      */
     public SequenceReport genererRapportSequences() {
-        logger.info("📊 Génération du rapport des séquences...");
-
         SequenceReport report = new SequenceReport();
+        report.setGeneratedAt(LocalDate.now());
 
-        try {
-            // Statistiques affaires
-            report.setAffairesStats(calculerStatsAffaires());
-
-            // Statistiques encaissements
-            report.setEncaissementsStats(calculerStatsEncaissements());
-
-            // Statistiques mandats
-            report.setMandatsStats(calculerStatsMandats());
-
-            report.setGeneratedAt(LocalDate.now());
-
-        } catch (Exception e) {
-            logger.error("Erreur lors de la génération du rapport", e);
-        }
+        report.setAffairesStats(calculerStatsAffaires());
+        report.setEncaissementsStats(calculerStatsEncaissements());
+        report.setMandatsStats(calculerStatsMandats());
 
         return report;
     }
@@ -618,7 +488,7 @@ public class NumerotationService {
                 MAX(numero_affaire) as dernier_numero,
                 COUNT(DISTINCT SUBSTR(numero_affaire, 1, 4)) as mois_differents
             FROM affaires 
-            WHERE numero_affaire REGEXP '^[0-9]{9}
+            WHERE numero_affaire REGEXP '^[0-9]{9}$'
         """;
 
         try (Connection conn = DatabaseConfig.getSQLiteConnection();
@@ -642,14 +512,15 @@ public class NumerotationService {
     private SequenceStats calculerStatsEncaissements() {
         SequenceStats stats = new SequenceStats("Encaissements");
 
+        // CORRECTION : Utiliser numero_encaissement au lieu de reference
         String sql = """
             SELECT 
                 COUNT(*) as total,
-                MIN(reference) as premier_numero,
-                MAX(reference) as dernier_numero,
-                COUNT(DISTINCT SUBSTR(reference, 1, 5)) as mois_differents
+                MIN(numero_encaissement) as premier_numero,
+                MAX(numero_encaissement) as dernier_numero,
+                COUNT(DISTINCT SUBSTR(numero_encaissement, 1, 5)) as mois_differents
             FROM encaissements 
-            WHERE reference REGEXP '^[0-9]{4}R[0-9]{5}
+            WHERE numero_encaissement REGEXP '^[0-9]{4}R[0-9]{5}$'
         """;
 
         try (Connection conn = DatabaseConfig.getSQLiteConnection();
@@ -680,7 +551,7 @@ public class NumerotationService {
                 MAX(numero_mandat) as dernier_numero,
                 COUNT(DISTINCT SUBSTR(numero_mandat, 1, 5)) as mois_differents
             FROM mandats 
-            WHERE numero_mandat REGEXP '^[0-9]{4}M[0-9]{4}
+            WHERE numero_mandat REGEXP '^[0-9]{4}M[0-9]{4}$'
         """;
 
         try (Connection conn = DatabaseConfig.getSQLiteConnection();
@@ -701,7 +572,7 @@ public class NumerotationService {
         return stats;
     }
 
-    // ==================== CLASSES INTERNES POUR LES RAPPORTS ====================
+    // ==================== CLASSES INTERNES ====================
 
     public static class SequenceReport {
         private LocalDate generatedAt;

@@ -1,5 +1,13 @@
 package com.regulation.contentieux;
 
+import javafx.collections.FXCollections;
+import javafx.fxml.FXML;
+import javafx.scene.control.*;
+import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.scene.layout.GridPane;
+import javafx.util.Callback;
+
 import atlantafx.base.theme.PrimerLight;
 import com.regulation.contentieux.config.DatabaseConfig;
 import com.regulation.contentieux.dao.UtilisateurDAO;
@@ -39,8 +47,8 @@ public class Main extends Application {
     private static final String APP_ICON = "/images/app-icon.png";
 
     // Dimensions de la fenêtre de connexion
-    private static final int LOGIN_WIDTH = 250;
-    private static final int LOGIN_HEIGHT = 300;
+    private static final int LOGIN_WIDTH = 200;
+    private static final int LOGIN_HEIGHT = 250;
 
     @Override
     public void init() throws Exception {

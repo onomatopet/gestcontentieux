@@ -34,8 +34,8 @@ public class ServiceDAO extends AbstractSQLiteDAO<Service, Long> {
     @Override
     protected String getInsertQuery() {
         return """
-        INSERT INTO services (code_service, nom_service, actif, centre_id) 
-        VALUES (?, ?, ?, ?)
+        INSERT INTO services (code_service, nom_service) 
+        VALUES (?, ?)
     """;
     }
 
@@ -43,7 +43,7 @@ public class ServiceDAO extends AbstractSQLiteDAO<Service, Long> {
     protected String getUpdateQuery() {
         return """
         UPDATE services 
-        SET code_service = ?, nom_service = ?, actif = ?, centre_id = ?
+        SET code_service = ?, nom_service = ?
         WHERE id = ?
     """;
     }
@@ -51,22 +51,18 @@ public class ServiceDAO extends AbstractSQLiteDAO<Service, Long> {
     @Override
     protected String getSelectAllQuery() {
         return """
-        SELECT s.id, s.code_service, s.nom_service, s.actif, s.centre_id, s.created_at,
-               c.code_centre, c.nom_centre
-        FROM services s
-        LEFT JOIN centres c ON s.centre_id = c.id
-        ORDER BY s.nom_service ASC
+        SELECT id, code_service, nom_service, created_at
+        FROM services
+        ORDER BY nom_service ASC
     """;
     }
 
     @Override
     protected String getSelectByIdQuery() {
         return """
-        SELECT s.id, s.code_service, s.nom_service, s.actif, s.centre_id, s.created_at,
-               c.code_centre, c.nom_centre
-        FROM services s
-        LEFT JOIN centres c ON s.centre_id = c.id
-        WHERE s.id = ?
+        SELECT id, code_service, nom_service, created_at
+        FROM services
+        WHERE id = ?
     """;
     }
 
@@ -77,28 +73,13 @@ public class ServiceDAO extends AbstractSQLiteDAO<Service, Long> {
         service.setId(rs.getLong("id"));
         service.setCodeService(rs.getString("code_service"));
         service.setNomService(rs.getString("nom_service"));
-        service.setDescription(rs.getString("description"));
 
-        // Gestion du boolean actif
-        try {
-            service.setActif(rs.getBoolean("actif"));
-        } catch (SQLException e) {
-            service.setActif(true); // Valeur par défaut
-        }
+        // Les colonnes description et actif n'existent pas dans la table
+        service.setDescription("");  // Valeur par défaut
+        service.setActif(true);     // Valeur par défaut
 
-        // Gestion du centre parent
-        try {
-            Long centreId = rs.getLong("centre_id");
-            if (centreId != null && centreId > 0) {
-                Centre centre = new Centre();
-                centre.setId(centreId);
-                centre.setCodeCentre(rs.getString("code_centre"));
-                centre.setNomCentre(rs.getString("nom_centre"));
-                service.setCentre(centre);
-            }
-        } catch (SQLException e) {
-            logger.debug("Pas de centre associé pour le service {}", service.getId());
-        }
+        // Pas de centre_id dans la table services
+        service.setCentre(null);
 
         // Gestion des timestamps
         try {
@@ -118,19 +99,13 @@ public class ServiceDAO extends AbstractSQLiteDAO<Service, Long> {
     protected void setInsertParameters(PreparedStatement stmt, Service service) throws SQLException {
         stmt.setString(1, service.getCodeService());
         stmt.setString(2, service.getNomService());
-        stmt.setBoolean(3, service.isActif());
-
-        if (service.getCentre() != null && service.getCentre().getId() != null) {
-            stmt.setLong(4, service.getCentre().getId());
-        } else {
-            stmt.setNull(4, Types.BIGINT);
-        }
     }
 
     @Override
     protected void setUpdateParameters(PreparedStatement stmt, Service service) throws SQLException {
-        setInsertParameters(stmt, service);
-        stmt.setLong(5, service.getId());
+        stmt.setString(1, service.getCodeService());
+        stmt.setString(2, service.getNomService());
+        stmt.setLong(3, service.getId());
     }
 
     @Override
@@ -146,22 +121,36 @@ public class ServiceDAO extends AbstractSQLiteDAO<Service, Long> {
     // ========== MÉTHODES SPÉCIFIQUES AUX SERVICES ==========
 
     /**
-     * Trouve un service par son code - COMPATIBLE AVEC ReferentielController
+     * Vérifie si un code service existe déjà
+     * @param codeService Le code à vérifier
+     * @return true si le code existe déjà
      */
-    public Optional<Service> findByCode(String code) {
-        return findByCodeService(code);
+    public boolean existsByCodeService(String codeService) {
+        String sql = "SELECT 1 FROM services WHERE code_service = ? LIMIT 1";
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, codeService);
+            ResultSet rs = stmt.executeQuery();
+            return rs.next();
+
+        } catch (SQLException e) {
+            logger.error("Erreur lors de la vérification du code service", e);
+            return false;
+        }
     }
 
     /**
-     * Trouve un service par son code service
+     * Trouve un service par son code
+     * @param codeService Le code du service
+     * @return Le service trouvé ou empty
      */
     public Optional<Service> findByCodeService(String codeService) {
         String sql = """
-            SELECT s.id, s.code_service, s.nom_service, s.description, s.actif, s.centre_id, s.created_at,
-                   c.code_centre, c.nom_centre
-            FROM services s
-            LEFT JOIN centres c ON s.centre_id = c.id
-            WHERE s.code_service = ?
+            SELECT id, code_service, nom_service, created_at 
+            FROM services 
+            WHERE code_service = ?
         """;
 
         try (Connection conn = DatabaseConfig.getSQLiteConnection();
@@ -182,60 +171,26 @@ public class ServiceDAO extends AbstractSQLiteDAO<Service, Long> {
     }
 
     /**
-     * Compte le nombre de services par centre
-     * @param centreId ID du centre
-     * @return Nombre de services appartenant au centre
-     */
-    public long countByCentreId(Long centreId) {
-        if (centreId == null) {
-            return 0;
-        }
-
-        String sql = "SELECT COUNT(*) FROM services WHERE centre_id = ?";
-
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-            stmt.setLong(1, centreId);
-            ResultSet rs = stmt.executeQuery();
-
-            if (rs.next()) {
-                return rs.getLong(1);
-            }
-
-        } catch (SQLException e) {
-            logger.error("Erreur lors du comptage des services pour le centre ID: " + centreId, e);
-        }
-
-        return 0;
-    }
-
-    /**
      * Recherche de services avec critères multiples - POUR ReferentielController
      */
     public List<Service> searchServices(String nomOuCode, Boolean actifOnly, int offset, int limit) {
         StringBuilder sql = new StringBuilder();
-        sql.append("SELECT s.id, s.code_service, s.nom_service, s.description, s.actif, s.centre_id, s.created_at, ");
-        sql.append("c.code_centre, c.nom_centre ");
-        sql.append("FROM services s ");
-        sql.append("LEFT JOIN centres c ON s.centre_id = c.id ");
+        sql.append("SELECT id, code_service, nom_service, created_at ");
+        sql.append("FROM services ");
         sql.append("WHERE 1=1 ");
 
         List<Object> parameters = new ArrayList<>();
 
         if (nomOuCode != null && !nomOuCode.trim().isEmpty()) {
-            sql.append("AND (s.nom_service LIKE ? OR s.code_service LIKE ?) ");
+            sql.append("AND (nom_service LIKE ? OR code_service LIKE ?) ");
             String searchPattern = "%" + nomOuCode.trim() + "%";
             parameters.add(searchPattern);
             parameters.add(searchPattern);
         }
 
-        if (actifOnly != null) {
-            sql.append("AND s.actif = ? ");
-            parameters.add(actifOnly);
-        }
+        // Ignorer actifOnly car la colonne n'existe pas
 
-        sql.append("ORDER BY s.nom_service ASC LIMIT ? OFFSET ?");
+        sql.append("ORDER BY nom_service ASC LIMIT ? OFFSET ?");
         parameters.add(limit);
         parameters.add(offset);
 
@@ -273,20 +228,15 @@ public class ServiceDAO extends AbstractSQLiteDAO<Service, Long> {
      */
     public long countSearchServices(String nomOuCode, Boolean actifOnly) {
         StringBuilder sql = new StringBuilder();
-        sql.append("SELECT COUNT(*) FROM services s WHERE 1=1 ");
+        sql.append("SELECT COUNT(*) FROM services WHERE 1=1 ");
 
         List<Object> parameters = new ArrayList<>();
 
         if (nomOuCode != null && !nomOuCode.trim().isEmpty()) {
-            sql.append("AND (s.nom_service LIKE ? OR s.code_service LIKE ?) ");
+            sql.append("AND (nom_service LIKE ? OR code_service LIKE ?) ");
             String searchPattern = "%" + nomOuCode.trim() + "%";
             parameters.add(searchPattern);
             parameters.add(searchPattern);
-        }
-
-        if (actifOnly != null) {
-            sql.append("AND s.actif = ? ");
-            parameters.add(actifOnly);
         }
 
         try (Connection conn = DatabaseConfig.getSQLiteConnection();
@@ -317,15 +267,13 @@ public class ServiceDAO extends AbstractSQLiteDAO<Service, Long> {
 
     /**
      * Trouve tous les services actifs - POUR LES COMBOBOX
+     * Comme il n'y a pas de colonne actif, on retourne tous les services
      */
     public List<Service> findAllActive() {
         String sql = """
-            SELECT s.id, s.code_service, s.nom_service, s.description, s.actif, s.centre_id, s.created_at,
-                   c.code_centre, c.nom_centre
-            FROM services s
-            LEFT JOIN centres c ON s.centre_id = c.id
-            WHERE s.actif = 1
-            ORDER BY s.nom_service ASC
+            SELECT id, code_service, nom_service, created_at
+            FROM services
+            ORDER BY nom_service ASC
         """;
 
         List<Service> services = new ArrayList<>();
@@ -348,52 +296,29 @@ public class ServiceDAO extends AbstractSQLiteDAO<Service, Long> {
 
     /**
      * Trouve les services par centre
+     * Note: La table services n'a pas de relation avec centres
      */
     public List<Service> findByCentreId(Long centreId) {
-        String sql = """
-            SELECT s.id, s.code_service, s.nom_service, s.description, s.actif, s.centre_id, s.created_at,
-                   c.code_centre, c.nom_centre
-            FROM services s
-            LEFT JOIN centres c ON s.centre_id = c.id
-            WHERE s.centre_id = ?
-            ORDER BY s.nom_service ASC
-        """;
-
-        List<Service> services = new ArrayList<>();
-
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-            stmt.setLong(1, centreId);
-            ResultSet rs = stmt.executeQuery();
-
-            while (rs.next()) {
-                services.add(mapResultSetToEntity(rs));
-            }
-
-        } catch (SQLException e) {
-            logger.error("Erreur lors de la récupération des services par centre: " + centreId, e);
-        }
-
-        return services;
+        // Pas de relation centre dans la table, on retourne une liste vide
+        logger.warn("findByCentreId appelé mais la table services n'a pas de relation avec centres");
+        return new ArrayList<>();
     }
 
+    /**
+     * Compte les services par centre
+     * Note: La table services n'a pas de relation avec centres
+     */
+    public long countByCentreId(Long centreId) {
+        // Pas de relation centre dans la table
+        return 0;
+    }
+
+    /**
+     * Trouve tous les services actifs - ALIAS pour compatibilité
+     * Comme il n'y a pas de colonne actif, on retourne tous les services
+     */
     public List<Service> findAllActifs() {
-        String sql = "SELECT * FROM services WHERE actif = 1 ORDER BY nom_service";
-        List<Service> services = new ArrayList<>();
-
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
-
-            while (rs.next()) {
-                services.add(mapResultSetToEntity(rs));
-            }
-        } catch (SQLException e) {
-            logger.error("Erreur lors de la récupération des services actifs", e);
-        }
-
-        return services;
+        return findAllActive();
     }
 
     /**
@@ -439,25 +364,6 @@ public class ServiceDAO extends AbstractSQLiteDAO<Service, Long> {
         } catch (Exception e) {
             logger.warn("Erreur lors du parsing du dernier code service: {}", lastCode, e);
             return prefix + "01";
-        }
-    }
-
-    /**
-     * Vérifie si un code service existe déjà
-     */
-    public boolean existsByCodeService(String codeService) {
-        String sql = "SELECT 1 FROM services WHERE code_service = ? LIMIT 1";
-
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-            stmt.setString(1, codeService);
-            ResultSet rs = stmt.executeQuery();
-            return rs.next();
-
-        } catch (SQLException e) {
-            logger.error("Erreur lors de la vérification du code service", e);
-            return false;
         }
     }
 }

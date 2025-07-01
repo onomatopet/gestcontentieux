@@ -38,8 +38,8 @@ public class ContraventionDAO extends AbstractSQLiteDAO<Contravention, Long> {
     @Override
     protected String getInsertQuery() {
         return """
-            INSERT INTO contraventions (code, libelle, description, actif) 
-            VALUES (?, ?, ?, ?)
+            INSERT INTO contraventions (code, libelle, description) 
+            VALUES (?, ?, ?)
         """;
     }
 
@@ -47,7 +47,7 @@ public class ContraventionDAO extends AbstractSQLiteDAO<Contravention, Long> {
     protected String getUpdateQuery() {
         return """
             UPDATE contraventions 
-            SET code = ?, libelle = ?, description = ?, actif = ?
+            SET code = ?, libelle = ?, description = ?
             WHERE id = ?
         """;
     }
@@ -55,7 +55,7 @@ public class ContraventionDAO extends AbstractSQLiteDAO<Contravention, Long> {
     @Override
     protected String getSelectAllQuery() {
         return """
-            SELECT id, code, libelle, description, actif, created_at 
+            SELECT id, code, libelle, description, created_at 
             FROM contraventions 
             ORDER BY libelle ASC
         """;
@@ -64,7 +64,7 @@ public class ContraventionDAO extends AbstractSQLiteDAO<Contravention, Long> {
     @Override
     protected String getSelectByIdQuery() {
         return """
-            SELECT id, code, libelle, description, actif, created_at 
+            SELECT id, code, libelle, description, created_at 
             FROM contraventions 
             WHERE id = ?
         """;
@@ -79,12 +79,8 @@ public class ContraventionDAO extends AbstractSQLiteDAO<Contravention, Long> {
         contravention.setLibelle(rs.getString("libelle"));
         contravention.setDescription(rs.getString("description"));
 
-        // Gestion du boolean actif
-        try {
-            contravention.setActif(rs.getBoolean("actif"));
-        } catch (SQLException e) {
-            contravention.setActif(true); // Valeur par défaut
-        }
+        // La colonne actif n'existe pas dans la table, on met true par défaut
+        contravention.setActif(true);
 
         // Gestion des timestamps
         try {
@@ -105,13 +101,14 @@ public class ContraventionDAO extends AbstractSQLiteDAO<Contravention, Long> {
         stmt.setString(1, contravention.getCode());
         stmt.setString(2, contravention.getLibelle());
         stmt.setString(3, contravention.getDescription());
-        stmt.setBoolean(4, contravention.isActif());
     }
 
     @Override
     protected void setUpdateParameters(PreparedStatement stmt, Contravention contravention) throws SQLException {
-        setInsertParameters(stmt, contravention);
-        stmt.setLong(5, contravention.getId());
+        stmt.setString(1, contravention.getCode());
+        stmt.setString(2, contravention.getLibelle());
+        stmt.setString(3, contravention.getDescription());
+        stmt.setLong(4, contravention.getId());
     }
 
     @Override
@@ -131,7 +128,7 @@ public class ContraventionDAO extends AbstractSQLiteDAO<Contravention, Long> {
      */
     public Optional<Contravention> findByCode(String code) {
         String sql = """
-            SELECT id, code, libelle, description, actif, created_at 
+            SELECT id, code, libelle, description, created_at 
             FROM contraventions 
             WHERE code = ?
         """;
@@ -158,7 +155,7 @@ public class ContraventionDAO extends AbstractSQLiteDAO<Contravention, Long> {
      */
     public List<Contravention> searchContraventions(String libelleOuCode, Boolean actifOnly, int offset, int limit) {
         StringBuilder sql = new StringBuilder();
-        sql.append("SELECT id, code, libelle, description, actif, created_at ");
+        sql.append("SELECT id, code, libelle, description, created_at ");
         sql.append("FROM contraventions WHERE 1=1 ");
 
         List<Object> parameters = new ArrayList<>();
@@ -170,10 +167,7 @@ public class ContraventionDAO extends AbstractSQLiteDAO<Contravention, Long> {
             parameters.add(searchPattern);
         }
 
-        if (actifOnly != null) {
-            sql.append("AND actif = ? ");
-            parameters.add(actifOnly);
-        }
+        // Ignorer le paramètre actifOnly car la colonne n'existe pas
 
         sql.append("ORDER BY libelle ASC LIMIT ? OFFSET ?");
         parameters.add(limit);
@@ -212,14 +206,13 @@ public class ContraventionDAO extends AbstractSQLiteDAO<Contravention, Long> {
 
         String sql = """
         SELECT c.id, c.code, c.libelle, c.description, 
-               c.montant_fixe, c.montant_min, c.montant_max, 
-               c.actif, c.created_at, c.updated_at,
+               c.created_at,
                ac.montant_applique
         FROM contraventions c
         INNER JOIN affaire_contraventions ac ON c.id = ac.contravention_id
         WHERE ac.affaire_id = ?
-        ORDER BY c.code ASC
-    """;
+        ORDER BY c.libelle ASC
+        """;
 
         List<Contravention> contraventions = new ArrayList<>();
 
@@ -230,68 +223,20 @@ public class ContraventionDAO extends AbstractSQLiteDAO<Contravention, Long> {
             ResultSet rs = stmt.executeQuery();
 
             while (rs.next()) {
-                Contravention contravention = new Contravention();
-                contravention.setId(rs.getLong("id"));
-                contravention.setCode(rs.getString("code"));
-                contravention.setLibelle(rs.getString("libelle"));
-                contravention.setDescription(rs.getString("description"));
-                contravention.setActif(rs.getBoolean("actif"));
-
-                // Gérer le montant : utiliser montant_applique de la liaison, sinon montant_fixe
-                BigDecimal montantApplique = rs.getBigDecimal("montant_applique");
-                if (montantApplique != null) {
-                    contravention.setMontant(montantApplique);
-                } else {
-                    BigDecimal montantFixe = rs.getBigDecimal("montant_fixe");
-                    contravention.setMontant(montantFixe != null ? montantFixe : BigDecimal.ZERO);
-                }
-
-                // Gestion des timestamps
-                Timestamp createdAt = rs.getTimestamp("created_at");
-                if (createdAt != null) {
-                    contravention.setCreatedAt(createdAt.toLocalDateTime());
-                }
-
+                Contravention contravention = mapResultSetToEntity(rs);
+                // Si on veut stocker le montant appliqué quelque part
                 contraventions.add(contravention);
             }
 
         } catch (SQLException e) {
-            logger.error("Erreur lors de la récupération des contraventions pour l'affaire: {}", affaireId, e);
+            logger.error("Erreur lors de la recherche des contraventions pour l'affaire: " + affaireId, e);
         }
 
         return contraventions;
     }
 
     /**
-     * ENRICHISSEMENT : Méthode pour obtenir les libellés des contraventions d'une affaire
-     * Utilisée pour l'affichage dans les rapports
-     */
-    public String getLibellesContraventions(Long affaireId) {
-        List<Contravention> contraventions = findByAffaireId(affaireId);
-
-        if (contraventions.isEmpty()) {
-            return "Aucune contravention";
-        }
-
-        return contraventions.stream()
-                .map(Contravention::getLibelle)
-                .collect(Collectors.joining(", "));
-    }
-
-    /**
-     * ENRICHISSEMENT : Méthode pour calculer le montant total des amendes d'une affaire
-     */
-    public BigDecimal getTotalAmandes(Long affaireId) {
-        List<Contravention> contraventions = findByAffaireId(affaireId);
-
-        return contraventions.stream()
-                .map(Contravention::getMontant)  // CORRECTION : utiliser getMontant() au lieu de getMontantAmende()
-                .filter(Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-    }
-
-    /**
-     * Compte les contraventions correspondant aux critères
+     * Compte les contraventions selon les critères
      */
     public long countSearchContraventions(String libelleOuCode, Boolean actifOnly) {
         StringBuilder sql = new StringBuilder();
@@ -304,11 +249,6 @@ public class ContraventionDAO extends AbstractSQLiteDAO<Contravention, Long> {
             String searchPattern = "%" + libelleOuCode.trim() + "%";
             parameters.add(searchPattern);
             parameters.add(searchPattern);
-        }
-
-        if (actifOnly != null) {
-            sql.append("AND actif = ? ");
-            parameters.add(actifOnly);
         }
 
         try (Connection conn = DatabaseConfig.getSQLiteConnection();
@@ -339,12 +279,12 @@ public class ContraventionDAO extends AbstractSQLiteDAO<Contravention, Long> {
 
     /**
      * Trouve toutes les contraventions actives - POUR LES COMBOBOX
+     * Comme il n'y a pas de colonne actif, on retourne toutes les contraventions
      */
     public List<Contravention> findAllActive() {
         String sql = """
-            SELECT id, code, libelle, description, actif, created_at 
+            SELECT id, code, libelle, description, created_at 
             FROM contraventions 
-            WHERE actif = 1
             ORDER BY libelle ASC
         """;
 
@@ -374,7 +314,7 @@ public class ContraventionDAO extends AbstractSQLiteDAO<Contravention, Long> {
 
         String sql = """
             SELECT code FROM contraventions 
-            WHERE code LIKE ? 
+            WHERE code LIKE ?
             ORDER BY code DESC 
             LIMIT 1
         """;
@@ -413,7 +353,8 @@ public class ContraventionDAO extends AbstractSQLiteDAO<Contravention, Long> {
     }
 
     public List<Contravention> findAllActives() {
-        String sql = "SELECT * FROM contraventions WHERE actif = 1 ORDER BY libelle";
+        // Comme il n'y a pas de colonne actif, on retourne toutes les contraventions
+        String sql = "SELECT * FROM contraventions ORDER BY libelle";
         List<Contravention> contraventions = new ArrayList<>();
 
         try (Connection conn = DatabaseConfig.getSQLiteConnection();
@@ -429,7 +370,6 @@ public class ContraventionDAO extends AbstractSQLiteDAO<Contravention, Long> {
 
         return contraventions;
     }
-
 
     /**
      * Vérifie si un code contravention existe déjà

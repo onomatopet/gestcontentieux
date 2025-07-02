@@ -273,9 +273,10 @@ public class RepartitionService {
         List<Agent> chefs = new ArrayList<>();
 
         String sql = """
-            SELECT agent_id FROM affaire_acteurs
-            WHERE affaire_id = ? AND role_sur_affaire = 'CHEF'
-        """;
+        SELECT agent_id FROM affaire_acteurs
+        WHERE affaire_id = ?
+        AND role_sur_affaire = 'Chef'
+    """;
 
         try (Connection conn = DatabaseConfig.getSQLiteConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -302,9 +303,10 @@ public class RepartitionService {
         List<Agent> saisissants = new ArrayList<>();
 
         String sql = """
-            SELECT agent_id FROM affaire_acteurs
-            WHERE affaire_id = ? AND role_sur_affaire = 'SAISISSANT'
-        """;
+        SELECT agent_id FROM affaire_acteurs
+        WHERE affaire_id = ?
+        AND role_sur_affaire = 'Saisissant'
+    """;
 
         try (Connection conn = DatabaseConfig.getSQLiteConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {

@@ -239,11 +239,11 @@ public class AgentDAO extends AbstractSQLiteDAO<Agent, Long> {
 
         // 1. Récupérer les chefs de l'affaire
         String sqlChefs = """
-            SELECT DISTINCT a.* 
-            FROM agents a
-            INNER JOIN affaire_acteurs aa ON a.id = aa.agent_id
-            WHERE aa.affaire_id = ? AND aa.role_sur_affaire = 'CHEF'
-        """;
+        SELECT DISTINCT a.* 
+        FROM agents a
+        INNER JOIN affaire_acteurs aa ON a.id = aa.agent_id
+        WHERE aa.affaire_id = ? AND aa.role_sur_affaire = 'Chef'
+    """;
 
         try (Connection conn = DatabaseConfig.getSQLiteConnection();
              PreparedStatement stmt = conn.prepareStatement(sqlChefs)) {

@@ -518,8 +518,9 @@ public class AffaireService {
         }
 
         // Vérifier qu'il y a au moins un saisissant
+        // CORRECTION : Utiliser "Saisissant" au lieu de "SAISISSANT" pour correspondre à la contrainte BD
         boolean hasSaisissant = acteurs.stream()
-                .anyMatch(a -> "SAISISSANT".equals(a.getRoleSurAffaire()));
+                .anyMatch(a -> "Saisissant".equals(a.getRoleSurAffaire()));
 
         if (!hasSaisissant) {
             throw new IllegalArgumentException("Au moins un agent saisissant est obligatoire");

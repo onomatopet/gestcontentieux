@@ -51,11 +51,11 @@ public class AffaireActeur {
 
     // Méthodes métier
     public boolean estChef() {
-        return "CHEF".equals(roleSurAffaire);
+        return "Chef".equals(roleSurAffaire);
     }
 
     public boolean estSaisissant() {
-        return "SAISISSANT".equals(roleSurAffaire);
+        return "Saisissant".equals(roleSurAffaire);
     }
 
     public boolean estVerificateur() {

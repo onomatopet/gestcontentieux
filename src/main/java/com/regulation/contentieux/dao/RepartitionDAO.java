@@ -19,15 +19,18 @@ public class RepartitionDAO {
     /**
      * Sauvegarde un résultat de répartition
      */
+    /**
+     * Sauvegarde un résultat de répartition
+     */
     public RepartitionResultat save(RepartitionResultat repartition) {
         String sql = """
             INSERT INTO repartition_resultats (
                 encaissement_id, produit_disponible, part_indicateur, produit_net,
-                part_flcf, part_tresor, produit_net_ayants_droits,
-                part_dd, part_dg, part_chefs, part_saisissants,
+                part_flcf, part_tresor, produit_net_droits,
+                part_chefs, part_saisissants,
                 part_mutuelle, part_masse_commune, part_interessement,
-                calculated_at, calculated_by
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """;
 
         try (Connection conn = DatabaseConfig.getSQLiteConnection();
@@ -40,15 +43,12 @@ public class RepartitionDAO {
             stmt.setBigDecimal(5, repartition.getPartFLCF());
             stmt.setBigDecimal(6, repartition.getPartTresor());
             stmt.setBigDecimal(7, repartition.getProduitNetAyantsDroits());
-            stmt.setBigDecimal(8, repartition.getPartDD());
-            stmt.setBigDecimal(9, repartition.getPartDG());
-            stmt.setBigDecimal(10, repartition.getPartChefs());
-            stmt.setBigDecimal(11, repartition.getPartSaisissants());
-            stmt.setBigDecimal(12, repartition.getPartMutuelle());
-            stmt.setBigDecimal(13, repartition.getPartMasseCommune());
-            stmt.setBigDecimal(14, repartition.getPartInteressement());
-            stmt.setTimestamp(15, Timestamp.valueOf(LocalDateTime.now()));
-            stmt.setString(16, repartition.getCalculatedBy());
+            stmt.setBigDecimal(8, repartition.getPartChefs());
+            stmt.setBigDecimal(9, repartition.getPartSaisissants());
+            stmt.setBigDecimal(10, repartition.getPartMutuelle());
+            stmt.setBigDecimal(11, repartition.getPartMasseCommune());
+            stmt.setBigDecimal(12, repartition.getPartInteressement());
+            stmt.setTimestamp(13, Timestamp.valueOf(LocalDateTime.now()));
 
             int rowsAffected = stmt.executeUpdate();
 

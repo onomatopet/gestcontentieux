@@ -91,6 +91,151 @@ public class AgentListController implements Initializable {
     private long totalElements = 0;
     private int totalPages = 0;
 
+    @FXML
+    private void showRolesSpeciauxDialog() {
+        if (!authService.getCurrentUser().isAdmin()) {
+            AlertUtil.showWarningAlert("Accès refusé",
+                    "Droits insuffisants",
+                    "Seuls les administrateurs peuvent attribuer les rôles DD/DG.");
+            return;
+        }
+
+        Dialog<Void> dialog = new Dialog<>();
+        dialog.setTitle("Attribution des rôles DD/DG");
+        dialog.setHeaderText("Attribuez les rôles de Directeur Départemental et Directeur Général");
+        dialog.setResizable(true);
+
+        // Créer le contenu du dialogue
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20, 150, 10, 10));
+
+        // ComboBox pour DD
+        ComboBox<Agent> ddComboBox = new ComboBox<>();
+        ddComboBox.setPromptText("Sélectionner un agent");
+        ddComboBox.setPrefWidth(300);
+
+        // ComboBox pour DG
+        ComboBox<Agent> dgComboBox = new ComboBox<>();
+        dgComboBox.setPromptText("Sélectionner un agent");
+        dgComboBox.setPrefWidth(300);
+
+        // Charger les agents
+        Task<List<Agent>> loadTask = new Task<List<Agent>>() {
+            @Override
+            protected List<Agent> call() throws Exception {
+                return agentService.getAllAgentsActifs();
+            }
+        };
+
+        loadTask.setOnSucceeded(e -> {
+            List<Agent> agents = loadTask.getValue();
+            ObservableList<Agent> agentsList = FXCollections.observableArrayList(agents);
+
+            // Configuration des ComboBox
+            ddComboBox.setItems(agentsList);
+            dgComboBox.setItems(agentsList);
+
+            // Convertisseur pour afficher le nom des agents
+            StringConverter<Agent> converter = new StringConverter<Agent>() {
+                @Override
+                public String toString(Agent agent) {
+                    return agent != null ? agent.getCodeAgent() + " - " + agent.getNomComplet() : "";
+                }
+
+                @Override
+                public Agent fromString(String string) {
+                    return null;
+                }
+            };
+
+            ddComboBox.setConverter(converter);
+            dgComboBox.setConverter(converter);
+
+            // Présélectionner les agents actuels DD/DG s'ils existent
+            Optional<Agent> currentDD = agentDAO.findByRoleSpecial("DD");
+            currentDD.ifPresent(ddComboBox::setValue);
+
+            Optional<Agent> currentDG = agentDAO.findByRoleSpecial("DG");
+            currentDG.ifPresent(dgComboBox::setValue);
+        });
+
+        new Thread(loadTask).start();
+
+        // Labels
+        Label ddLabel = new Label("Directeur Départemental (DD):");
+        Label dgLabel = new Label("Directeur Général (DG):");
+
+        // Labels d'info
+        Label infoLabel = new Label("Note: Un agent ne peut avoir qu'un seul rôle spécial à la fois.");
+        infoLabel.setStyle("-fx-font-style: italic; -fx-text-fill: gray;");
+
+        // Ajout au grid
+        grid.add(ddLabel, 0, 0);
+        grid.add(ddComboBox, 1, 0);
+        grid.add(dgLabel, 0, 1);
+        grid.add(dgComboBox, 1, 1);
+        grid.add(infoLabel, 0, 2, 2, 1);
+
+        dialog.getDialogPane().setContent(grid);
+
+        // Boutons
+        ButtonType saveButtonType = new ButtonType("Enregistrer", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(saveButtonType, ButtonType.CANCEL);
+
+        // Action du bouton Enregistrer
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == saveButtonType) {
+                // Vérifier que DD et DG ne sont pas le même agent
+                if (ddComboBox.getValue() != null && dgComboBox.getValue() != null &&
+                        ddComboBox.getValue().getId().equals(dgComboBox.getValue().getId())) {
+                    AlertUtil.showErrorAlert("Erreur",
+                            "Attribution impossible",
+                            "Un agent ne peut pas être à la fois DD et DG.");
+                    return null;
+                }
+
+                // Sauvegarder les attributions
+                try {
+                    // Attribuer DD
+                    if (ddComboBox.getValue() != null) {
+                        agentDAO.assignRoleSpecial(ddComboBox.getValue().getId(), "DD");
+                        logger.info("Rôle DD attribué à: {}", ddComboBox.getValue().getNomComplet());
+                    }
+
+                    // Attribuer DG
+                    if (dgComboBox.getValue() != null) {
+                        agentDAO.assignRoleSpecial(dgComboBox.getValue().getId(), "DG");
+                        logger.info("Rôle DG attribué à: {}", dgComboBox.getValue().getNomComplet());
+                    }
+
+                    AlertUtil.showSuccessAlert("Succès",
+                            "Rôles attribués",
+                            "Les rôles DD et DG ont été attribués avec succès.");
+
+                    // Rafraîchir la liste des agents
+                    loadData();
+
+                } catch (Exception ex) {
+                    logger.error("Erreur lors de l'attribution des rôles", ex);
+                    AlertUtil.showErrorAlert("Erreur",
+                            "Attribution échouée",
+                            "Impossible d'attribuer les rôles: " + ex.getMessage());
+                }
+            }
+            return null;
+        });
+
+        dialog.showAndWait();
+    }
+
+    /**
+     * Ajouter ce bouton dans la toolbar de AgentListController
+     * Dans le fichier FXML agent-list.fxml, ajouter :
+     * <Button fx:id="rolesSpeciauxButton" text="Rôles DD/DG" onAction="#showRolesSpeciauxDialog"/>
+     */
+
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         agentService = new AgentService();

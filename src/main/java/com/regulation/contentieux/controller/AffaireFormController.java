@@ -1352,75 +1352,50 @@ public class AffaireFormController implements Initializable {
     // ==================== MÉTHODES DE SAUVEGARDE ====================
 
     /**
-     * Sauvegarde l'affaire
+     * Sauvegarde l'affaire avec toutes ses contraventions
      */
-    private void saveAffaire(boolean createNew) {
-        // Désactiver le formulaire pendant la sauvegarde
-        setFormDisabled(true);
-        if (saveProgressIndicator != null) {
-            saveProgressIndicator.setVisible(true);
-        }
+    private void saveAffaire() {
+        try {
+            // Collecter les données de l'affaire
+            Affaire affaire = collectAffaireData();
 
-        Task<Void> saveTask = new Task<Void>() {
-            @Override
-            protected Void call() throws Exception {
-                Affaire affaire = collectAffaireData();
-                Encaissement encaissement = null;
-                List<AffaireActeur> acteurs = collectActeurs();
+            // Préparer les listes pour le service
+            List<Contravention> contraventions = new ArrayList<>();
+            List<BigDecimal> montants = new ArrayList<>();
 
-                if (!isEditMode) {
-                    // En création, collecter aussi l'encaissement
-                    encaissement = collectEncaissementData();
-                    // CORRECTION: Utiliser createAffaireAvecEncaissement au lieu de createAffaireWithEncaissement
-                    affaireService.createAffaireAvecEncaissement(affaire, encaissement, acteurs);
-                } else {
-                    // En édition, mise à jour simple
-                    affaire.setId(currentAffaire.getId());
-                    affaireService.updateAffaire(affaire);
-                }
-
-                return null;
+            for (ContraventionViewModel vm : contraventionsList) {
+                contraventions.add(vm.getContravention());
+                montants.add(vm.getMontant());
             }
-        };
 
-        saveTask.setOnSucceeded(e -> {
-            Platform.runLater(() -> {
-                setFormDisabled(false);
-                if (saveProgressIndicator != null) {
-                    saveProgressIndicator.setVisible(false);
+            // Sauvegarder via le service
+            Affaire savedAffaire = affaireService.saveAffaireWithContraventions(affaire, contraventions, montants);
+
+            // Si un premier encaissement est saisi, le sauvegarder aussi
+            if (premierEncaissementSection != null && premierEncaissementSection.isVisible()) {
+                Encaissement encaissement = collectEncaissementData();
+                if (encaissement != null && encaissement.getMontantEncaisse() != null
+                        && encaissement.getMontantEncaisse().compareTo(BigDecimal.ZERO) > 0) {
+                    encaissement.setAffaire(savedAffaire);
+                    encaissementService.saveEncaissement(encaissement);
                 }
+            }
 
-                String message = isEditMode ?
-                        "Affaire mise à jour avec succès" :
-                        "Affaire créée avec succès";
+            AlertUtil.showSuccessAlert("Succès",
+                    "Affaire enregistrée",
+                    "L'affaire " + savedAffaire.getNumeroAffaire() + " a été enregistrée avec succès.");
 
-                AlertUtil.showSuccessAlert("Succès", message,
-                        "L'affaire " + numeroAffaireField.getText() + " a été enregistrée");
+            // Fermer la fenêtre ou réinitialiser le formulaire selon le bouton cliqué
+            if (currentStage != null) {
+                currentStage.close();
+            }
 
-                if (createNew && !isEditMode) {
-                    resetForm();
-                    initializeForNew();
-                } else {
-                    // CORRECTION: Utiliser closeWindow() au lieu de closeForm()
-                    closeWindow();
-                }
-            });
-        });
-
-        saveTask.setOnFailed(e -> {
-            Platform.runLater(() -> {
-                setFormDisabled(false);
-                if (saveProgressIndicator != null) {
-                    saveProgressIndicator.setVisible(false);
-                }
-
-                Throwable error = saveTask.getException();
-                logger.error("Erreur lors de la sauvegarde", error);
-                showError("Erreur lors de la sauvegarde : " + error.getMessage());
-            });
-        });
-
-        new Thread(saveTask).start();
+        } catch (Exception e) {
+            logger.error("Erreur lors de la sauvegarde", e);
+            AlertUtil.showErrorAlert("Erreur",
+                    "Erreur lors de la sauvegarde",
+                    "Une erreur s'est produite : " + e.getMessage());
+        }
     }
 
     /**
@@ -1607,27 +1582,19 @@ public class AffaireFormController implements Initializable {
     }
 
     /**
-     * Met à jour les statistiques (montant total, nombre de contraventions)
+     * Met à jour les statistiques des contraventions
      */
     private void updateStatistics() {
-        // Montant total
-        BigDecimal total = getTotalMontantContraventions();
-        if (montantTotalLabel != null) {
-            montantTotalLabel.setText(CurrencyFormatter.format(total) + " FCFA");
-        }
-
-        if (montantEnLettresLabel != null) {
-            // CORRECTION: Convertir BigDecimal en long pour NumberToWords
-            montantEnLettresLabel.setText(NumberToWords.convert(total.longValue()));
-        }
-
-        // Nombre de contraventions
         if (nombreContraventionsLabel != null) {
-            nombreContraventionsLabel.setText(String.valueOf(contraventionsList.size()));
+            nombreContraventionsLabel.setText("(" + contraventionsList.size() + ")");
         }
 
-        // Mettre à jour le montant restant si un encaissement est saisi
-        updateMontantRestant();
+        if (montantTotalLabel != null) {
+            BigDecimal total = contraventionsList.stream()
+                    .map(ContraventionViewModel::getMontant)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            montantTotalLabel.setText(String.format("%,.0f FCFA", total));
+        }
     }
 
     public class ValidationUtil {
@@ -1788,15 +1755,23 @@ public class AffaireFormController implements Initializable {
     /**
      * Parse un montant depuis une chaîne
      */
-    private BigDecimal parseMontant(String montantText) {
-        if (montantText == null || montantText.trim().isEmpty()) {
+    private BigDecimal parseMontant(String montantStr) {
+        if (montantStr == null || montantStr.trim().isEmpty()) {
             return BigDecimal.ZERO;
         }
-        // Enlever les espaces et remplacer les virgules par des points
-        String cleanedText = montantText.trim()
-                .replaceAll("\\s", "")
-                .replace(",", ".");
-        return new BigDecimal(cleanedText);
+
+        // Nettoyer la chaîne : enlever espaces, remplacer virgules par points
+        String cleaned = montantStr.trim()
+                .replace(" ", "")
+                .replace(",", ".")
+                .replace("FCFA", "")
+                .replace("fcfa", "");
+
+        try {
+            return new BigDecimal(cleaned);
+        } catch (NumberFormatException e) {
+            throw new NumberFormatException("Format de montant invalide : " + montantStr);
+        }
     }
 
     /**
@@ -2012,23 +1987,54 @@ public class AffaireFormController implements Initializable {
 
     // ==================== CLASSES INTERNES ====================
 
+    // Ajouter cette classe interne dans AffaireFormController.java
+
     /**
-     * View Model pour les contraventions dans le tableau
+     * ViewModel pour l'affichage des contraventions dans le tableau
      */
     public static class ContraventionViewModel {
         private String code;
         private String libelle;
         private BigDecimal montant;
+        private Contravention contravention;
 
         // Getters et setters
-        public String getCode() { return code; }
-        public void setCode(String code) { this.code = code; }
+        public String getCode() {
+            return code;
+        }
 
-        public String getLibelle() { return libelle; }
-        public void setLibelle(String libelle) { this.libelle = libelle; }
+        public void setCode(String code) {
+            this.code = code;
+        }
 
-        public BigDecimal getMontant() { return montant; }
-        public void setMontant(BigDecimal montant) { this.montant = montant; }
+        public String getLibelle() {
+            return libelle;
+        }
+
+        public void setLibelle(String libelle) {
+            this.libelle = libelle;
+        }
+
+        public BigDecimal getMontant() {
+            return montant;
+        }
+
+        public void setMontant(BigDecimal montant) {
+            this.montant = montant;
+        }
+
+        public Contravention getContravention() {
+            return contravention;
+        }
+
+        public void setContravention(Contravention contravention) {
+            this.contravention = contravention;
+        }
+
+        // Pour l'affichage dans le tableau
+        public String getMontantFormatted() {
+            return montant != null ? String.format("%,.0f FCFA", montant) : "0 FCFA";
+        }
     }
 
     /**

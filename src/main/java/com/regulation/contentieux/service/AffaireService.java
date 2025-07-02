@@ -6,14 +6,18 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Objects;
 
+import java.sql.Connection;
+import java.util.List;
+import java.math.BigDecimal;
 import com.regulation.contentieux.config.DatabaseConfig;
+import com.regulation.contentieux.model.Contravention;
+
 import com.regulation.contentieux.controller.AffaireFormController;
 import com.regulation.contentieux.dao.*;
 import com.regulation.contentieux.model.*;
 import com.regulation.contentieux.model.enums.*;
 import com.regulation.contentieux.exception.BusinessException;
 import com.regulation.contentieux.util.TransactionManager;
-import com.sun.jdi.connect.spi.Connection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -201,8 +205,10 @@ public class AffaireService {
 
     /**
      * Sauvegarde une affaire avec ses contraventions
+     * Note: ContraventionViewModel est une classe interne du contrôleur,
+     * donc on passe directement les contraventions avec leurs montants
      */
-    public Affaire saveAffaireWithContraventions(Affaire affaire, List<AffaireFormController.ContraventionViewModel> contraventions) {
+    public Affaire saveAffaireWithContraventions(Affaire affaire, List<Contravention> contraventions, List<BigDecimal> montants) {
         Connection conn = null;
         try {
             conn = DatabaseConfig.getSQLiteConnection();
@@ -211,7 +217,7 @@ public class AffaireService {
             // 1. Sauvegarder l'affaire principale
             // Pour la compatibilité, on garde contravention_id avec la première contravention
             if (!contraventions.isEmpty()) {
-                affaire.setContraventionId(contraventions.get(0).getContravention().getId());
+                affaire.setContraventionId(contraventions.get(0).getId());
             }
 
             Affaire savedAffaire = affaireDAO.save(affaire);
@@ -223,10 +229,10 @@ public class AffaireService {
         """;
 
             try (PreparedStatement stmt = conn.prepareStatement(insertSql)) {
-                for (AffaireFormController.ContraventionViewModel vm : contraventions) {
+                for (int i = 0; i < contraventions.size(); i++) {
                     stmt.setLong(1, savedAffaire.getId());
-                    stmt.setLong(2, vm.getContravention().getId());
-                    stmt.setBigDecimal(3, vm.getMontant());
+                    stmt.setLong(2, contraventions.get(i).getId());
+                    stmt.setBigDecimal(3, montants.get(i));
                     stmt.addBatch();
                 }
                 stmt.executeBatch();
@@ -259,7 +265,7 @@ public class AffaireService {
         }
     }
 
-// Dans AffaireDAO.java, ajouter cette méthode pour charger les contraventions
+    // Dans AffaireDAO.java, ajouter cette méthode pour charger les contraventions
 
     /**
      * Charge toutes les contraventions d'une affaire depuis la table de liaison

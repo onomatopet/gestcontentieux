@@ -14,12 +14,14 @@ import com.regulation.contentieux.model.Affaire;
 import com.regulation.contentieux.model.enums.StatutAffaire;
 import com.regulation.contentieux.service.AuthenticationService;
 import com.regulation.contentieux.util.AlertUtil;
+import javafx.application.Platform;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.*;
@@ -36,6 +38,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.ResourceBundle;
+import java.util.stream.Collectors;
 
 /**
  * Contrôleur pour la liste des affaires - Version définitive complète

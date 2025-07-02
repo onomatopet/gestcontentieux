@@ -1,11 +1,19 @@
 package com.regulation.contentieux.service;
 
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Objects;
+
+import com.regulation.contentieux.config.DatabaseConfig;
+import com.regulation.contentieux.controller.AffaireFormController;
 import com.regulation.contentieux.dao.*;
 import com.regulation.contentieux.model.*;
 import com.regulation.contentieux.model.enums.*;
 import com.regulation.contentieux.exception.BusinessException;
 import com.regulation.contentieux.util.TransactionManager;
+import com.sun.jdi.connect.spi.Connection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -189,6 +197,111 @@ public class AffaireService {
                 throw new BusinessException("Erreur lors de la création de l'affaire : " + e.getMessage());
             }
         });
+    }
+
+    /**
+     * Sauvegarde une affaire avec ses contraventions
+     */
+    public Affaire saveAffaireWithContraventions(Affaire affaire, List<AffaireFormController.ContraventionViewModel> contraventions) {
+        Connection conn = null;
+        try {
+            conn = DatabaseConfig.getSQLiteConnection();
+            conn.setAutoCommit(false);
+
+            // 1. Sauvegarder l'affaire principale
+            // Pour la compatibilité, on garde contravention_id avec la première contravention
+            if (!contraventions.isEmpty()) {
+                affaire.setContraventionId(contraventions.get(0).getContravention().getId());
+            }
+
+            Affaire savedAffaire = affaireDAO.save(affaire);
+
+            // 2. Sauvegarder les contraventions dans la table de liaison
+            String insertSql = """
+            INSERT INTO affaire_contraventions (affaire_id, contravention_id, montant_applique)
+            VALUES (?, ?, ?)
+        """;
+
+            try (PreparedStatement stmt = conn.prepareStatement(insertSql)) {
+                for (AffaireFormController.ContraventionViewModel vm : contraventions) {
+                    stmt.setLong(1, savedAffaire.getId());
+                    stmt.setLong(2, vm.getContravention().getId());
+                    stmt.setBigDecimal(3, vm.getMontant());
+                    stmt.addBatch();
+                }
+                stmt.executeBatch();
+            }
+
+            conn.commit();
+            logger.info("Affaire {} sauvegardée avec {} contraventions",
+                    savedAffaire.getNumeroAffaire(), contraventions.size());
+
+            return savedAffaire;
+
+        } catch (SQLException e) {
+            if (conn != null) {
+                try {
+                    conn.rollback();
+                } catch (SQLException ex) {
+                    logger.error("Erreur lors du rollback", ex);
+                }
+            }
+            throw new RuntimeException("Erreur lors de la sauvegarde de l'affaire", e);
+        } finally {
+            if (conn != null) {
+                try {
+                    conn.setAutoCommit(true);
+                    conn.close();
+                } catch (SQLException e) {
+                    logger.error("Erreur lors de la fermeture de la connexion", e);
+                }
+            }
+        }
+    }
+
+// Dans AffaireDAO.java, ajouter cette méthode pour charger les contraventions
+
+    /**
+     * Charge toutes les contraventions d'une affaire depuis la table de liaison
+     */
+    public List<Contravention> loadContraventionsForAffaire(Long affaireId) {
+        List<Contravention> contraventions = new ArrayList<>();
+
+        String sql = """
+        SELECT c.id, c.code, c.libelle, c.description, ac.montant_applique
+        FROM contraventions c
+        INNER JOIN affaire_contraventions ac ON c.id = ac.contravention_id
+        WHERE ac.affaire_id = ?
+        ORDER BY c.code
+    """;
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setLong(1, affaireId);
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                Contravention contravention = new Contravention();
+                contravention.setId(rs.getLong("id"));
+                contravention.setCode(rs.getString("code"));
+                contravention.setLibelle(rs.getString("libelle"));
+                contravention.setDescription(rs.getString("description"));
+
+                // Utiliser le montant appliqué spécifique à cette affaire
+                BigDecimal montantApplique = rs.getBigDecimal("montant_applique");
+                if (montantApplique != null) {
+                    contravention.setMontant(montantApplique);
+                }
+
+                contraventions.add(contravention);
+            }
+
+        } catch (SQLException e) {
+            logger.error("Erreur lors du chargement des contraventions pour l'affaire " + affaireId, e);
+        }
+
+        return contraventions;
     }
 
     public String genererNumeroAffaire() {

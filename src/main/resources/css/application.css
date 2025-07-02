@@ -132,3 +132,33 @@
 .progress-indicator {
     -fx-progress-color: #2196F3;
 }
+
+
+/* Style pour la box de suggestions d'autocomplétion */
+.suggestions-box {
+    -fx-background-color: white;
+    -fx-border-color: #cccccc;
+    -fx-border-width: 1;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.2), 10, 0, 0, 2);
+    -fx-max-width: 400;
+    -fx-padding: 0;
+}
+
+.suggestions-box .list-view {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}
+
+.suggestions-box .list-cell {
+    -fx-padding: 5 10;
+    -fx-background-color: white;
+}
+
+.suggestions-box .list-cell:hover {
+    -fx-background-color: #f0f0f0;
+}
+
+.suggestions-box .list-cell:selected {
+    -fx-background-color: #0066cc;
+    -fx-text-fill: white;
+}

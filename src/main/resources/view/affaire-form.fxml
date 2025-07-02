@@ -77,39 +77,86 @@
 
                 <!-- Section Contrevenant et Contravention -->
                 <VBox spacing="15.0">
-                    <Label styleClass="title-3" text="Contrevenant et Contravention">
+                    <Label styleClass="title-3" text="Contraventions">
                         <font>
                             <Font name="System Bold" size="14.0" />
                         </font>
                     </Label>
 
-                    <GridPane hgap="15.0" vgap="10.0">
-                        <columnConstraints>
-                            <ColumnConstraints minWidth="120.0" prefWidth="120.0" />
-                            <ColumnConstraints hgrow="SOMETIMES" minWidth="200.0" />
-                            <ColumnConstraints minWidth="120.0" prefWidth="120.0" />
-                            <ColumnConstraints hgrow="SOMETIMES" minWidth="200.0" />
-                        </columnConstraints>
+                    <!-- Zone de recherche avec autocomplétion -->
+                    <VBox spacing="5.0">
+                        <GridPane hgap="10.0" vgap="10.0">
+                            <columnConstraints>
+                                <ColumnConstraints minWidth="120.0" prefWidth="120.0" />
+                                <ColumnConstraints hgrow="SOMETIMES" minWidth="300.0" />
+                                <ColumnConstraints minWidth="100.0" prefWidth="100.0" />
+                                <ColumnConstraints minWidth="150.0" prefWidth="150.0" />
+                                <ColumnConstraints minWidth="100.0" prefWidth="100.0" />
+                            </columnConstraints>
 
-                        <!-- Ligne 1 -->
-                        <Label text="Contrevenant :" GridPane.columnIndex="0" GridPane.rowIndex="0" />
-                        <HBox spacing="10.0" alignment="CENTER_LEFT" GridPane.columnIndex="1" GridPane.rowIndex="0">
-                            <ComboBox fx:id="contrevenantComboBox" prefWidth="250.0" promptText="Rechercher un contrevenant..." />
-                            <Button fx:id="newContrevenantButton" text="+" />
+                            <Label text="Contravention :" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+
+                            <!-- Stack pour l'autocomplétion -->
+                            <StackPane GridPane.columnIndex="1" GridPane.rowIndex="0">
+                                <TextField fx:id="contraventionSearchField"
+                                           promptText="Rechercher par code ou libellé..." />
+
+                                <!-- Box des suggestions (positionnée sous le TextField) -->
+                                <VBox fx:id="contraventionSuggestionsBox"
+                                      styleClass="suggestions-box"
+                                      alignment="TOP_LEFT"
+                                      StackPane.alignment="TOP_LEFT"
+                                      translateY="30">
+                                    <ListView fx:id="contraventionSuggestionsListView"
+                                              prefHeight="150" />
+                                </VBox>
+                            </StackPane>
+
+                            <Label text="Montant :" GridPane.columnIndex="2" GridPane.rowIndex="0" />
+                            <HBox spacing="5.0" alignment="CENTER_LEFT"
+                                  GridPane.columnIndex="3" GridPane.rowIndex="0">
+                                <TextField fx:id="montantAmendeField"
+                                           prefWidth="120.0"
+                                           promptText="0" />
+                                <Label text="FCFA" />
+                            </HBox>
+
+                            <Button fx:id="addContraventionButton"
+                                    text="Ajouter"
+                                    onAction="#handleAddContravention"
+                                    GridPane.columnIndex="4" GridPane.rowIndex="0" />
+                        </GridPane>
+                    </VBox>
+
+                    <!-- Tableau des contraventions ajoutées -->
+                    <VBox spacing="5.0">
+                        <HBox alignment="CENTER_LEFT" spacing="10.0">
+                            <Label text="Contraventions sélectionnées :" styleClass="text-bold" />
+                            <Label fx:id="nombreContraventionsLabel" text="(0)" />
+                            <Region HBox.hgrow="ALWAYS" />
+                            <Label text="Montant total :" styleClass="text-bold" />
+                            <Label fx:id="montantTotalLabel" text="0 FCFA" styleClass="text-bold text-primary" />
                         </HBox>
 
-                        <Label text="Contravention :" GridPane.columnIndex="2" GridPane.rowIndex="0" />
-                        <HBox spacing="10.0" alignment="CENTER_LEFT" GridPane.columnIndex="3" GridPane.rowIndex="0">
-                            <ComboBox fx:id="contraventionComboBox" prefWidth="250.0" promptText="Sélectionner une contravention..." />
-                            <Button fx:id="newContraventionButton" text="+" />
-                        </HBox>
-                    </GridPane>
-
-                    <!-- Détails du contrevenant sélectionné -->
-                    <VBox fx:id="contrevenantDetailsBox" spacing="5.0" visible="false" managed="false">
-                        <Label styleClass="text-muted" text="Détails du contrevenant :" />
-                        <Label fx:id="contrevenantDetailsLabel" styleClass="text-muted"
-                               text="Aucun contrevenant sélectionné" wrapText="true" />
+                        <TableView fx:id="contraventionsTableView" prefHeight="150.0">
+                            <columns>
+                                <TableColumn fx:id="codeContraventionColumn"
+                                             text="Code"
+                                             prefWidth="100.0" />
+                                <TableColumn fx:id="libelleContraventionColumn"
+                                             text="Libellé"
+                                             prefWidth="300.0" />
+                                <TableColumn fx:id="montantContraventionColumn"
+                                             text="Montant"
+                                             prefWidth="120.0" />
+                                <TableColumn fx:id="actionContraventionColumn"
+                                             text="Action"
+                                             prefWidth="80.0" />
+                            </columns>
+                            <placeholder>
+                                <Label text="Aucune contravention ajoutée" />
+                            </placeholder>
+                        </TableView>
                     </VBox>
                 </VBox>
 

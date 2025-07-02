@@ -11,6 +11,11 @@ import java.util.Objects;
  * Définit le rôle d'un agent sur une affaire spécifique
  */
 public class AffaireActeur {
+
+    public static final String ROLE_CHEF = "Chef";
+    public static final String ROLE_SAISISSANT = "Saisissant";
+    public static final String ROLE_INDICATEUR = "INDICATEUR"; // Non stocké dans affaire_acteurs
+
     private Long affaireId;
     private Long agentId;
     private String roleSurAffaire;
@@ -81,7 +86,13 @@ public class AffaireActeur {
     public void setAffaire(Affaire affaire) { this.affaire = affaire; }
 
     public Agent getAgent() { return agent; }
-    public void setAgent(Agent agent) { this.agent = agent; }
+    public void setAgent(Agent agent) {
+        this.agent = agent;
+        // Synchroniser automatiquement l'agentId quand on définit l'agent
+        if (agent != null && agent.getId() != null) {
+            this.agentId = agent.getId();
+        }
+    }
 
     @Override
     public boolean equals(Object o) {

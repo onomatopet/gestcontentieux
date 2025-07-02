@@ -409,8 +409,9 @@ public class AffaireEncaissementController implements Initializable {
         result.ifPresent(selection -> {
             // Ajouter comme saisissant si coché
             if (selection.isSaisissant) {
-                if (!isAgentAlreadyInRole(selection.agent, "SAISISSANT")) {
-                    acteursList.add(new ActeurViewModel(selection.agent, "SAISISSANT"));
+                if (!isAgentAlreadyInRole(selection.agent, "Saisissant")) {
+                    // CORRECTION : Utiliser "Saisissant" avec la bonne casse
+                    acteursList.add(new ActeurViewModel(selection.agent, "Saisissant"));
                 } else {
                     AlertUtil.showWarning("Doublon",
                             "Cet agent est déjà saisissant dans cette affaire.");
@@ -419,8 +420,9 @@ public class AffaireEncaissementController implements Initializable {
 
             // Ajouter comme chef si coché
             if (selection.isChef) {
-                if (!isAgentAlreadyInRole(selection.agent, "CHEF")) {
-                    acteursList.add(new ActeurViewModel(selection.agent, "CHEF"));
+                if (!isAgentAlreadyInRole(selection.agent, "Chef")) {
+                    // CORRECTION : Utiliser "Chef" avec la bonne casse
+                    acteursList.add(new ActeurViewModel(selection.agent, "Chef"));
                 } else {
                     AlertUtil.showWarning("Doublon",
                             "Cet agent est déjà chef dans cette affaire.");
@@ -1578,20 +1580,23 @@ public class AffaireEncaissementController implements Initializable {
                 for (ActeurViewModel vm : acteursList) {
                     AffaireActeur acteur = new AffaireActeur();
                     acteur.setAgent(vm.getAgent());
-                    acteur.setRoleSurAffaire(vm.getRole());
+                    // CORRECTION : Utiliser la casse correcte pour les rôles
+                    String roleNormalise = vm.getRole();
+                    if ("CHEF".equals(roleNormalise)) {
+                        roleNormalise = "Chef";
+                    } else if ("SAISISSANT".equals(roleNormalise)) {
+                        roleNormalise = "Saisissant";
+                    }
+                    acteur.setRoleSurAffaire(roleNormalise);
                     acteurs.add(acteur);
                 }
 
-                // Indicateur
+                // Indicateur - Les indicateurs ne vont pas dans affaire_acteurs
                 if (indicateurCheck.isSelected()) {
                     if (indicateurAgentCombo.getValue() != null) {
-                        AffaireActeur indicateur = new AffaireActeur();
-                        indicateur.setAgent(indicateurAgentCombo.getValue());
-                        indicateur.setRoleSurAffaire("INDICATEUR");
-                        acteurs.add(indicateur);
-                    } else if (!nomIndicateurField.getText().isEmpty()) {
-                        // Note: Le nom de l'indicateur externe n'est pas stocké directement dans l'affaire
-                        // Vous devrez peut-être ajouter cette propriété au modèle Affaire si nécessaire
+                        // Note: Les indicateurs doivent être gérés différemment
+                        // Ils ne peuvent pas être stockés dans affaire_acteurs à cause de la contrainte CHECK
+                        logger.info("Indicateur sélectionné mais non stocké dans affaire_acteurs");
                     }
                 }
 

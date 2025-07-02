@@ -222,24 +222,9 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
         // 5. mode_reglement
         stmt.setString(5, encaissement.getModeReglement().name());
 
-        // 6. banque_id - Correction pour gérer correctement la banque
+        // 6. banque_id
         if (encaissement.getBanqueId() != null) {
             stmt.setLong(6, encaissement.getBanqueId());
-        } else if (encaissement.getModeReglement() == ModeReglement.CHEQUE &&
-                encaissement.getBanque() != null && !encaissement.getBanque().isEmpty()) {
-            // Essayer de trouver la banque par nom
-            try {
-                BanqueDAO banqueDAO = new BanqueDAO();
-                Optional<Banque> banque = banqueDAO.findByNom(encaissement.getBanque());
-                if (banque.isPresent()) {
-                    stmt.setLong(6, banque.get().getId());
-                } else {
-                    stmt.setNull(6, Types.INTEGER);
-                }
-            } catch (Exception e) {
-                logger.error("Erreur lors de la recherche de la banque", e);
-                stmt.setNull(6, Types.INTEGER);
-            }
         } else {
             stmt.setNull(6, Types.INTEGER);
         }
@@ -265,28 +250,59 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
 
     @Override
     protected void setUpdateParameters(PreparedStatement stmt, Encaissement encaissement) throws SQLException {
-        stmt.setString(1, encaissement.getReference()); // numero_encaissement
-        stmt.setString(2, "2506M0001"); // numero_mandat - À adapter
+        // 1. numero_encaissement
+        stmt.setString(1, encaissement.getReference());
+
+        // 2. numero_mandat - Utiliser le mandat actif
+        String numeroMandat = null;
+        try {
+            MandatService mandatService = MandatService.getInstance();
+            Mandat mandatActif = mandatService.getMandatActif();
+            if (mandatActif != null) {
+                numeroMandat = mandatActif.getNumeroMandat();
+            }
+        } catch (Exception e) {
+            logger.warn("Impossible de récupérer le mandat actif: {}", e.getMessage());
+        }
+
+        if (numeroMandat == null) {
+            LocalDate now = LocalDate.now();
+            numeroMandat = now.format(DateTimeFormatter.ofPattern("yyMM")) + "M0001";
+        }
+        stmt.setString(2, numeroMandat);
+
+        // 3. date_encaissement
         stmt.setDate(3, Date.valueOf(encaissement.getDateEncaissement()));
+
+        // 4. montant_encaisse
         stmt.setBigDecimal(4, encaissement.getMontantEncaisse());
+
+        // 5. mode_reglement
         stmt.setString(5, encaissement.getModeReglement().name());
 
-        // banque_id
-        if (encaissement.getBanque() != null && !encaissement.getBanque().isEmpty()) {
-            stmt.setNull(6, Types.INTEGER); // Temporaire
+        // 6. banque_id
+        if (encaissement.getBanqueId() != null) {
+            stmt.setLong(6, encaissement.getBanqueId());
         } else {
             stmt.setNull(6, Types.INTEGER);
         }
 
-        stmt.setString(7, encaissement.getNumeroPiece()); // numero_cheque
+        // 7. numero_cheque
+        stmt.setString(7, encaissement.getNumeroPiece());
 
+        // 8. affaire_id
         if (encaissement.getAffaire() != null) {
             stmt.setLong(8, encaissement.getAffaire().getId());
+        } else if (encaissement.getAffaireId() != null) {
+            stmt.setLong(8, encaissement.getAffaireId());
         } else {
             stmt.setNull(8, Types.BIGINT);
         }
 
+        // 9. updated_at
         stmt.setTimestamp(9, Timestamp.valueOf(LocalDateTime.now()));
+
+        // 10. WHERE id = ?
         stmt.setLong(10, encaissement.getId());
     }
 

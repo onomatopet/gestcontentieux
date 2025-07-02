@@ -210,6 +210,26 @@ public class AffaireService {
      * Sauvegarde un acteur d'affaire (méthode alternative)
      */
     private void saveAffaireActeur(AffaireActeur acteur) {
+        // Vérifier que l'agentId est défini
+        if (acteur.getAgentId() == null && acteur.getAgent() != null) {
+            acteur.setAgentId(acteur.getAgent().getId());
+        }
+
+        // Vérifier que l'agentId n'est toujours pas null
+        if (acteur.getAgentId() == null) {
+            logger.error("Impossible de sauvegarder l'acteur : agentId est null");
+            throw new IllegalArgumentException("L'ID de l'agent est requis");
+        }
+
+        // Normaliser le rôle pour respecter la contrainte CHECK de la BD
+        String roleNormalise = normaliserRole(acteur.getRoleSurAffaire());
+
+        // Ne pas insérer les indicateurs dans affaire_acteurs
+        if ("INDICATEUR".equals(roleNormalise)) {
+            logger.info("Les indicateurs ne sont pas stockés dans affaire_acteurs");
+            return;
+        }
+
         String sql = """
         INSERT INTO affaire_acteurs (affaire_id, agent_id, role_sur_affaire, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?)
@@ -220,16 +240,37 @@ public class AffaireService {
 
             stmt.setLong(1, acteur.getAffaireId());
             stmt.setLong(2, acteur.getAgentId());
-            stmt.setString(3, acteur.getRoleSurAffaire());
+            stmt.setString(3, roleNormalise);
             stmt.setTimestamp(4, java.sql.Timestamp.valueOf(LocalDateTime.now()));
             stmt.setTimestamp(5, java.sql.Timestamp.valueOf(LocalDateTime.now()));
 
             stmt.executeUpdate();
-            logger.debug("Acteur ajouté à l'affaire: {} - {}", acteur.getAgentId(), acteur.getRoleSurAffaire());
+            logger.debug("Acteur ajouté à l'affaire: {} - {}", acteur.getAgentId(), roleNormalise);
 
         } catch (Exception e) {
             logger.error("Erreur lors de l'ajout de l'acteur", e);
             throw new RuntimeException("Impossible d'ajouter l'acteur à l'affaire", e);
+        }
+    }
+
+
+
+    /**
+     * Normalise le rôle pour respecter la contrainte CHECK de la BD
+     */
+    private String normaliserRole(String role) {
+        if (role == null) return null;
+
+        switch (role.toUpperCase()) {
+            case "CHEF":
+                return "Chef";
+            case "SAISISSANT":
+                return "Saisissant";
+            case "INDICATEUR":
+                return "INDICATEUR"; // Sera filtré dans saveAffaireActeur
+            default:
+                logger.warn("Rôle non reconnu : {}, utilisation de Saisissant par défaut", role);
+                return "Saisissant";
         }
     }
 

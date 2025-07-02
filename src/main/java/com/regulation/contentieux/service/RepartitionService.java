@@ -323,27 +323,33 @@ public class RepartitionService {
 
         if (difference.compareTo(new BigDecimal("5")) > 0) {
             logger.warn("⚠️ Écart de cohérence détecté: {} FCFA", difference);
-            /**
-             * Enregistre la répartition en base de données
-             */
-            public void enregistrerRepartition(RepartitionResultat resultat) {
-                logger.info("💾 Enregistrement de la répartition...");
+        } else {
+            logger.info("✅ Cohérence vérifiée - Écart: {} FCFA", difference);
+        }
+    }
 
-                try {
-                    // Enregistrer la répartition principale
-                    RepartitionResultat saved = repartitionDAO.save(resultat);
+    /**
+     * Enregistre la répartition en base de données
+     */
+    public void enregistrerRepartition(RepartitionResultat resultat) {
+        logger.info("💾 Enregistrement de la répartition...");
 
-                    // Enregistrer les parts individuelles
-                    if (resultat.getPartsIndividuelles() != null && !resultat.getPartsIndividuelles().isEmpty()) {
-                        for (RepartitionResultat.PartIndividuelle part : resultat.getPartsIndividuelles()) {
-                            repartitionDAO.savePartIndividuelle(saved.getId(), part);
-                        }
-                    }
+        try {
+            // Enregistrer la répartition principale
+            RepartitionResultat saved = repartitionDAO.save(resultat);
 
-                    logger.info("✅ Répartition enregistrée avec succès - ID: {}", saved.getId());
-
-                } catch (Exception e) {
-                    logger.error("❌ Erreur lors de l'enregistrement de la répartition", e);
-                    throw new RuntimeException("Impossible d'enregistrer la répartition", e);
+            // Enregistrer les parts individuelles
+            if (resultat.getPartsIndividuelles() != null && !resultat.getPartsIndividuelles().isEmpty()) {
+                for (RepartitionResultat.PartIndividuelle part : resultat.getPartsIndividuelles()) {
+                    repartitionDAO.savePartIndividuelle(saved.getId(), part);
                 }
             }
+
+            logger.info("✅ Répartition enregistrée avec succès - ID: {}", saved.getId());
+
+        } catch (Exception e) {
+            logger.error("❌ Erreur lors de l'enregistrement de la répartition", e);
+            throw new RuntimeException("Impossible d'enregistrer la répartition", e);
+        }
+    }
+}

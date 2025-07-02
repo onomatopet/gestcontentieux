@@ -691,38 +691,23 @@ public class MainController implements Initializable {
     /**
      * Affiche le dialogue de création d'encaissement
      */
+    @FXML
     private void showNewEncaissementDialog() {
+        logger.debug("Ouverture dialogue nouvel encaissement");
         try {
-            logger.info("Ouverture du dialogue de nouvel encaissement");
-
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/encaissement-form.fxml"));
             Parent root = loader.load();
 
-            Stage dialogStage = new Stage();
-            dialogStage.setTitle("Nouvel Encaissement");
-            dialogStage.initModality(Modality.APPLICATION_MODAL);
-            dialogStage.initOwner(contentPane.getScene().getWindow());
-
-            Scene scene = new Scene(root);
-            dialogStage.setScene(scene);
-
-            EncaissementFormController controller = loader.getController();
-            controller.setDialogStage(dialogStage);
-            controller.setMode(EncaissementFormController.Mode.CREATE);
-
-            dialogStage.showAndWait();
-
-            // Rafraîchir la liste si nécessaire
-            if (currentController instanceof EncaissementListController) {
-                ((EncaissementListController) currentController).refresh();
-            }
-        } catch (Exception e) {
-            logger.error("Erreur lors de l'ouverture du dialogue d'encaissement", e);
-            AlertUtil.showErrorAlert("Erreur",
-                    "Impossible d'ouvrir le formulaire d'encaissement",
-                    "Veuillez réessayer ou contacter le support.");
+            Stage stage = new Stage();
+            stage.initModality(Modality.APPLICATION_MODAL);
+            stage.setTitle("Nouvel Encaissement");
+            stage.setScene(new Scene(root));
+            stage.showAndWait();
+        } catch (IOException e) {
+            logger.error("Erreur ouverture dialogue encaissement", e);
+            showErrorDialog("Erreur", "Impossible d'ouvrir le formulaire", e.getMessage());
         }
-    }
+    }/**
 
     /**
      * Charge la vue par défaut

@@ -1,5 +1,7 @@
 package com.regulation.contentieux.controller;
 
+import com.regulation.contentieux.model.enums.ModeReglement;
+import com.regulation.contentieux.service.EncaissementService;
 import com.regulation.contentieux.dao.*;
 import com.regulation.contentieux.model.*;
 import com.regulation.contentieux.model.enums.*;
@@ -135,6 +137,10 @@ public class AffaireFormController implements Initializable {
     @FXML private ProgressIndicator saveProgressIndicator;
     @FXML private Label statusLabel;
 
+    @FXML private TextField contraventionSearchField;
+    @FXML private ListView<Contravention> contraventionSuggestionsListView;
+    @FXML private VBox contraventionSuggestionsBox;
+
     // ==================== SERVICES ET DONNÉES ====================
 
     private AffaireService affaireService;
@@ -157,6 +163,11 @@ public class AffaireFormController implements Initializable {
     private boolean isEditMode = false;
     private Stage currentStage;
     private boolean hasUnsavedChanges = false;
+
+    private ObservableList<Contravention> allContraventions;
+    private ObservableList<Contravention> filteredContraventions;
+    private Contravention selectedContravention;
+    private EncaissementService encaissementService;
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
@@ -202,7 +213,7 @@ public class AffaireFormController implements Initializable {
         serviceDAO = new ServiceDAO();
         centreDAO = new CentreDAO();
         banqueDAO = new BanqueDAO();
-
+        encaissementService = new EncaissementService();
     }
 
     private void initializeCollections() {
@@ -229,6 +240,233 @@ public class AffaireFormController implements Initializable {
         updateUIForMode();
         updateStatistics();
         updateIndicateurField();
+    }
+
+    /**
+     * Ajoute une contravention à la liste
+     */
+    @FXML
+    private void handleAddContravention() {
+        // Utiliser contraventionComboBox au lieu de selectedContravention si vous n'avez pas l'autocomplétion
+        Contravention selectedContravention = contraventionComboBox != null ? contraventionComboBox.getValue() : null;
+        String autreDescription = autreContraventionField != null ? autreContraventionField.getText() : null;
+        String montantText = montantAmendeField != null ? montantAmendeField.getText() : null;
+
+        // Validation
+        if (selectedContravention == null && (autreDescription == null || autreDescription.trim().isEmpty())) {
+            AlertUtil.showWarningAlert("Sélection requise",
+                    "Veuillez sélectionner une contravention ou saisir une description", "");
+            return;
+        }
+
+        if (montantText == null || montantText.trim().isEmpty()) {
+            AlertUtil.showWarningAlert("Montant requis", "Veuillez saisir le montant de l'amende", "");
+            return;
+        }
+
+        try {
+            BigDecimal montant = parseMontant(montantText);
+            if (montant.compareTo(BigDecimal.ZERO) <= 0) {
+                AlertUtil.showWarningAlert("Montant invalide", "Le montant doit être supérieur à zéro", "");
+                return;
+            }
+
+            // Créer le view model
+            ContraventionViewModel vm = new ContraventionViewModel();
+            if (selectedContravention != null) {
+                vm.setCode(selectedContravention.getCode());
+                vm.setLibelle(selectedContravention.getLibelle());
+                vm.setContravention(selectedContravention);
+            } else {
+                vm.setCode("AUTRE");
+                vm.setLibelle(autreDescription);
+            }
+            vm.setMontant(montant);
+
+            // Ajouter à la liste
+            contraventionsList.add(vm);
+
+            // Réinitialiser les champs
+            if (contraventionComboBox != null) {
+                contraventionComboBox.setValue(null);
+            }
+            if (autreContraventionField != null) {
+                autreContraventionField.clear();
+            }
+            if (montantAmendeField != null) {
+                montantAmendeField.clear();
+            }
+
+            // Mettre à jour les statistiques
+            updateStatistics();
+
+            hasUnsavedChanges = true;
+
+        } catch (NumberFormatException e) {
+            AlertUtil.showWarningAlert("Montant invalide", "Veuillez saisir un montant valide", "");
+        }
+    }
+
+    /**
+     * Configure la section des contraventions avec autocomplétion
+     */
+    private void setupContraventionAutocomplete() {
+        if (contraventionSearchField == null) return;
+
+        // Initialiser les listes
+        allContraventions = FXCollections.observableArrayList();
+        filteredContraventions = FXCollections.observableArrayList();
+
+        // Charger toutes les contraventions
+        loadAllContraventions();
+
+        // Configurer la ListView des suggestions
+        if (contraventionSuggestionsListView != null) {
+            contraventionSuggestionsListView.setItems(filteredContraventions);
+            contraventionSuggestionsListView.setPrefHeight(150);
+            contraventionSuggestionsListView.setCellFactory(lv -> new ListCell<Contravention>() {
+                @Override
+                protected void updateItem(Contravention item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (empty || item == null) {
+                        setText(null);
+                    } else {
+                        setText(item.getCode() + " - " + item.getLibelle());
+                    }
+                }
+            });
+
+            // Gérer la sélection
+            contraventionSuggestionsListView.setOnMouseClicked(event -> {
+                Contravention selected = contraventionSuggestionsListView.getSelectionModel().getSelectedItem();
+                if (selected != null) {
+                    selectContravention(selected);
+                }
+            });
+        }
+
+        // Masquer initialement la box de suggestions
+        if (contraventionSuggestionsBox != null) {
+            contraventionSuggestionsBox.setVisible(false);
+            contraventionSuggestionsBox.setManaged(false);
+        }
+
+        // Listener pour le champ de recherche
+        contraventionSearchField.textProperty().addListener((observable, oldValue, newValue) -> {
+            filterContraventions(newValue);
+        });
+
+        // Gérer le focus
+        contraventionSearchField.focusedProperty().addListener((obs, oldVal, newVal) -> {
+            if (!newVal && contraventionSuggestionsBox != null) {
+                // Masquer les suggestions quand le champ perd le focus
+                Platform.runLater(() -> {
+                    if (!contraventionSuggestionsListView.isFocused()) {
+                        contraventionSuggestionsBox.setVisible(false);
+                        contraventionSuggestionsBox.setManaged(false);
+                    }
+                });
+            }
+        });
+
+        // Gérer les touches du clavier
+        contraventionSearchField.setOnKeyPressed(event -> {
+            switch (event.getCode()) {
+                case DOWN:
+                    if (contraventionSuggestionsListView.getItems().size() > 0) {
+                        contraventionSuggestionsListView.requestFocus();
+                        contraventionSuggestionsListView.getSelectionModel().selectFirst();
+                    }
+                    event.consume();
+                    break;
+                case ENTER:
+                    if (contraventionSuggestionsListView.getSelectionModel().getSelectedItem() != null) {
+                        selectContravention(contraventionSuggestionsListView.getSelectionModel().getSelectedItem());
+                        event.consume();
+                    }
+                    break;
+                case ESCAPE:
+                    contraventionSuggestionsBox.setVisible(false);
+                    contraventionSuggestionsBox.setManaged(false);
+                    event.consume();
+                    break;
+            }
+        });
+    }
+
+    /**
+     * Charge toutes les contraventions depuis la base
+     */
+    private void loadAllContraventions() {
+        Task<List<Contravention>> loadTask = new Task<List<Contravention>>() {
+            @Override
+            protected List<Contravention> call() throws Exception {
+                return contraventionDAO.findAll();
+            }
+        };
+
+        loadTask.setOnSucceeded(e -> {
+            allContraventions.clear();
+            allContraventions.addAll(loadTask.getValue());
+            logger.info("Chargé {} contraventions", allContraventions.size());
+        });
+
+        loadTask.setOnFailed(e -> {
+            logger.error("Erreur lors du chargement des contraventions", loadTask.getException());
+        });
+
+        new Thread(loadTask).start();
+    }
+
+
+
+    /**
+     * Filtre les contraventions selon le texte saisi
+     */
+    private void filterContraventions(String searchText) {
+        if (searchText == null || searchText.trim().isEmpty()) {
+            contraventionSuggestionsBox.setVisible(false);
+            contraventionSuggestionsBox.setManaged(false);
+            return;
+        }
+
+        String search = searchText.toLowerCase().trim();
+
+        filteredContraventions.clear();
+        filteredContraventions.addAll(
+                allContraventions.stream()
+                        .filter(c -> c.getCode().toLowerCase().contains(search) ||
+                                c.getLibelle().toLowerCase().contains(search))
+                        .limit(10) // Limiter à 10 suggestions
+                        .collect(Collectors.toList())
+        );
+
+        if (!filteredContraventions.isEmpty()) {
+            contraventionSuggestionsBox.setVisible(true);
+            contraventionSuggestionsBox.setManaged(true);
+        } else {
+            contraventionSuggestionsBox.setVisible(false);
+            contraventionSuggestionsBox.setManaged(false);
+        }
+    }
+
+    /**
+     * Sélectionne une contravention
+     */
+    private void selectContravention(Contravention contravention) {
+        contraventionSearchField.setText(contravention.getCode() + " - " + contravention.getLibelle());
+
+        // Remplir automatiquement le montant si disponible
+        if (montantAmendeField != null && contravention.getMontant() != null) {
+            montantAmendeField.setText(contravention.getMontant().toString());
+        }
+
+        // Masquer les suggestions
+        contraventionSuggestionsBox.setVisible(false);
+        contraventionSuggestionsBox.setManaged(false);
+
+        // Stocker la contravention sélectionnée (ajouter une variable d'instance)
+        selectedContravention = contravention;
     }
 
     /**
@@ -710,36 +948,36 @@ public class AffaireFormController implements Initializable {
         isEditMode = false;
         currentAffaire = null;
 
-        Platform.runLater(() -> {
-            // Titre
-            if (formTitleLabel != null) {
-                formTitleLabel.setText("Nouvelle Affaire Contentieuse");
-            }
+        // Titre du formulaire
+        if (formTitleLabel != null) {
+            formTitleLabel.setText("Nouvelle Affaire");
+        }
 
-            // CORRECTION : Générer le numéro avec NumerotationService
-            generateNumeroAffaire();
+        // Générer un nouveau numéro
+        generateNumeroAffaire();
 
-            // Date du jour
-            if (dateCreationPicker != null) {
-                dateCreationPicker.setValue(LocalDate.now());
-            }
-            if (dateConstatationPicker != null) {
-                dateConstatationPicker.setValue(LocalDate.now());
-            }
+        // Date par défaut
+        if (dateCreationPicker != null) {
+            dateCreationPicker.setValue(LocalDate.now());
+        }
 
-            // Statut par défaut
-            if (statutComboBox != null) {
-                statutComboBox.setValue(StatutAffaire.EN_COURS);
-            }
+        // Statut par défaut
+        if (statutComboBox != null) {
+            statutComboBox.setValue(StatutAffaire.OUVERTE);
+        }
 
-            // Focus sur le premier champ
-            if (contrevenantComboBox != null) {
-                contrevenantComboBox.requestFocus();
-            }
+        // Mode règlement par défaut
+        if (modeReglementComboBox != null) {
+            modeReglementComboBox.setValue(ModeReglement.ESPECES);
+        }
 
-            hasUnsavedChanges = false;
-            updateUIForMode();
-        });
+        // Afficher la section encaissement
+        if (premierEncaissementSection != null) {
+            premierEncaissementSection.setVisible(true);
+            premierEncaissementSection.setManaged(true);
+        }
+
+        updateUIForMode();
     }
 
     // AJOUT : Méthode pour générer le numéro d'affaire
@@ -924,60 +1162,6 @@ public class AffaireFormController implements Initializable {
     }
 
     @FXML
-    private void handleAddContravention() {
-        Contravention selectedContravention = contraventionComboBox.getValue();
-        String autreDescription = autreContraventionField.getText();
-        String montantText = montantAmendeField.getText();
-
-        // Validation
-        if (selectedContravention == null && (autreDescription == null || autreDescription.trim().isEmpty())) {
-            AlertUtil.showWarningAlert("Sélection requise",
-                    "Veuillez sélectionner une contravention ou saisir une description", "");
-            return;
-        }
-
-        if (montantText == null || montantText.trim().isEmpty()) {
-            AlertUtil.showWarningAlert("Montant requis", "Veuillez saisir le montant de l'amende", "");
-            return;
-        }
-
-        try {
-            BigDecimal montant = parseMontant(montantText);
-            if (montant.compareTo(BigDecimal.ZERO) <= 0) {
-                AlertUtil.showWarningAlert("Montant invalide", "Le montant doit être supérieur à zéro", "");
-                return;
-            }
-
-            // Créer le view model
-            ContraventionViewModel vm = new ContraventionViewModel();
-            if (selectedContravention != null) {
-                vm.setCode(selectedContravention.getCode());
-                vm.setLibelle(selectedContravention.getLibelle());
-            } else {
-                vm.setCode("AUTRE");
-                vm.setLibelle(autreDescription);
-            }
-            vm.setMontant(montant);
-
-            // Ajouter à la liste
-            contraventionsList.add(vm);
-
-            // Réinitialiser les champs
-            contraventionComboBox.setValue(null);
-            autreContraventionField.clear();
-            montantAmendeField.clear();
-
-            // Mettre à jour les statistiques
-            updateStatistics();
-
-            hasUnsavedChanges = true;
-
-        } catch (NumberFormatException e) {
-            AlertUtil.showWarningAlert("Montant invalide", "Veuillez saisir un montant valide", "");
-        }
-    }
-
-    @FXML
     private void handleAssignerAgents() {
         try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/agent-selection-dialog.fxml"));
@@ -1019,15 +1203,73 @@ public class AffaireFormController implements Initializable {
 
     @FXML
     private void handleSave() {
-        if (validateForm()) {
-            saveAffaire(false);
+        if (!validateForm()) {
+            return;
         }
+        saveAffaire();
     }
 
     @FXML
     private void handleSaveAndNew() {
-        if (validateForm()) {
-            saveAffaire(true);
+        if (!validateForm()) {
+            return;
+        }
+
+        try {
+            showSaveProgress(true);
+
+            // Collecter les données
+            Affaire affaire = collectAffaireData();
+
+            // Sauvegarder
+            if (isEditMode) {
+                affaireService.updateAffaire(affaire);
+            } else {
+                // En mode création, sauvegarder avec les contraventions
+                List<Contravention> contraventions = new ArrayList<>();
+                List<BigDecimal> montants = new ArrayList<>();
+
+                for (ContraventionViewModel vm : contraventionsList) {
+                    if (vm.getContravention() != null) {
+                        contraventions.add(vm.getContravention());
+                    } else {
+                        // Créer une contravention temporaire pour "AUTRE"
+                        Contravention autre = new Contravention();
+                        autre.setCode(vm.getCode());
+                        autre.setLibelle(vm.getLibelle());
+                        contraventions.add(autre);
+                    }
+                    montants.add(vm.getMontant());
+                }
+
+                Affaire savedAffaire = affaireService.saveAffaireWithContraventions(affaire, contraventions, montants);
+
+                // Si un premier encaissement est saisi, le sauvegarder
+                if (premierEncaissementSection != null && premierEncaissementSection.isVisible()) {
+                    Encaissement encaissement = collectEncaissementData();
+                    if (encaissement != null && encaissement.getMontantEncaisse() != null
+                            && encaissement.getMontantEncaisse().compareTo(BigDecimal.ZERO) > 0) {
+                        encaissement.setAffaire(savedAffaire);
+                        encaissementService.saveEncaissement(encaissement);
+                    }
+                }
+            }
+
+            // Afficher le message de succès
+            AlertUtil.showSuccessAlert("Succès", "Affaire enregistrée",
+                    "L'affaire a été enregistrée avec succès.");
+
+            // Réinitialiser le formulaire pour une nouvelle saisie
+            clearForm();
+            initializeForNew();
+
+            hasUnsavedChanges = false;
+
+        } catch (Exception e) {
+            logger.error("Erreur lors de la sauvegarde", e);
+            AlertUtil.showErrorAlert("Erreur", "Erreur lors de la sauvegarde", e.getMessage());
+        } finally {
+            showSaveProgress(false);
         }
     }
 
@@ -1045,6 +1287,98 @@ public class AffaireFormController implements Initializable {
             }
         }
         closeWindow();
+    }
+
+    /**
+     * Efface tous les champs du formulaire
+     */
+    private void clearForm() {
+        // Réinitialiser les champs de texte
+        if (numeroAffaireField != null) {
+            numeroAffaireField.clear();
+        }
+        if (lieuConstatationField != null) {
+            lieuConstatationField.clear();
+        }
+        if (descriptionTextArea != null) {
+            descriptionTextArea.clear();
+        }
+        if (montantAmendeField != null) {
+            montantAmendeField.clear();
+        }
+        if (autreContraventionField != null) {
+            autreContraventionField.clear();
+        }
+        if (nomIndicateurField != null) {
+            nomIndicateurField.clear();
+        }
+        if (montantEncaisseField != null) {
+            montantEncaisseField.clear();
+        }
+        if (numeroChequeField != null) {
+            numeroChequeField.clear();
+        }
+
+        // Réinitialiser les dates
+        if (dateCreationPicker != null) {
+            dateCreationPicker.setValue(LocalDate.now());
+        }
+        if (dateConstatationPicker != null) {
+            dateConstatationPicker.setValue(null);
+        }
+        if (dateEncaissementPicker != null) {
+            dateEncaissementPicker.setValue(LocalDate.now());
+        }
+
+        // Réinitialiser les ComboBox
+        if (contrevenantComboBox != null) {
+            contrevenantComboBox.setValue(null);
+        }
+        if (contraventionComboBox != null) {
+            contraventionComboBox.setValue(null);
+        }
+        if (statutComboBox != null) {
+            statutComboBox.setValue(StatutAffaire.OUVERTE);
+        }
+        if (bureauComboBox != null) {
+            bureauComboBox.setValue(null);
+        }
+        if (serviceComboBox != null) {
+            serviceComboBox.setValue(null);
+        }
+        if (centreComboBox != null) {
+            centreComboBox.setValue(null);
+        }
+        if (agentVerbalisateurComboBox != null) {
+            agentVerbalisateurComboBox.setValue(null);
+        }
+        if (modeReglementComboBox != null) {
+            modeReglementComboBox.setValue(ModeReglement.ESPECES);
+        }
+        if (banqueComboBox != null) {
+            banqueComboBox.setValue(null);
+        }
+
+        // Réinitialiser les CheckBox
+        if (indicateurExisteCheckBox != null) {
+            indicateurExisteCheckBox.setSelected(false);
+        }
+        if (selectAllAgentsCheckBox != null) {
+            selectAllAgentsCheckBox.setSelected(false);
+        }
+
+        // Vider les listes
+        contraventionsList.clear();
+        agents.clear();
+        saisissantsList.clear();
+
+        // Réinitialiser les labels
+        updateStatistics();
+        updateAgentCounters();
+
+        // Réinitialiser l'état
+        hasUnsavedChanges = false;
+        clearAllErrors();
     }
 
     // ==================== MÉTHODES DE VALIDATION ====================
@@ -1349,6 +1683,35 @@ public class AffaireFormController implements Initializable {
         return true;
     }
 
+    /**
+     * Affiche ou masque l'indicateur de progression
+     */
+    private void showSaveProgress(boolean show) {
+        if (saveProgressIndicator != null) {
+            saveProgressIndicator.setVisible(show);
+        }
+
+        if (saveButton != null) {
+            saveButton.setDisable(show);
+        }
+        if (enregistrerButton != null) {
+            enregistrerButton.setDisable(show);
+        }
+        if (enregistrerEtNouveauButton != null) {
+            enregistrerEtNouveauButton.setDisable(show);
+        }
+        if (annulerButton != null) {
+            annulerButton.setDisable(show);
+        }
+
+        if (show) {
+            if (statusLabel != null) {
+                statusLabel.setText("Enregistrement en cours...");
+                statusLabel.setStyle("-fx-text-fill: blue;");
+            }
+        }
+    }
+
     // ==================== MÉTHODES DE SAUVEGARDE ====================
 
     /**
@@ -1356,45 +1719,61 @@ public class AffaireFormController implements Initializable {
      */
     private void saveAffaire() {
         try {
-            // Collecter les données de l'affaire
+            showSaveProgress(true);
+
+            // Collecter les données
             Affaire affaire = collectAffaireData();
 
-            // Préparer les listes pour le service
-            List<Contravention> contraventions = new ArrayList<>();
-            List<BigDecimal> montants = new ArrayList<>();
+            if (isEditMode) {
+                affaireService.updateAffaire(affaire);
+                AlertUtil.showSuccessAlert("Succès", "Affaire modifiée",
+                        "L'affaire " + affaire.getNumeroAffaire() + " a été modifiée avec succès.");
+            } else {
+                // En mode création, sauvegarder avec les contraventions
+                List<Contravention> contraventions = new ArrayList<>();
+                List<BigDecimal> montants = new ArrayList<>();
 
-            for (ContraventionViewModel vm : contraventionsList) {
-                contraventions.add(vm.getContravention());
-                montants.add(vm.getMontant());
-            }
-
-            // Sauvegarder via le service
-            Affaire savedAffaire = affaireService.saveAffaireWithContraventions(affaire, contraventions, montants);
-
-            // Si un premier encaissement est saisi, le sauvegarder aussi
-            if (premierEncaissementSection != null && premierEncaissementSection.isVisible()) {
-                Encaissement encaissement = collectEncaissementData();
-                if (encaissement != null && encaissement.getMontantEncaisse() != null
-                        && encaissement.getMontantEncaisse().compareTo(BigDecimal.ZERO) > 0) {
-                    encaissement.setAffaire(savedAffaire);
-                    encaissementService.saveEncaissement(encaissement);
+                for (ContraventionViewModel vm : contraventionsList) {
+                    if (vm.getContravention() != null) {
+                        contraventions.add(vm.getContravention());
+                    } else {
+                        // Créer une contravention temporaire pour "AUTRE"
+                        Contravention autre = new Contravention();
+                        autre.setCode(vm.getCode());
+                        autre.setLibelle(vm.getLibelle());
+                        contraventions.add(autre);
+                    }
+                    montants.add(vm.getMontant());
                 }
+
+                Affaire savedAffaire = affaireService.saveAffaireWithContraventions(affaire, contraventions, montants);
+
+                // Si un premier encaissement est saisi, le sauvegarder
+                if (premierEncaissementSection != null && premierEncaissementSection.isVisible()) {
+                    Encaissement encaissement = collectEncaissementData();
+                    if (encaissement != null && encaissement.getMontantEncaisse() != null
+                            && encaissement.getMontantEncaisse().compareTo(BigDecimal.ZERO) > 0) {
+                        encaissement.setAffaire(savedAffaire);
+                        encaissementService.saveEncaissement(encaissement);
+                    }
+                }
+
+                AlertUtil.showSuccessAlert("Succès", "Affaire créée",
+                        "L'affaire " + savedAffaire.getNumeroAffaire() + " a été créée avec succès.");
             }
 
-            AlertUtil.showSuccessAlert("Succès",
-                    "Affaire enregistrée",
-                    "L'affaire " + savedAffaire.getNumeroAffaire() + " a été enregistrée avec succès.");
+            hasUnsavedChanges = false;
 
-            // Fermer la fenêtre ou réinitialiser le formulaire selon le bouton cliqué
+            // Fermer si nécessaire
             if (currentStage != null) {
                 currentStage.close();
             }
 
         } catch (Exception e) {
             logger.error("Erreur lors de la sauvegarde", e);
-            AlertUtil.showErrorAlert("Erreur",
-                    "Erreur lors de la sauvegarde",
-                    "Une erreur s'est produite : " + e.getMessage());
+            AlertUtil.showErrorAlert("Erreur", "Erreur lors de la sauvegarde", e.getMessage());
+        } finally {
+            showSaveProgress(false);
         }
     }
 

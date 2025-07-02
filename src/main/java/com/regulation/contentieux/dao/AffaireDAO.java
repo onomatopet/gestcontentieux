@@ -116,13 +116,15 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
             affaire.setDateCreation(dateCreation.toLocalDate());
         }
 
-        // Montant total
+        // Montant total - CORRECTION COMPLÈTE
         BigDecimal montantAmendeTotal = rs.getBigDecimal("montant_amende_total");
-        affaire.setMontantTotal(montantAmendeTotal != null ? montantAmendeTotal : BigDecimal.ZERO);
-        affaire.setMontantAmendeTotal(montantAmendeTotal != null ? montantAmendeTotal : BigDecimal.ZERO);
-
-        // Note: montant_encaisse n'existe pas dans la vraie table
-        affaire.setMontantEncaisse(BigDecimal.ZERO);
+        if (montantAmendeTotal != null) {
+            affaire.setMontantTotal(montantAmendeTotal);
+            affaire.setMontantAmendeTotal(montantAmendeTotal);
+        } else {
+            affaire.setMontantTotal(BigDecimal.ZERO);
+            affaire.setMontantAmendeTotal(BigDecimal.ZERO);
+        }
 
         // Statut
         String statutStr = rs.getString("statut");
@@ -130,93 +132,87 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
             try {
                 affaire.setStatut(StatutAffaire.valueOf(statutStr));
             } catch (IllegalArgumentException e) {
+                logger.warn("Statut inconnu: {}, utilisation de EN_COURS par défaut", statutStr);
                 affaire.setStatut(StatutAffaire.EN_COURS);
             }
+        } else {
+            affaire.setStatut(StatutAffaire.EN_COURS);
         }
 
-        // CONTREVENANT (via contrevenant_id)
-        try {
-            String contrevenantNomComplet = rs.getString("contrevenant_nom_complet");
-            if (contrevenantNomComplet != null) {
-                Contrevenant contrevenant = new Contrevenant();
-                contrevenant.setId(rs.getLong("contrevenant_id"));
-                contrevenant.setNomComplet(contrevenantNomComplet);
-                affaire.setContrevenant(contrevenant);
-            }
-        } catch (SQLException e) {
-            logger.debug("Pas de contrevenant associé pour l'affaire {}", affaire.getId());
+        // IDs des relations
+        Long contrevenantId = rs.getObject("contrevenant_id", Long.class);
+        if (contrevenantId != null) {
+            affaire.setContrevenantId(contrevenantId);
         }
 
-        // CORRECTION: CONTRAVENTION (via contravention_id)
-        // Créer une liste avec la contravention unique
-        List<Contravention> contraventions = new ArrayList<>();
-        try {
-            Long contraventionId = rs.getLong("contravention_id");
-            if (contraventionId != null && contraventionId > 0) {
-                String contraventionLibelle = rs.getString("contravention_libelle");
-                if (contraventionLibelle != null) {
-                    Contravention contravention = new Contravention();
-                    contravention.setId(contraventionId);
-                    contravention.setLibelle(contraventionLibelle);
-                    contraventions.add(contravention);
-                }
-            }
-        } catch (SQLException e) {
-            logger.debug("Pas de contravention associée pour l'affaire {}", affaire.getId());
-        }
-        affaire.setContraventions(contraventions);
-
-        // BUREAU (via bureau_id)
-        try {
-            Long bureauId = rs.getLong("bureau_id");
-            if (bureauId != null && bureauId > 0) {
-                String bureauNom = rs.getString("bureau_nom");
-                if (bureauNom != null) {
-                    Bureau bureau = new Bureau();
-                    bureau.setId(bureauId);
-                    bureau.setNomBureau(bureauNom);
-                    affaire.setBureau(bureau);
-                }
-            }
-        } catch (SQLException e) {
-            logger.debug("Pas de bureau associé pour l'affaire {}", affaire.getId());
+        Long contraventionId = rs.getObject("contravention_id", Long.class);
+        if (contraventionId != null) {
+            affaire.setContraventionId(contraventionId);
         }
 
-        // SERVICE (via service_id)
-        try {
-            Long serviceId = rs.getLong("service_id");
-            if (serviceId != null && serviceId > 0) {
-                String serviceNom = rs.getString("service_nom");
-                if (serviceNom != null) {
-                    Service service = new Service();
-                    service.setId(serviceId);
-                    service.setNomService(serviceNom);
-                    affaire.setService(service);
-                }
-            }
-        } catch (SQLException e) {
-            logger.debug("Pas de service associé pour l'affaire {}", affaire.getId());
+        Long bureauId = rs.getObject("bureau_id", Long.class);
+        if (bureauId != null) {
+            affaire.setBureauId(bureauId);
+        }
+
+        Long serviceId = rs.getObject("service_id", Long.class);
+        if (serviceId != null) {
+            affaire.setServiceId(serviceId);
         }
 
         // Timestamps
-        try {
-            Timestamp createdAt = rs.getTimestamp("created_at");
-            if (createdAt != null) {
-                affaire.setCreatedAt(createdAt.toLocalDateTime());
-            }
-        } catch (SQLException e) {
-            logger.debug("Échec du parsing de created_at pour l'affaire {}", affaire.getId());
-            affaire.setCreatedAt(LocalDateTime.now());
+        Timestamp createdAt = rs.getTimestamp("created_at");
+        if (createdAt != null) {
+            affaire.setCreatedAt(createdAt.toLocalDateTime());
         }
 
+        Timestamp updatedAt = rs.getTimestamp("updated_at");
+        if (updatedAt != null) {
+            affaire.setUpdatedAt(updatedAt.toLocalDateTime());
+        }
+
+        // Données jointes par LEFT JOIN (si présentes)
         try {
-            Timestamp updatedAt = rs.getTimestamp("updated_at");
-            if (updatedAt != null) {
-                affaire.setUpdatedAt(updatedAt.toLocalDateTime());
+            // Contrevenant
+            String contrevenantNom = rs.getString("contrevenant_nom_complet");
+            if (contrevenantNom != null && contrevenantId != null) {
+                Contrevenant contrevenant = new Contrevenant();
+                contrevenant.setId(contrevenantId);
+                contrevenant.setNomComplet(contrevenantNom);
+                affaire.setContrevenant(contrevenant);
+            }
+
+            // Contravention
+            String contraventionLibelle = rs.getString("contravention_libelle");
+            if (contraventionLibelle != null && contraventionId != null) {
+                Contravention contravention = new Contravention();
+                contravention.setId(contraventionId);
+                contravention.setLibelle(contraventionLibelle);
+                List<Contravention> contraventions = new ArrayList<>();
+                contraventions.add(contravention);
+                affaire.setContraventions(contraventions);
+            }
+
+            // Bureau
+            String bureauNom = rs.getString("bureau_nom");
+            if (bureauNom != null && bureauId != null) {
+                Bureau bureau = new Bureau();
+                bureau.setId(bureauId);
+                bureau.setNomBureau(bureauNom);
+                affaire.setBureau(bureau);
+            }
+
+            // Service
+            String serviceNom = rs.getString("service_nom");
+            if (serviceNom != null && serviceId != null) {
+                Service service = new Service();
+                service.setId(serviceId);
+                service.setNomService(serviceNom);
+                affaire.setService(service);
             }
         } catch (SQLException e) {
-            logger.debug("Échec du parsing de updated_at pour l'affaire {}", affaire.getId());
-            affaire.setUpdatedAt(LocalDateTime.now());
+            // Les colonnes jointes peuvent ne pas être présentes dans toutes les requêtes
+            logger.debug("Colonnes jointes non disponibles: {}", e.getMessage());
         }
 
         return affaire;
@@ -228,11 +224,18 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
         stmt.setString(1, affaire.getNumeroAffaire());
 
         // 2. date_creation
-        stmt.setDate(2, Date.valueOf(affaire.getDateCreation()));
+        if (affaire.getDateCreation() != null) {
+            stmt.setDate(2, Date.valueOf(affaire.getDateCreation()));
+        } else {
+            stmt.setDate(2, Date.valueOf(LocalDate.now()));
+        }
 
-        // 3. montant_amende_total
-        stmt.setBigDecimal(3, affaire.getMontantTotal() != null ?
-                affaire.getMontantTotal() : BigDecimal.ZERO);
+        // 3. montant_amende_total - UTILISER getMontantAmendeTotal() qui est la propriété principale
+        BigDecimal montant = affaire.getMontantAmendeTotal();
+        if (montant == null) {
+            montant = affaire.getMontantTotal();
+        }
+        stmt.setBigDecimal(3, montant != null ? montant : BigDecimal.ZERO);
 
         // 4. statut
         if (affaire.getStatut() != null) {
@@ -288,8 +291,12 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
 
     @Override
     protected void setUpdateParameters(PreparedStatement stmt, Affaire affaire) throws SQLException {
-        // 1. montant_amende_total
-        stmt.setBigDecimal(1, affaire.getMontantTotal() != null ? affaire.getMontantTotal() : BigDecimal.ZERO);
+        // 1. montant_amende_total - UTILISER getMontantAmendeTotal() qui est la propriété principale
+        BigDecimal montant = affaire.getMontantAmendeTotal();
+        if (montant == null) {
+            montant = affaire.getMontantTotal();
+        }
+        stmt.setBigDecimal(1, montant != null ? montant : BigDecimal.ZERO);
 
         // 2. statut
         if (affaire.getStatut() != null) {

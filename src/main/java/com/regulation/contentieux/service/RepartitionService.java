@@ -3,6 +3,7 @@ package com.regulation.contentieux.service;
 import com.regulation.contentieux.config.DatabaseConfig;
 import com.regulation.contentieux.model.*;
 import com.regulation.contentieux.dao.AgentDAO;
+import com.regulation.contentieux.dao.RepartitionDAO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,7 +17,7 @@ import java.util.*;
 
 /**
  * Service pour le calcul des répartitions selon le cahier des charges
- * ENRICHI : DD et DG sont TOUJOURS bénéficiaires même sans participation
+ * CORRIGÉ : DD et DG font partie du pool des chefs selon le cahier des charges
  *
  * FORMULES DE CALCUL :
  * 1. Si indicateur réel existe:
@@ -31,13 +32,11 @@ import java.util.*;
  *    - Produit net ayants droits = Produit net - FLCF - Trésor
  *
  * 4. Répartition niveau 2:
- *    - Part chefs = 15% × Produit net ayants droits
+ *    - Part chefs = 15% × Produit net ayants droits (divisé entre chefs + DD + DG)
  *    - Part saisissants = 35% × Produit net ayants droits
  *    - Mutuelle nationale = 5% × Produit net ayants droits
  *    - Masse commune = 30% × Produit net ayants droits
  *    - Intéressement = 15% × Produit net ayants droits
- *
- * ENRICHISSEMENT : DD et DG reçoivent leur part même s'ils n'ont pas participé
  */
 public class RepartitionService {
 
@@ -53,22 +52,19 @@ public class RepartitionService {
     private static final BigDecimal TAUX_MASSE_COMMUNE = new BigDecimal("0.30");  // 30%
     private static final BigDecimal TAUX_INTERESSEMENT = new BigDecimal("0.15");  // 15%
 
-    // ENRICHISSEMENT : Taux spécifiques pour DD et DG (à définir selon les règles métier)
-    private static final BigDecimal TAUX_DD = new BigDecimal("0.02");  // 2% du produit net ayants droits
-    private static final BigDecimal TAUX_DG = new BigDecimal("0.03");  // 3% du produit net ayants droits
-
     private final AgentDAO agentDAO;
+    private final RepartitionDAO repartitionDAO;
 
     public RepartitionService() {
         this.agentDAO = new AgentDAO();
+        this.repartitionDAO = new RepartitionDAO();
     }
 
     /**
      * Calcule la répartition pour un encaissement
-     * ENRICHISSEMENT : Inclut DD et DG systématiquement
      */
     public RepartitionResultat calculerRepartition(Encaissement encaissement, Affaire affaire) {
-        logger.info("🧮 === CALCUL DE RÉPARTITION ENRICHI ===");
+        logger.info("🧮 === CALCUL DE RÉPARTITION ===");
         logger.info("🧮 Encaissement: {} - Montant: {}",
                 encaissement.getReference(), encaissement.getMontantEncaisse());
 
@@ -109,33 +105,16 @@ public class RepartitionService {
         resultat.setProduitNetAyantsDroits(produitNetAyantsDroits);
         logger.info("💰 Produit net ayants droits: {} FCFA", produitNetAyantsDroits);
 
-        // 5. ENRICHISSEMENT : Parts DD et DG (toujours bénéficiaires)
-        BigDecimal partDD = produitNetAyantsDroits.multiply(TAUX_DD)
+        // 5. Répartition niveau 2
+        BigDecimal partChefs = produitNetAyantsDroits.multiply(TAUX_CHEFS)
                 .setScale(0, RoundingMode.HALF_UP);
-        BigDecimal partDG = produitNetAyantsDroits.multiply(TAUX_DG)
+        BigDecimal partSaisissants = produitNetAyantsDroits.multiply(TAUX_SAISISSANTS)
                 .setScale(0, RoundingMode.HALF_UP);
-
-        resultat.setPartDD(partDD);
-        resultat.setPartDG(partDG);
-
-        logger.info("💰 Part DD (2% - TOUJOURS): {} FCFA", partDD);
-        logger.info("💰 Part DG (3% - TOUJOURS): {} FCFA", partDG);
-
-        // 6. Ajuster le produit net ayants droits après DD et DG
-        BigDecimal produitNetAyantsDroitsAjuste = produitNetAyantsDroits
-                .subtract(partDD)
-                .subtract(partDG);
-
-        // 7. Répartition niveau 2 (sur le montant ajusté)
-        BigDecimal partChefs = produitNetAyantsDroitsAjuste.multiply(TAUX_CHEFS)
+        BigDecimal partMutuelle = produitNetAyantsDroits.multiply(TAUX_MUTUELLE)
                 .setScale(0, RoundingMode.HALF_UP);
-        BigDecimal partSaisissants = produitNetAyantsDroitsAjuste.multiply(TAUX_SAISISSANTS)
+        BigDecimal partMasseCommune = produitNetAyantsDroits.multiply(TAUX_MASSE_COMMUNE)
                 .setScale(0, RoundingMode.HALF_UP);
-        BigDecimal partMutuelle = produitNetAyantsDroitsAjuste.multiply(TAUX_MUTUELLE)
-                .setScale(0, RoundingMode.HALF_UP);
-        BigDecimal partMasseCommune = produitNetAyantsDroitsAjuste.multiply(TAUX_MASSE_COMMUNE)
-                .setScale(0, RoundingMode.HALF_UP);
-        BigDecimal partInteressement = produitNetAyantsDroitsAjuste.multiply(TAUX_INTERESSEMENT)
+        BigDecimal partInteressement = produitNetAyantsDroits.multiply(TAUX_INTERESSEMENT)
                 .setScale(0, RoundingMode.HALF_UP);
 
         resultat.setPartChefs(partChefs);
@@ -150,10 +129,10 @@ public class RepartitionService {
         logger.info("💰 Part masse commune (30%): {} FCFA", partMasseCommune);
         logger.info("💰 Part intéressement (15%): {} FCFA", partInteressement);
 
-        // 8. Calcul des parts individuelles
+        // 6. Calcul des parts individuelles
         calculerPartsIndividuelles(resultat, affaire);
 
-        // 9. Vérification de la cohérence
+        // 7. Vérification de la cohérence
         verifierCoherence(resultat);
 
         return resultat;
@@ -161,6 +140,7 @@ public class RepartitionService {
 
     /**
      * Calcule les parts individuelles des acteurs
+     * CORRIGÉ : DD et DG font partie du pool des chefs
      */
     private void calculerPartsIndividuelles(RepartitionResultat resultat, Affaire affaire) {
         logger.info("👥 === CALCUL DES PARTS INDIVIDUELLES ===");
@@ -168,15 +148,42 @@ public class RepartitionService {
         List<Agent> chefs = getChefs(affaire);
         List<Agent> saisissants = getSaisissants(affaire);
 
-        // Parts des chefs
-        if (!chefs.isEmpty()) {
-            BigDecimal partParChef = resultat.getPartChefs()
-                    .divide(new BigDecimal(chefs.size()), 0, RoundingMode.HALF_UP);
+        // CORRECTION : DD et DG font partie du pool des chefs
+        // Récupérer DD et DG
+        Agent dd = getAgentDD();
+        Agent dg = getAgentDG();
 
-            for (Agent chef : chefs) {
-                resultat.addPartIndividuelle(chef, partParChef, "CHEF");
-                logger.info("👤 Chef {} - {} : {} FCFA",
-                        chef.getCodeAgent(), chef.getNomComplet(), partParChef);
+        // Créer une liste combinée pour les chefs + DD + DG
+        List<Agent> beneficiairesChefs = new ArrayList<>(chefs);
+
+        // Ajouter DD s'il existe et n'est pas déjà dans la liste
+        if (dd != null && !beneficiairesChefs.stream().anyMatch(a -> a.getId().equals(dd.getId()))) {
+            beneficiairesChefs.add(dd);
+        }
+
+        // Ajouter DG s'il existe et n'est pas déjà dans la liste
+        if (dg != null && !beneficiairesChefs.stream().anyMatch(a -> a.getId().equals(dg.getId()))) {
+            beneficiairesChefs.add(dg);
+        }
+
+        // Parts des chefs (incluant DD et DG)
+        if (!beneficiairesChefs.isEmpty()) {
+            BigDecimal partParBeneficiaire = resultat.getPartChefs()
+                    .divide(new BigDecimal(beneficiairesChefs.size()), 0, RoundingMode.HALF_UP);
+
+            for (Agent beneficiaire : beneficiairesChefs) {
+                String role = "CHEF";
+
+                // Identifier le rôle spécifique
+                if (dd != null && beneficiaire.getId().equals(dd.getId())) {
+                    role = "DD";
+                } else if (dg != null && beneficiaire.getId().equals(dg.getId())) {
+                    role = "DG";
+                }
+
+                resultat.addPartIndividuelle(beneficiaire, partParBeneficiaire, role);
+                logger.info("👤 {} {} - {} : {} FCFA",
+                        role, beneficiaire.getCodeAgent(), beneficiaire.getNomComplet(), partParBeneficiaire);
             }
         }
 
@@ -191,193 +198,152 @@ public class RepartitionService {
                         saisissant.getCodeAgent(), saisissant.getNomComplet(), partParSaisissant);
             }
         }
-
-        // ENRICHISSEMENT : Ajouter DD et DG même s'ils n'ont pas participé
-        ajouterBeneficiairePermanent(resultat, "DD", resultat.getPartDD());
-        ajouterBeneficiairePermanent(resultat, "DG", resultat.getPartDG());
     }
 
     /**
-     * ENRICHISSEMENT : Ajoute un bénéficiaire permanent (DD ou DG)
+     * Récupère l'agent DD
      */
-    private void ajouterBeneficiairePermanent(RepartitionResultat resultat, String role, BigDecimal montant) {
+    private Agent getAgentDD() {
         try {
-            // CORRECTION : Utiliser role_nom au lieu de type_role
-            String sql = """
-            SELECT a.* FROM agents a
-            JOIN roles_speciaux rs ON a.id = rs.agent_id
-            WHERE rs.role_nom = ?
-            LIMIT 1
-        """;
-
-            try (Connection conn = DatabaseConfig.getSQLiteConnection();
-                 PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-                stmt.setString(1, role);
-                ResultSet rs = stmt.executeQuery();
-
-                if (rs.next()) {
-                    // Utiliser la méthode find du DAO qui est publique
-                    Long agentId = rs.getLong("id");
-                    Optional<Agent> agentOpt = agentDAO.findById(agentId);
-
-                    if (agentOpt.isPresent()) {
-                        Agent beneficiaire = agentOpt.get();
-                        resultat.addPartIndividuelle(beneficiaire, montant, role + "_PERMANENT");
-                        logger.info("👤 {} (TOUJOURS bénéficiaire) - {} : {} FCFA",
-                                role, beneficiaire.getNomComplet(), montant);
-                    } else {
-                        logger.warn("⚠️ Agent {} trouvé dans roles_speciaux mais absent de la table agents", agentId);
-                        ajouterBeneficiaireGenerique(resultat, role, montant);
-                    }
-                } else {
-                    logger.warn("⚠️ Aucun agent avec le rôle {} trouvé dans roles_speciaux", role);
-                    // Créer une entrée générique pour ne pas perdre la répartition
-                    ajouterBeneficiaireGenerique(resultat, role, montant);
-                }
-            }
-        } catch (SQLException e) {
-            logger.error("Erreur lors de la recherche du bénéficiaire permanent " + role, e);
-            // En cas d'erreur, créer une entrée générique
-            ajouterBeneficiaireGenerique(resultat, role, montant);
+            Optional<Agent> dd = agentDAO.findByRoleSpecial("DD");
+            return dd.orElse(null);
+        } catch (Exception e) {
+            logger.error("Erreur lors de la récupération du DD", e);
+            return null;
         }
     }
 
-    private void ajouterBeneficiaireGenerique(RepartitionResultat resultat, String role, BigDecimal montant) {
-        // Si la méthode addBeneficiaireGenerique n'existe pas dans RepartitionResultat,
-        // vous pouvez utiliser cette alternative :
-
-        // Option 1 : Créer un agent fictif
-        Agent agentFictif = new Agent();
-        agentFictif.setId(-1L); // ID négatif pour indiquer qu'il est fictif
-        agentFictif.setCodeAgent("FICTIF_" + role);
-        agentFictif.setNom(role);
-        agentFictif.setPrenom("Bénéficiaire");
-
-        resultat.addPartIndividuelle(agentFictif, montant, role + "_FICTIF");
-        logger.info("👤 {} (Bénéficiaire fictif) : {} FCFA", role, montant);
+    /**
+     * Récupère l'agent DG
+     */
+    private Agent getAgentDG() {
+        try {
+            Optional<Agent> dg = agentDAO.findByRoleSpecial("DG");
+            return dg.orElse(null);
+        } catch (Exception e) {
+            logger.error("Erreur lors de la récupération du DG", e);
+            return null;
+        }
     }
 
     /**
      * Vérifie s'il y a un indicateur pour l'affaire
      */
     private boolean hasIndicateur(Affaire affaire) {
-        // CORRECTION: Selon vos instructions, la part indicateur est toujours calculée
-        return true;
+        String sql = """
+            SELECT COUNT(*) 
+            FROM affaire_acteurs 
+            WHERE affaire_id = ? 
+            AND role_sur_affaire = 'INDICATEUR'
+        """;
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setLong(1, affaire.getId());
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                return rs.getInt(1) > 0;
+            }
+
+        } catch (SQLException e) {
+            logger.error("Erreur lors de la vérification de l'indicateur", e);
+        }
+
+        return false;
     }
 
     /**
      * Récupère les chefs de l'affaire
      */
     private List<Agent> getChefs(Affaire affaire) {
-        List<Agent> chefs = new ArrayList<>();
-
-        String sql = """
-        SELECT agent_id FROM affaire_acteurs
-        WHERE affaire_id = ?
-        AND role_sur_affaire = 'Chef'
-    """;
-
-        try (Connection conn = DatabaseConfig.getSQLiteConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-            stmt.setLong(1, affaire.getId());
-            ResultSet rs = stmt.executeQuery();
-
-            while (rs.next()) {
-                Long agentId = rs.getLong("agent_id");
-                agentDAO.findById(agentId).ifPresent(chefs::add);
-            }
-
-        } catch (SQLException e) {
-            logger.error("Erreur lors de la récupération des chefs", e);
-        }
-
-        return chefs;
+        return getAgentsByRole(affaire, "CHEF");
     }
 
     /**
      * Récupère les saisissants de l'affaire
      */
     private List<Agent> getSaisissants(Affaire affaire) {
-        List<Agent> saisissants = new ArrayList<>();
+        return getAgentsByRole(affaire, "SAISISSANT");
+    }
+
+    /**
+     * Récupère les agents par rôle pour une affaire
+     */
+    private List<Agent> getAgentsByRole(Affaire affaire, String role) {
+        List<Agent> agents = new ArrayList<>();
 
         String sql = """
-        SELECT agent_id FROM affaire_acteurs
-        WHERE affaire_id = ?
-        AND role_sur_affaire = 'Saisissant'
-    """;
+            SELECT a.* 
+            FROM agents a
+            INNER JOIN affaire_acteurs aa ON a.id = aa.agent_id
+            WHERE aa.affaire_id = ? 
+            AND aa.role_sur_affaire = ?
+        """;
 
         try (Connection conn = DatabaseConfig.getSQLiteConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setLong(1, affaire.getId());
-            ResultSet rs = stmt.executeQuery();
+            stmt.setString(2, role);
 
+            ResultSet rs = stmt.executeQuery();
             while (rs.next()) {
-                Long agentId = rs.getLong("agent_id");
-                agentDAO.findById(agentId).ifPresent(saisissants::add);
+                Agent agent = new Agent();
+                agent.setId(rs.getLong("id"));
+                agent.setCodeAgent(rs.getString("code_agent"));
+                agent.setNom(rs.getString("nom"));
+                agent.setPrenom(rs.getString("prenom"));
+                agent.setGrade(rs.getString("grade"));
+                agent.setServiceId(rs.getLong("service_id"));
+                agent.setActif(rs.getBoolean("actif"));
+                agents.add(agent);
             }
 
         } catch (SQLException e) {
-            logger.error("Erreur lors de la récupération des saisissants", e);
+            logger.error("Erreur lors de la récupération des agents par rôle", e);
         }
 
-        return saisissants;
+        return agents;
     }
 
     /**
-     * Vérifie la cohérence de la répartition
+     * Vérifie la cohérence du calcul
      */
     private void verifierCoherence(RepartitionResultat resultat) {
-        BigDecimal total = BigDecimal.ZERO;
-
-        // Somme de toutes les parts
-        total = total.add(resultat.getPartIndicateur())
-                .add(resultat.getPartFLCF())
-                .add(resultat.getPartTresor())
-                .add(resultat.getPartDD())
-                .add(resultat.getPartDG())
-                .add(resultat.getPartChefs())
+        // Vérifier que la somme des parts niveau 2 = produit net ayants droits
+        BigDecimal sommeNiveau2 = resultat.getPartChefs()
                 .add(resultat.getPartSaisissants())
                 .add(resultat.getPartMutuelle())
                 .add(resultat.getPartMasseCommune())
                 .add(resultat.getPartInteressement());
 
-        BigDecimal ecart = resultat.getProduitDisponible().subtract(total).abs();
+        BigDecimal difference = resultat.getProduitNetAyantsDroits().subtract(sommeNiveau2).abs();
 
-        if (ecart.compareTo(new BigDecimal("10")) > 0) {
-            logger.warn("⚠️ Écart de répartition détecté: {} FCFA", ecart);
-        } else {
-            logger.info("✅ Répartition cohérente - Écart: {} FCFA", ecart);
-        }
-    }
+        if (difference.compareTo(new BigDecimal("5")) > 0) {
+            logger.warn("⚠️ Écart de cohérence détecté: {} FCFA", difference);
+            /**
+             * Enregistre la répartition en base de données
+             */
+            public void enregistrerRepartition(RepartitionResultat resultat) {
+                logger.info("💾 Enregistrement de la répartition...");
 
-    /**
-     * Enregistre la répartition en base de données
-     */
-    public void enregistrerRepartition(RepartitionResultat resultat) {
-        logger.info("💾 Enregistrement de la répartition...");
+                try {
+                    // Enregistrer la répartition principale
+                    RepartitionResultat saved = repartitionDAO.save(resultat);
 
-        try {
-            // Pour l'instant, on simule l'enregistrement
-            // Le RepartitionDAO sera créé plus tard
-            resultat.setId(System.currentTimeMillis()); // ID temporaire
-            resultat.setCalculatedAt(java.time.LocalDateTime.now());
+                    // Enregistrer les parts individuelles
+                    if (resultat.getPartsIndividuelles() != null && !resultat.getPartsIndividuelles().isEmpty()) {
+                        for (RepartitionResultat.PartIndividuelle part : resultat.getPartsIndividuelles()) {
+                            repartitionDAO.savePartIndividuelle(saved.getId(), part);
+                        }
+                    }
 
-            logger.info("✅ Répartition enregistrée avec succès (simulation)");
+                    logger.info("✅ Répartition enregistrée avec succès - ID: {}", saved.getId());
 
-        } catch (Exception e) {
-            logger.error("❌ Erreur lors de l'enregistrement de la répartition", e);
-            throw new RuntimeException("Impossible d'enregistrer la répartition", e);
-        }
-    }
-
-    /**
-     * Génère un rapport de répartition pour un encaissement
-     */
-    public String genererRapportRepartition(Long encaissementId) {
-        // À implémenter : génération du rapport PDF/Excel
-        return "Rapport de répartition pour encaissement " + encaissementId;
-    }
-}
+                } catch (Exception e) {
+                    logger.error("❌ Erreur lors de l'enregistrement de la répartition", e);
+                    throw new RuntimeException("Impossible d'enregistrer la répartition", e);
+                }
+            }

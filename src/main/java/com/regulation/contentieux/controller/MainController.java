@@ -554,6 +554,9 @@ public class MainController implements Initializable {
     /**
      * Configure les éléments de menu
      */
+    /**
+     * Configure les éléments de menu
+     */
     private void setupMenuItems() {
         try {
             // Menu Fichier
@@ -590,6 +593,19 @@ public class MainController implements Initializable {
 
                 if (menuContrevenants.getItems().isEmpty()) {
                     menuContrevenants.getItems().addAll(nouveauContrevenant, new SeparatorMenuItem(), listeContrevenants);
+                }
+            }
+
+            // Menu Encaissements
+            if (menuEncaissements != null) {
+                MenuItem nouvelEncaissement = new MenuItem("Nouvel Encaissement...");
+                nouvelEncaissement.setOnAction(e -> showNewEncaissementDialog());
+
+                MenuItem listeEncaissements = new MenuItem("Liste des Encaissements");
+                listeEncaissements.setOnAction(e -> loadView("/view/encaissement-list.fxml"));
+
+                if (menuEncaissements.getItems().isEmpty()) {
+                    menuEncaissements.getItems().addAll(nouvelEncaissement, new SeparatorMenuItem(), listeEncaissements);
                 }
             }
 
@@ -669,6 +685,42 @@ public class MainController implements Initializable {
             logger.info("Éléments de menu configurés avec succès");
         } catch (Exception e) {
             logger.error("Erreur lors de la configuration des éléments de menu", e);
+        }
+    }
+
+    /**
+     * Affiche le dialogue de création d'encaissement
+     */
+    private void showNewEncaissementDialog() {
+        try {
+            logger.info("Ouverture du dialogue de nouvel encaissement");
+
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/encaissement-form.fxml"));
+            Parent root = loader.load();
+
+            Stage dialogStage = new Stage();
+            dialogStage.setTitle("Nouvel Encaissement");
+            dialogStage.initModality(Modality.APPLICATION_MODAL);
+            dialogStage.initOwner(contentPane.getScene().getWindow());
+
+            Scene scene = new Scene(root);
+            dialogStage.setScene(scene);
+
+            EncaissementFormController controller = loader.getController();
+            controller.setDialogStage(dialogStage);
+            controller.setMode(EncaissementFormController.Mode.CREATE);
+
+            dialogStage.showAndWait();
+
+            // Rafraîchir la liste si nécessaire
+            if (currentController instanceof EncaissementListController) {
+                ((EncaissementListController) currentController).refresh();
+            }
+        } catch (Exception e) {
+            logger.error("Erreur lors de l'ouverture du dialogue d'encaissement", e);
+            AlertUtil.showErrorAlert("Erreur",
+                    "Impossible d'ouvrir le formulaire d'encaissement",
+                    "Veuillez réessayer ou contacter le support.");
         }
     }
 
@@ -994,25 +1046,6 @@ public class MainController implements Initializable {
             stage.show();
         } catch (IOException e) {
             logger.error("Erreur ouverture dialogue agent", e);
-        }
-    }
-
-    /**
-     * Dialogue nouvel encaissement - CORRIGÉE
-     */
-    private void showNewEncaissementDialog() {
-        logger.debug("Ouverture dialogue nouvel encaissement");
-        try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/encaissement-form.fxml"));
-            Parent root = loader.load();
-
-            Stage stage = new Stage();
-            stage.initModality(Modality.APPLICATION_MODAL);
-            stage.setTitle("Nouvel Encaissement");
-            stage.setScene(new Scene(root));
-            stage.show();
-        } catch (IOException e) {
-            logger.error("Erreur ouverture dialogue encaissement", e);
         }
     }
 

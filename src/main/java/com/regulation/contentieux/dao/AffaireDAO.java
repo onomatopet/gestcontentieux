@@ -56,10 +56,10 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
     protected String getUpdateQuery() {
         return """
         UPDATE affaires 
-        SET date_constatation = ?, lieu_constatation = ?, description = ?,
-            montant_amende_total = ?, statut = ?, observations = ?,
-            contrevenant_id = ?, agent_verbalisateur_id = ?, bureau_id = ?, 
-            service_id = ?, updated_by = ?, updated_at = ?
+        SET montant_amende_total = ?, statut = ?,
+            contrevenant_id = ?, contravention_id = ?,
+            bureau_id = ?, service_id = ?,
+            updated_by = ?, updated_at = ?
         WHERE id = ?
     """;
     }

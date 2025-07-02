@@ -1781,26 +1781,36 @@ public class AffaireFormController implements Initializable {
      * Collecte les données du formulaire pour créer une affaire
      */
     private Affaire collectAffaireData() {
-        Affaire affaire = new Affaire();
+        Affaire affaire = currentAffaire != null ? currentAffaire : new Affaire();
 
-        // Numéro et dates
-        affaire.setNumeroAffaire(numeroAffaireField.getText());
-        affaire.setDateCreation(dateCreationPicker.getValue());
-        affaire.setDateConstatation(dateConstatationPicker.getValue());
-
-        // Lieu et description
-        if (lieuConstatationField != null) {
-            affaire.setLieuConstatation(lieuConstatationField.getText().trim());
+        // Numéro d'affaire
+        if (numeroAffaireField != null && !numeroAffaireField.getText().trim().isEmpty()) {
+            affaire.setNumeroAffaire(numeroAffaireField.getText().trim());
         }
+
+        // Date de création
+        if (dateCreationPicker != null) {
+            affaire.setDateCreation(dateCreationPicker.getValue());
+        }
+
+        // Date de constatation
+        if (dateConstatationPicker != null) {
+            affaire.setDateConstatation(dateConstatationPicker.getValue());
+        }
+
+        // Lieu de constatation
+        if (lieuConstatationField != null) {
+            affaire.setLieuConstatation(lieuConstatationField.getText());
+        }
+
+        // Description
         if (descriptionTextArea != null) {
-            affaire.setDescription(descriptionTextArea.getText().trim());
+            affaire.setDescription(descriptionTextArea.getText());
         }
 
         // Statut
         if (statutComboBox != null) {
             affaire.setStatut(statutComboBox.getValue());
-        } else {
-            affaire.setStatut(StatutAffaire.OUVERTE);
         }
 
         // Contrevenant
@@ -1816,9 +1826,7 @@ public class AffaireFormController implements Initializable {
             affaire.setService(serviceComboBox.getValue());
         }
 
-        // Centre (dérivé du bureau ou service)
-        // CORRECTION: Affaire n'a pas setCentreId(), le centre est dérivé du bureau/service
-        // Supprimer cette partie car le centre est automatiquement déterminé par le bureau/service
+        // Centre - est automatiquement déterminé par le bureau/service
 
         // Agent verbalisateur
         if (agentVerbalisateurComboBox != null) {
@@ -1829,14 +1837,24 @@ public class AffaireFormController implements Initializable {
         BigDecimal montantTotal = contraventionsList.stream()
                 .map(ContraventionViewModel::getMontant)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // CORRECTION: Synchroniser les deux propriétés
         affaire.setMontantAmendeTotal(montantTotal);
+        affaire.setMontantTotal(montantTotal); // AJOUTER cette ligne
 
         // Contraventions
         List<Contravention> contraventions = new ArrayList<>();
         for (ContraventionViewModel vm : contraventionsList) {
-            // Trouver la contravention correspondante
-            Optional<Contravention> contravention = contraventionDAO.findByCode(vm.getCode());
-            contravention.ifPresent(contraventions::add);
+            if (vm.getContravention() != null) {
+                contraventions.add(vm.getContravention());
+            } else {
+                // Si pas de contravention (cas "AUTRE"), créer une contravention temporaire
+                Contravention autre = new Contravention();
+                autre.setCode(vm.getCode());
+                autre.setLibelle(vm.getLibelle());
+                autre.setMontant(vm.getMontant());
+                contraventions.add(autre);
+            }
         }
         affaire.setContraventions(contraventions);
 

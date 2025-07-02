@@ -1,10 +1,17 @@
 package com.regulation.contentieux.controller;
 
+import com.regulation.contentieux.dao.AgentDAO;
+import javafx.collections.FXCollections;
+import javafx.concurrent.Task;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Cursor;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
+import javafx.util.StringConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,6 +50,9 @@ import java.io.InputStream;
 import java.net.URL;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.ResourceBundle;
 import java.math.BigDecimal;
 
@@ -707,7 +717,208 @@ public class MainController implements Initializable {
             logger.error("Erreur ouverture dialogue encaissement", e);
             showErrorDialog("Erreur", "Impossible d'ouvrir le formulaire", e.getMessage());
         }
-    }/**
+    }
+
+    private void setupAdministrationMenu() {
+        if (menuAdministration != null && authService.getCurrentUser().isAdmin()) {
+            MenuItem gestionUtilisateurs = new MenuItem("Gestion des Utilisateurs");
+            gestionUtilisateurs.setOnAction(e -> loadView("/view/user-management.fxml"));
+
+            MenuItem referentiel = new MenuItem("Référentiels");
+            referentiel.setOnAction(e -> loadView("/view/referentiel.fxml"));
+
+            // NOUVEAU : Item de menu pour les rôles DD/DG
+            MenuItem rolesSpeciaux = new MenuItem("Attribution DD/DG");
+            rolesSpeciaux.setOnAction(e -> showRolesSpeciauxManagement());
+
+            if (menuAdministration.getItems().isEmpty()) {
+                menuAdministration.getItems().addAll(
+                        gestionUtilisateurs,
+                        referentiel,
+                        new SeparatorMenuItem(),
+                        rolesSpeciaux
+                );
+            }
+        }
+    }
+
+    /**
+     * Affiche la gestion des rôles DD/DG
+     */
+    private void showRolesSpeciauxManagement() {
+        Dialog<Void> dialog = new Dialog<>();
+        dialog.setTitle("Gestion des rôles DD/DG");
+        dialog.setHeaderText("Attribution des rôles Directeur Départemental et Directeur Général");
+        dialog.setResizable(true);
+        dialog.initModality(Modality.APPLICATION_MODAL);
+        dialog.initOwner(contentPane.getScene().getWindow());
+
+        // Créer le contenu
+        VBox content = new VBox(15);
+        content.setPadding(new Insets(20));
+        content.setPrefWidth(600);
+
+        // Section information
+        Label infoLabel = new Label("Les rôles DD et DG sont nécessaires pour le calcul de répartition.\n" +
+                "Chaque rôle ne peut être attribué qu'à un seul agent à la fois.");
+        infoLabel.setWrapText(true);
+        infoLabel.setStyle("-fx-background-color: #e8f4f8; -fx-padding: 10; -fx-background-radius: 5;");
+
+        // Section DD
+        VBox ddSection = new VBox(5);
+        Label ddTitleLabel = new Label("Directeur Départemental (DD)");
+        ddTitleLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14;");
+
+        HBox ddBox = new HBox(10);
+        ddBox.setAlignment(Pos.CENTER_LEFT);
+        ComboBox<Agent> ddComboBox = new ComboBox<>();
+        ddComboBox.setPrefWidth(350);
+        Label currentDDLabel = new Label("Actuel: Aucun");
+        currentDDLabel.setStyle("-fx-text-fill: gray;");
+
+        ddBox.getChildren().addAll(ddComboBox, currentDDLabel);
+        ddSection.getChildren().addAll(ddTitleLabel, ddBox);
+
+        // Section DG
+        VBox dgSection = new VBox(5);
+        Label dgTitleLabel = new Label("Directeur Général (DG)");
+        dgTitleLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14;");
+
+        HBox dgBox = new HBox(10);
+        dgBox.setAlignment(Pos.CENTER_LEFT);
+        ComboBox<Agent> dgComboBox = new ComboBox<>();
+        dgComboBox.setPrefWidth(350);
+        Label currentDGLabel = new Label("Actuel: Aucun");
+        currentDGLabel.setStyle("-fx-text-fill: gray;");
+
+        dgBox.getChildren().addAll(dgComboBox, currentDGLabel);
+        dgSection.getChildren().addAll(dgTitleLabel, dgBox);
+
+        content.getChildren().addAll(infoLabel, new Separator(), ddSection, new Separator(), dgSection);
+
+        // Charger les données
+        Task<Map<String, Object>> loadTask = new Task<Map<String, Object>>() {
+            @Override
+            protected Map<String, Object> call() throws Exception {
+                Map<String, Object> data = new HashMap<>();
+                AgentDAO agentDAO = new AgentDAO();
+
+                // Charger tous les agents actifs
+                data.put("agents", agentDAO.findAllActifs());
+
+                // Charger les DD/DG actuels
+                data.put("currentDD", agentDAO.findByRoleSpecial("DD").orElse(null));
+                data.put("currentDG", agentDAO.findByRoleSpecial("DG").orElse(null));
+
+                return data;
+            }
+        };
+
+        loadTask.setOnSucceeded(e -> {
+            Map<String, Object> data = loadTask.getValue();
+            List<Agent> agents = (List<Agent>) data.get("agents");
+            Agent currentDD = (Agent) data.get("currentDD");
+            Agent currentDG = (Agent) data.get("currentDG");
+
+            // Configuration des ComboBox
+            ObservableList<Agent> agentsList = FXCollections.observableArrayList(agents);
+
+            StringConverter<Agent> converter = new StringConverter<Agent>() {
+                @Override
+                public String toString(Agent agent) {
+                    return agent != null ?
+                            agent.getCodeAgent() + " - " + agent.getNomComplet() +
+                                    (agent.getService() != null ? " (" + agent.getService().getNomService() + ")" : "") : "";
+                }
+
+                @Override
+                public Agent fromString(String string) {
+                    return null;
+                }
+            };
+
+            ddComboBox.setItems(agentsList);
+            ddComboBox.setConverter(converter);
+
+            dgComboBox.setItems(agentsList);
+            dgComboBox.setConverter(converter);
+
+            // Afficher les actuels
+            if (currentDD != null) {
+                ddComboBox.setValue(currentDD);
+                currentDDLabel.setText("Actuel: " + currentDD.getNomComplet());
+                currentDDLabel.setStyle("-fx-text-fill: green;");
+            }
+
+            if (currentDG != null) {
+                dgComboBox.setValue(currentDG);
+                currentDGLabel.setText("Actuel: " + currentDG.getNomComplet());
+                currentDGLabel.setStyle("-fx-text-fill: green;");
+            }
+        });
+
+        new Thread(loadTask).start();
+
+        dialog.getDialogPane().setContent(content);
+
+        // Boutons
+        ButtonType saveButtonType = new ButtonType("Enregistrer", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(saveButtonType, ButtonType.CANCEL);
+
+        // Gestionnaire de sauvegarde
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == saveButtonType) {
+                Agent selectedDD = ddComboBox.getValue();
+                Agent selectedDG = dgComboBox.getValue();
+
+                // Validation
+                if (selectedDD != null && selectedDG != null &&
+                        selectedDD.getId().equals(selectedDG.getId())) {
+                    AlertUtil.showErrorAlert("Erreur",
+                            "Attribution impossible",
+                            "Un agent ne peut pas être à la fois DD et DG.");
+                    return null;
+                }
+
+                // Sauvegarder
+                Task<Void> saveTask = new Task<Void>() {
+                    @Override
+                    protected Void call() throws Exception {
+                        AgentDAO agentDAO = new AgentDAO();
+
+                        if (selectedDD != null) {
+                            agentDAO.assignRoleSpecial(selectedDD.getId(), "DD");
+                        }
+
+                        if (selectedDG != null) {
+                            agentDAO.assignRoleSpecial(selectedDG.getId(), "DG");
+                        }
+
+                        return null;
+                    }
+                };
+
+                saveTask.setOnSucceeded(evt -> {
+                    AlertUtil.showSuccessAlert("Succès",
+                            "Rôles attribués",
+                            "Les rôles DD et DG ont été attribués avec succès.\n\n" +
+                                    "Ces agents recevront automatiquement leur part lors des calculs de répartition.");
+                });
+
+                saveTask.setOnFailed(evt -> {
+                    logger.error("Erreur attribution rôles", saveTask.getException());
+                    AlertUtil.showErrorAlert("Erreur",
+                            "Échec de l'attribution",
+                            "Impossible d'attribuer les rôles: " + saveTask.getException().getMessage());
+                });
+
+                new Thread(saveTask).start();
+            }
+            return null;
+        });
+
+        dialog.showAndWait();
+    }
 
     /**
      * Charge la vue par défaut

@@ -1,5 +1,6 @@
 package com.regulation.contentieux.controller;
 
+import com.regulation.contentieux.dao.AgentDAO;
 import com.regulation.contentieux.model.Agent;
 import com.regulation.contentieux.service.AgentService;
 import com.regulation.contentieux.service.AuthenticationService;
@@ -128,7 +129,8 @@ public class AgentListController implements Initializable {
         Task<List<Agent>> loadTask = new Task<List<Agent>>() {
             @Override
             protected List<Agent> call() throws Exception {
-                return agentService.getAllAgentsActifs();
+                // CORRECTION: Utiliser la méthode existante findActiveAgents()
+                return agentService.findActiveAgents();
             }
         };
 
@@ -144,7 +146,7 @@ public class AgentListController implements Initializable {
             StringConverter<Agent> converter = new StringConverter<Agent>() {
                 @Override
                 public String toString(Agent agent) {
-                    return agent != null ? agent.getCodeAgent() + " - " + agent.getNomComplet() : "";
+                    return agent != null ? agent.getCodeAgent() + " - " + agent.getNom() + " " + agent.getPrenom() : "";
                 }
 
                 @Override
@@ -156,30 +158,34 @@ public class AgentListController implements Initializable {
             ddComboBox.setConverter(converter);
             dgComboBox.setConverter(converter);
 
-            // Présélectionner les agents actuels DD/DG s'ils existent
-            Optional<Agent> currentDD = agentDAO.findByRoleSpecial("DD");
-            currentDD.ifPresent(ddComboBox::setValue);
+            // CORRECTION: Créer une instance locale de AgentDAO
+            AgentDAO agentDAO = new AgentDAO();
 
-            Optional<Agent> currentDG = agentDAO.findByRoleSpecial("DG");
-            currentDG.ifPresent(dgComboBox::setValue);
+            // Présélectionner les agents actuels si existants
+            try {
+                agentDAO.findByRoleSpecial("DD").ifPresent(ddComboBox::setValue);
+                agentDAO.findByRoleSpecial("DG").ifPresent(dgComboBox::setValue);
+            } catch (Exception ex) {
+                logger.error("Erreur lors du chargement des rôles existants", ex);
+            }
         });
 
-        new Thread(loadTask).start();
+        loadTask.setOnFailed(e -> {
+            logger.error("Erreur lors du chargement des agents", loadTask.getException());
+            AlertUtil.showErrorAlert("Erreur",
+                    "Chargement impossible",
+                    "Impossible de charger la liste des agents.");
+        });
 
-        // Labels
-        Label ddLabel = new Label("Directeur Départemental (DD):");
-        Label dgLabel = new Label("Directeur Général (DG):");
+        Thread loadThread = new Thread(loadTask);
+        loadThread.setDaemon(true);
+        loadThread.start();
 
-        // Labels d'info
-        Label infoLabel = new Label("Note: Un agent ne peut avoir qu'un seul rôle spécial à la fois.");
-        infoLabel.setStyle("-fx-font-style: italic; -fx-text-fill: gray;");
-
-        // Ajout au grid
-        grid.add(ddLabel, 0, 0);
+        // Ajouter les éléments au grid
+        grid.add(new Label("Directeur Départemental (DD):"), 0, 0);
         grid.add(ddComboBox, 1, 0);
-        grid.add(dgLabel, 0, 1);
+        grid.add(new Label("Directeur Général (DG):"), 0, 1);
         grid.add(dgComboBox, 1, 1);
-        grid.add(infoLabel, 0, 2, 2, 1);
 
         dialog.getDialogPane().setContent(grid);
 
@@ -187,20 +193,31 @@ public class AgentListController implements Initializable {
         ButtonType saveButtonType = new ButtonType("Enregistrer", ButtonBar.ButtonData.OK_DONE);
         dialog.getDialogPane().getButtonTypes().addAll(saveButtonType, ButtonType.CANCEL);
 
-        // Action du bouton Enregistrer
+        // Validation et enregistrement
         dialog.setResultConverter(dialogButton -> {
             if (dialogButton == saveButtonType) {
+                // Validation
+                if (ddComboBox.getValue() == null && dgComboBox.getValue() == null) {
+                    AlertUtil.showWarningAlert("Attention",
+                            "Aucun agent sélectionné",
+                            "Veuillez sélectionner au moins un agent pour un rôle.");
+                    return null;
+                }
+
                 // Vérifier que DD et DG ne sont pas le même agent
                 if (ddComboBox.getValue() != null && dgComboBox.getValue() != null &&
                         ddComboBox.getValue().getId().equals(dgComboBox.getValue().getId())) {
-                    AlertUtil.showErrorAlert("Erreur",
-                            "Attribution impossible",
-                            "Un agent ne peut pas être à la fois DD et DG.");
+                    AlertUtil.showWarningAlert("Attention",
+                            "Sélection invalide",
+                            "Le même agent ne peut pas être DD et DG simultanément.");
                     return null;
                 }
 
                 // Sauvegarder les attributions
                 try {
+                    // CORRECTION: Créer une instance locale de AgentDAO
+                    AgentDAO agentDAO = new AgentDAO();
+
                     // Attribuer DD
                     if (ddComboBox.getValue() != null) {
                         agentDAO.assignRoleSpecial(ddComboBox.getValue().getId(), "DD");

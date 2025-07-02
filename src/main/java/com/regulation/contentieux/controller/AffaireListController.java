@@ -1,5 +1,14 @@
 package com.regulation.contentieux.controller;
 
+import com.regulation.contentieux.config.DatabaseConfig;
+import com.regulation.contentieux.model.Contravention;
+import java.math.BigDecimal;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+
 import com.regulation.contentieux.dao.AffaireDAO;
 import com.regulation.contentieux.model.Affaire;
 import com.regulation.contentieux.model.enums.StatutAffaire;
@@ -597,6 +606,48 @@ public class AffaireListController implements Initializable {
     }
 
     /**
+     * Charge les contraventions pour une affaire depuis la table de liaison
+     */
+    private List<Contravention> loadContraventionsForAffaire(Long affaireId) {
+        List<Contravention> contraventions = new ArrayList<>();
+
+        String sql = """
+        SELECT c.id, c.code, c.libelle, c.description, ac.montant_applique
+        FROM contraventions c
+        INNER JOIN affaire_contraventions ac ON c.id = ac.contravention_id
+        WHERE ac.affaire_id = ?
+    """;
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setLong(1, affaireId);
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                Contravention contravention = new Contravention();
+                contravention.setId(rs.getLong("id"));
+                contravention.setCode(rs.getString("code"));
+                contravention.setLibelle(rs.getString("libelle"));
+                contravention.setDescription(rs.getString("description"));
+
+                // Utiliser le montant appliqué spécifique à cette affaire
+                BigDecimal montantApplique = rs.getBigDecimal("montant_applique");
+                if (montantApplique != null && montantApplique.compareTo(BigDecimal.ZERO) > 0) {
+                    contravention.setMontant(montantApplique);
+                }
+
+                contraventions.add(contravention);
+            }
+
+        } catch (SQLException e) {
+            logger.error("Erreur lors du chargement des contraventions pour l'affaire " + affaireId, e);
+        }
+
+        return contraventions;
+    }
+
+    /**
      * Convertit une Affaire en AffaireViewModel
      */
     private AffaireViewModel convertToViewModel(Affaire affaire) {
@@ -604,21 +655,48 @@ public class AffaireListController implements Initializable {
 
         viewModel.setNumeroAffaire(affaire.getNumeroAffaire());
         viewModel.setDateCreation(affaire.getDateCreation());
-        viewModel.setMontantAmendeTotal(affaire.getMontantTotal() != null ?
-                affaire.getMontantTotal().doubleValue() : 0.0);
+
+        // CORRECTION: Utiliser getMontantAmendeTotal() au lieu de getMontantTotal()
+        // et vérifier que le montant n'est pas null
+        BigDecimal montantTotal = affaire.getMontantAmendeTotal();
+        if (montantTotal == null) {
+            montantTotal = BigDecimal.ZERO;
+        }
+        viewModel.setMontantAmendeTotal(montantTotal.doubleValue());
 
         // Données liées avec vérification null
         viewModel.setContrevenantNom(affaire.getContrevenant() != null ?
                 affaire.getContrevenant().getNomComplet() : "N/A");
 
-        // CORRIGÉ : utilise getContraventions() au lieu de getContravention()
+        // CORRECTION: Gestion des contraventions
+        // Charger les contraventions depuis la table de liaison si nécessaire
+        if (affaire.getContraventions() == null || affaire.getContraventions().isEmpty()) {
+            // Si pas de contraventions dans l'objet, essayer de charger depuis la BD
+            List<Contravention> contraventions = loadContraventionsForAffaire(affaire.getId());
+            affaire.setContraventions(contraventions);
+        }
+
+        // Afficher les contraventions
         if (affaire.getContraventions() != null && !affaire.getContraventions().isEmpty()) {
-            viewModel.setContraventionLibelle(affaire.getContraventions().get(0).getLibelle());
+            // Si plusieurs contraventions, les concaténer
+            String contraventionsStr = affaire.getContraventions().stream()
+                    .map(c -> c.getLibelle() != null ? c.getLibelle() : c.getCode())
+                    .filter(s -> s != null && !s.trim().isEmpty())
+                    .reduce((a, b) -> a + ", " + b)
+                    .orElse("N/A");
+            viewModel.setContraventionLibelle(contraventionsStr);
+
+            // Recalculer le montant total si nécessaire
+            if (montantTotal.compareTo(BigDecimal.ZERO) == 0) {
+                BigDecimal montantRecalcule = affaire.getContraventions().stream()
+                        .map(c -> c.getMontant() != null ? c.getMontant() : BigDecimal.ZERO)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                viewModel.setMontantAmendeTotal(montantRecalcule.doubleValue());
+            }
         } else {
             viewModel.setContraventionLibelle("N/A");
         }
 
-        // CORRIGÉ : getStatut() retourne déjà StatutAffaire, pas besoin de valueOf
         viewModel.setStatut(affaire.getStatut() != null ? affaire.getStatut() : StatutAffaire.OUVERTE);
 
         // Bureau et Service

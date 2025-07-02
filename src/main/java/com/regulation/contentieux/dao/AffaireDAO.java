@@ -106,21 +106,22 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
     protected Affaire mapResultSetToEntity(ResultSet rs) throws SQLException {
         Affaire affaire = new Affaire();
 
-        // ✅ COLONNES RÉELLES de la table affaires
+        // COLONNES RÉELLES de la table affaires
         affaire.setId(rs.getLong("id"));
         affaire.setNumeroAffaire(rs.getString("numero_affaire"));
 
-        // Date création (colonne réelle)
+        // Date création
         Date dateCreation = rs.getDate("date_creation");
         if (dateCreation != null) {
             affaire.setDateCreation(dateCreation.toLocalDate());
         }
 
-        // ✅ CORRECTION : montant_amende_total au lieu de montant_amende_total
+        // Montant total
         BigDecimal montantAmendeTotal = rs.getBigDecimal("montant_amende_total");
         affaire.setMontantTotal(montantAmendeTotal != null ? montantAmendeTotal : BigDecimal.ZERO);
+        affaire.setMontantAmendeTotal(montantAmendeTotal != null ? montantAmendeTotal : BigDecimal.ZERO);
 
-        // Note: montant_encaisse n'existe pas dans la vraie table, on le met à zéro
+        // Note: montant_encaisse n'existe pas dans la vraie table
         affaire.setMontantEncaisse(BigDecimal.ZERO);
 
         // Statut
@@ -133,7 +134,7 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
             }
         }
 
-        // ✅ CONTREVENANT (via contrevenant_id - colonne réelle)
+        // CONTREVENANT (via contrevenant_id)
         try {
             String contrevenantNomComplet = rs.getString("contrevenant_nom_complet");
             if (contrevenantNomComplet != null) {
@@ -146,20 +147,26 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
             logger.debug("Pas de contrevenant associé pour l'affaire {}", affaire.getId());
         }
 
-        // ✅ CONTRAVENTION (via contravention_id - colonne réelle)
+        // CORRECTION: CONTRAVENTION (via contravention_id)
+        // Créer une liste avec la contravention unique
+        List<Contravention> contraventions = new ArrayList<>();
         try {
-            String contraventionLibelle = rs.getString("contravention_libelle");
-            if (contraventionLibelle != null) {
-                Contravention contravention = new Contravention();
-                contravention.setId(rs.getLong("contravention_id"));
-                contravention.setLibelle(contraventionLibelle);
-                //affaire.setContravention(contravention);
+            Long contraventionId = rs.getLong("contravention_id");
+            if (contraventionId != null && contraventionId > 0) {
+                String contraventionLibelle = rs.getString("contravention_libelle");
+                if (contraventionLibelle != null) {
+                    Contravention contravention = new Contravention();
+                    contravention.setId(contraventionId);
+                    contravention.setLibelle(contraventionLibelle);
+                    contraventions.add(contravention);
+                }
             }
         } catch (SQLException e) {
             logger.debug("Pas de contravention associée pour l'affaire {}", affaire.getId());
         }
+        affaire.setContraventions(contraventions);
 
-        // ✅ BUREAU (via bureau_id - colonne réelle optionnelle)
+        // BUREAU (via bureau_id)
         try {
             Long bureauId = rs.getLong("bureau_id");
             if (bureauId != null && bureauId > 0) {
@@ -175,7 +182,7 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
             logger.debug("Pas de bureau associé pour l'affaire {}", affaire.getId());
         }
 
-        // ✅ SERVICE (via service_id - colonne réelle optionnelle)
+        // SERVICE (via service_id)
         try {
             Long serviceId = rs.getLong("service_id");
             if (serviceId != null && serviceId > 0) {
@@ -191,14 +198,15 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
             logger.debug("Pas de service associé pour l'affaire {}", affaire.getId());
         }
 
-        // ✅ TIMESTAMPS (colonnes réelles)
+        // Timestamps
         try {
             Timestamp createdAt = rs.getTimestamp("created_at");
             if (createdAt != null) {
                 affaire.setCreatedAt(createdAt.toLocalDateTime());
             }
         } catch (SQLException e) {
-            logger.debug("Colonne created_at nulle");
+            logger.debug("Échec du parsing de created_at pour l'affaire {}", affaire.getId());
+            affaire.setCreatedAt(LocalDateTime.now());
         }
 
         try {
@@ -207,7 +215,8 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
                 affaire.setUpdatedAt(updatedAt.toLocalDateTime());
             }
         } catch (SQLException e) {
-            logger.debug("Colonne updated_at nulle");
+            logger.debug("Échec du parsing de updated_at pour l'affaire {}", affaire.getId());
+            affaire.setUpdatedAt(LocalDateTime.now());
         }
 
         return affaire;

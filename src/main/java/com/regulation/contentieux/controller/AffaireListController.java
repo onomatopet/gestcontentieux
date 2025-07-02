@@ -656,55 +656,47 @@ public class AffaireListController implements Initializable {
         viewModel.setNumeroAffaire(affaire.getNumeroAffaire());
         viewModel.setDateCreation(affaire.getDateCreation());
 
-        // CORRECTION: Utiliser getMontantAmendeTotal() au lieu de getMontantTotal()
-        // et vérifier que le montant n'est pas null
+        // CORRECTION: Gérer le montant correctement
         BigDecimal montantTotal = affaire.getMontantAmendeTotal();
-        if (montantTotal == null) {
-            montantTotal = BigDecimal.ZERO;
+        if (montantTotal != null) {
+            viewModel.setMontantAmendeTotal(montantTotal.doubleValue());
+        } else {
+            viewModel.setMontantAmendeTotal(0.0);
         }
-        viewModel.setMontantAmendeTotal(montantTotal.doubleValue());
 
         // Données liées avec vérification null
-        viewModel.setContrevenantNom(affaire.getContrevenant() != null ?
-                affaire.getContrevenant().getNomComplet() : "N/A");
-
-        // CORRECTION: Gestion des contraventions
-        // Charger les contraventions depuis la table de liaison si nécessaire
-        if (affaire.getContraventions() == null || affaire.getContraventions().isEmpty()) {
-            // Si pas de contraventions dans l'objet, essayer de charger depuis la BD
-            List<Contravention> contraventions = loadContraventionsForAffaire(affaire.getId());
-            affaire.setContraventions(contraventions);
+        if (affaire.getContrevenant() != null) {
+            viewModel.setContrevenantNom(affaire.getContrevenant().getNomComplet());
+        } else {
+            viewModel.setContrevenantNom("N/A");
         }
 
-        // Afficher les contraventions
+        // CORRECTION: Gérer la contravention unique depuis la base
+        // La base a une colonne contravention_id, pas une liste
+        // Le DAO charge déjà la contravention via LEFT JOIN
         if (affaire.getContraventions() != null && !affaire.getContraventions().isEmpty()) {
-            // Si plusieurs contraventions, les concaténer
-            String contraventionsStr = affaire.getContraventions().stream()
-                    .map(c -> c.getLibelle() != null ? c.getLibelle() : c.getCode())
-                    .filter(s -> s != null && !s.trim().isEmpty())
-                    .reduce((a, b) -> a + ", " + b)
-                    .orElse("N/A");
-            viewModel.setContraventionLibelle(contraventionsStr);
-
-            // Recalculer le montant total si nécessaire
-            if (montantTotal.compareTo(BigDecimal.ZERO) == 0) {
-                BigDecimal montantRecalcule = affaire.getContraventions().stream()
-                        .map(c -> c.getMontant() != null ? c.getMontant() : BigDecimal.ZERO)
-                        .reduce(BigDecimal.ZERO, BigDecimal::add);
-                viewModel.setMontantAmendeTotal(montantRecalcule.doubleValue());
-            }
+            // Si on a une liste, prendre la première
+            Contravention firstContravention = affaire.getContraventions().get(0);
+            viewModel.setContraventionLibelle(firstContravention.getLibelle());
         } else {
+            // Sinon, mettre N/A
             viewModel.setContraventionLibelle("N/A");
         }
 
         viewModel.setStatut(affaire.getStatut() != null ? affaire.getStatut() : StatutAffaire.OUVERTE);
 
         // Bureau et Service
-        viewModel.setBureauNom(affaire.getBureau() != null ?
-                affaire.getBureau().getNomBureau() : "N/A");
+        if (affaire.getBureau() != null) {
+            viewModel.setBureauNom(affaire.getBureau().getNomBureau());
+        } else {
+            viewModel.setBureauNom("N/A");
+        }
 
-        viewModel.setServiceNom(affaire.getService() != null ?
-                affaire.getService().getNomService() : "N/A");
+        if (affaire.getService() != null) {
+            viewModel.setServiceNom(affaire.getService().getNomService());
+        } else {
+            viewModel.setServiceNom("N/A");
+        }
 
         return viewModel;
     }

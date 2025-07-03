@@ -949,33 +949,6 @@ public class EncaissementFormController implements Initializable {
     }
 
     /**
-     * Classe ViewModel pour l'historique des encaissements - SUIT LE PATTERN ÉTABLI
-     */
-    public static class EncaissementHistoryViewModel {
-        private String reference;
-        private LocalDate dateEncaissement;
-        private Double montantEncaisse;
-        private ModeReglement modeReglement;
-        private StatutEncaissement statut;
-
-        // Getters et setters
-        public String getReference() { return reference; }
-        public void setReference(String reference) { this.reference = reference; }
-
-        public LocalDate getDateEncaissement() { return dateEncaissement; }
-        public void setDateEncaissement(LocalDate dateEncaissement) { this.dateEncaissement = dateEncaissement; }
-
-        public Double getMontantEncaisse() { return montantEncaisse; }
-        public void setMontantEncaisse(Double montantEncaisse) { this.montantEncaisse = montantEncaisse; }
-
-        public ModeReglement getModeReglement() { return modeReglement; }
-        public void setModeReglement(ModeReglement modeReglement) { this.modeReglement = modeReglement; }
-
-        public StatutEncaissement getStatut() { return statut; }
-        public void setStatut(StatutEncaissement statut) { this.statut = statut; }
-    }
-
-    /**
      * ViewModel pour l'affichage de l'historique des encaissements
      * À ajouter comme classe interne dans EncaissementFormController
      */

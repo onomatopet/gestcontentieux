@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.collections.FXCollections?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.Font?>
+<?import java.lang.Integer?>
+
+<BorderPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.regulation.contentieux.controller.AgentListController"
+            prefHeight="700.0" prefWidth="1200.0">
+
+    <!-- Section supérieure avec filtres et actions -->
+    <top>
+        <VBox spacing="10.0">
+            <padding>
+                <Insets bottom="10.0" left="10.0" right="10.0" top="10.0"/>
+            </padding>
+
+            <!-- Titre et actions principales -->
+            <HBox alignment="CENTER_LEFT" spacing="10.0">
+                <Label text="Gestion des Agents" styleClass="title-label">
+                    <font>
+                        <Font name="System Bold" size="18.0"/>
+                    </font>
+                </Label>
+                <Region HBox.hgrow="ALWAYS"/>
+                <Button fx:id="rolesSpeciauxButton" text="Gérer DD/DG" styleClass="button-primary" onAction="#showRolesSpeciauxDialog">
+                    <tooltip>
+                        <Tooltip text="Attribuer les rôles DD et DG"/>
+                    </tooltip>
+                </Button>
+                <Button fx:id="newAgentButton" text="Nouvel Agent" styleClass="button-primary" onAction="#createNewAgent">
+                    <tooltip>
+                        <Tooltip text="Créer un nouvel agent"/>
+                    </tooltip>
+                </Button>
+                <Button fx:id="exportButton" text="Exporter" styleClass="button-secondary">
+                    <tooltip>
+                        <Tooltip text="Exporter la liste"/>
+                    </tooltip>
+                </Button>
+            </HBox>
+
+            <!-- Barre de recherche et filtres -->
+            <HBox alignment="CENTER_LEFT" spacing="10.0">
+                <TextField fx:id="searchField" promptText="Rechercher par nom, prénom ou code..."
+                           prefWidth="300.0" HBox.hgrow="ALWAYS"/>
+
+                <ComboBox fx:id="gradeComboBox" promptText="Tous les grades" prefWidth="200.0"/>
+
+                <ComboBox fx:id="statutComboBox" promptText="Tous les statuts" prefWidth="150.0"/>
+
+                <Button fx:id="searchButton" text="Rechercher" styleClass="button-search"/>
+                <Button fx:id="clearFiltersButton" text="Effacer" styleClass="button-secondary"/>
+            </HBox>
+
+            <!-- Nombre total et sélection -->
+            <HBox alignment="CENTER_LEFT" spacing="10.0">
+                <Label fx:id="totalCountLabel" text="0 agent(s)" styleClass="info-label"/>
+                <Region HBox.hgrow="ALWAYS"/>
+                <Label text="Afficher:"/>
+                <ComboBox fx:id="pageSizeComboBox" prefWidth="80.0">
+                    <items>
+                        <javafx.collections.FXCollections fx:factory="observableArrayList">
+                            <Integer fx:value="25"/>
+                            <Integer fx:value="50"/>
+                            <Integer fx:value="100"/>
+                            <Integer fx:value="200"/>
+                        </javafx.collections.FXCollections>
+                    </items>
+                    <value>
+                        <Integer fx:value="25"/>
+                    </value>
+                </ComboBox>
+            </HBox>
+        </VBox>
+    </top>
+
+    <!-- Section centrale avec le tableau -->
+    <center>
+        <VBox spacing="5.0">
+            <padding>
+                <Insets left="10.0" right="10.0"/>
+            </padding>
+
+            <!-- Actions sur sélection -->
+            <HBox alignment="CENTER_LEFT" spacing="10.0">
+                <CheckBox fx:id="selectAllCheckBox" text="Tout sélectionner"/>
+                <Region HBox.hgrow="ALWAYS"/>
+                <Button fx:id="editButton" text="Modifier" disable="true" styleClass="button-edit"/>
+                <Button fx:id="deleteButton" text="Supprimer" disable="true" styleClass="button-danger"/>
+                <Separator orientation="VERTICAL"/>
+                <Button fx:id="activateButton" text="Activer" disable="true" styleClass="button-success"/>
+                <Button fx:id="deactivateButton" text="Désactiver" disable="true" styleClass="button-warning"/>
+                <Separator orientation="VERTICAL"/>
+                <Button fx:id="printButton" text="Imprimer" disable="true" styleClass="button-secondary"/>
+            </HBox>
+
+            <!-- Tableau des agents -->
+            <TableView fx:id="agentsTableView" VBox.vgrow="ALWAYS">
+                <columns>
+                    <TableColumn fx:id="selectColumn" text="" prefWidth="40.0" resizable="false" sortable="false"/>
+                    <TableColumn fx:id="codeColumn" text="Code Agent" prefWidth="100.0"/>
+                    <TableColumn fx:id="nomColumn" text="Nom" prefWidth="150.0"/>
+                    <TableColumn fx:id="prenomColumn" text="Prénom" prefWidth="150.0"/>
+                    <TableColumn fx:id="gradeColumn" text="Grade" prefWidth="150.0"/>
+                    <TableColumn fx:id="serviceColumn" text="Service" prefWidth="250.0"/>
+                    <TableColumn fx:id="actifColumn" text="Actif" prefWidth="80.0"/>
+                    <TableColumn fx:id="dateCreationColumn" text="Date Création" prefWidth="120.0"/>
+                    <TableColumn fx:id="actionsColumn" text="Actions" prefWidth="150.0" resizable="false" sortable="false"/>
+                </columns>
+                <placeholder>
+                    <Label text="Aucun agent trouvé" styleClass="placeholder-label"/>
+                </placeholder>
+            </TableView>
+        </VBox>
+    </center>
+
+    <!-- Section inférieure avec pagination -->
+    <bottom>
+        <HBox alignment="CENTER" spacing="10.0">
+            <padding>
+                <Insets bottom="10.0" left="10.0" right="10.0" top="10.0"/>
+            </padding>
+
+            <Label fx:id="paginationInfoLabel" text="Page 1 sur 1"/>
+            <Region HBox.hgrow="ALWAYS"/>
+
+            <Button fx:id="firstPageButton" text="&lt;&lt;" styleClass="pagination-button">
+                <tooltip>
+                    <Tooltip text="Première page"/>
+                </tooltip>
+            </Button>
+            <Button fx:id="previousPageButton" text="&lt;" styleClass="pagination-button">
+                <tooltip>
+                    <Tooltip text="Page précédente"/>
+                </tooltip>
+            </Button>
+
+            <HBox fx:id="pageNumbersContainer" alignment="CENTER" spacing="5.0"/>
+
+            <Button fx:id="nextPageButton" text="&gt;" styleClass="pagination-button">
+                <tooltip>
+                    <Tooltip text="Page suivante"/>
+                </tooltip>
+            </Button>
+            <Button fx:id="lastPageButton" text="&gt;&gt;" styleClass="pagination-button">
+                <tooltip>
+                    <Tooltip text="Dernière page"/>
+                </tooltip>
+            </Button>
+
+            <Separator orientation="VERTICAL"/>
+
+            <Label text="Aller à:"/>
+            <TextField fx:id="gotoPageField" prefWidth="50.0"/>
+            <Button fx:id="gotoPageButton" text="Go" styleClass="button-secondary"/>
+        </HBox>
+    </bottom>
+</BorderPane>

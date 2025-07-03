@@ -1,17 +1,20 @@
 package com.regulation.contentieux.controller;
 
 import com.regulation.contentieux.dao.AgentDAO;
+import com.regulation.contentieux.service.AgentService;
 import javafx.collections.FXCollections;
+import javafx.collections.transformation.FilteredList;
 import javafx.concurrent.Task;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Cursor;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.StackPane;
+import javafx.scene.layout.*;
 import javafx.stage.Stage;
+import javafx.util.Callback;
 import javafx.util.StringConverter;
+import org.apache.commons.compress.compressors.lz77support.LZ77Compressor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,8 +37,6 @@ import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
 import javafx.scene.Node;
 import javafx.scene.control.*;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.VBox;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCombination;
@@ -50,11 +51,9 @@ import java.io.InputStream;
 import java.net.URL;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.ResourceBundle;
+import java.util.*;
 import java.math.BigDecimal;
+import java.util.stream.Collectors;
 
 /**
  * Contrôleur principal de l'application
@@ -562,8 +561,14 @@ public class MainController implements Initializable {
     }
 
     /**
-     * Configure les éléments de menu
+     * Ouvre la liste des agents et affiche le dialogue des rôles DD/DG
      */
+    private void showAgentListWithRolesDialog() {
+        logger.debug("Ouverture du dialogue DD/DG depuis le menu Agents");
+        // Utiliser la méthode showRolesSpeciauxManagement() qui existe déjà dans MainController
+        showRolesSpeciauxManagement();
+    }
+
     /**
      * Configure les éléments de menu
      */
@@ -590,6 +595,28 @@ public class MainController implements Initializable {
 
                 if (menuAffaires.getItems().isEmpty()) {
                     menuAffaires.getItems().addAll(nouvelleAffaire, new SeparatorMenuItem(), listeAffaires);
+                }
+            }
+
+            // Menu Agents - AJOUT DE LA CONFIGURATION MANQUANTE
+            if (menuAgents != null) {
+                MenuItem nouvelAgent = new MenuItem("Nouvel Agent...");
+                nouvelAgent.setOnAction(e -> showNewAgentDialog());
+
+                MenuItem listeAgents = new MenuItem("Liste des Agents");
+                listeAgents.setOnAction(e -> loadView("/view/agent-list.fxml"));
+
+                MenuItem rolesSpeciaux = new MenuItem("Gérer DD/DG...");
+                rolesSpeciaux.setOnAction(e -> showAgentListWithRolesDialog());
+
+                if (menuAgents.getItems().isEmpty()) {
+                    menuAgents.getItems().addAll(
+                            nouvelAgent,
+                            new SeparatorMenuItem(),
+                            listeAgents,
+                            new SeparatorMenuItem(),
+                            rolesSpeciaux
+                    );
                 }
             }
 
@@ -743,7 +770,8 @@ public class MainController implements Initializable {
     }
 
     /**
-     * Affiche la gestion des rôles DD/DG
+     * Affiche la gestion des rôles DD/DG avec recherche par TextField
+     * Version corrigée pour éviter les bugs des ListView
      */
     private void showRolesSpeciauxManagement() {
         Dialog<Void> dialog = new Dialog<>();
@@ -751,113 +779,247 @@ public class MainController implements Initializable {
         dialog.setHeaderText("Attribution des rôles Directeur Départemental et Directeur Général");
         dialog.setResizable(true);
         dialog.initModality(Modality.APPLICATION_MODAL);
-        dialog.initOwner(contentPane.getScene().getWindow());
+        if (contentPane != null && contentPane.getScene() != null) {
+            dialog.initOwner(contentPane.getScene().getWindow());
+        }
 
         // Créer le contenu
         VBox content = new VBox(15);
         content.setPadding(new Insets(20));
-        content.setPrefWidth(600);
+        content.setPrefWidth(700);
 
         // Section information
         Label infoLabel = new Label("Les rôles DD et DG sont nécessaires pour le calcul de répartition.\n" +
                 "Chaque rôle ne peut être attribué qu'à un seul agent à la fois.");
         infoLabel.setWrapText(true);
-        infoLabel.setStyle("-fx-background-color: #e8f4f8; -fx-padding: 10; -fx-background-radius: 5;");
+        infoLabel.setStyle("-fx-text-fill: #666;");
 
-        // Section DD
-        VBox ddSection = new VBox(5);
-        Label ddTitleLabel = new Label("Directeur Départemental (DD)");
-        ddTitleLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14;");
+        // Variables pour stocker les agents sélectionnés
+        final Agent[] selectedDD = {null};
+        final Agent[] selectedDG = {null};
 
-        HBox ddBox = new HBox(10);
-        ddBox.setAlignment(Pos.CENTER_LEFT);
-        ComboBox<Agent> ddComboBox = new ComboBox<>();
-        ddComboBox.setPrefWidth(350);
-        Label currentDDLabel = new Label("Actuel: Aucun");
-        currentDDLabel.setStyle("-fx-text-fill: gray;");
+        // Liste complète des agents (sera chargée)
+        final List<Agent>[] allAgents = new List[]{new ArrayList<>()};
 
-        ddBox.getChildren().addAll(ddComboBox, currentDDLabel);
-        ddSection.getChildren().addAll(ddTitleLabel, ddBox);
+        // Grille pour les champs de recherche
+        GridPane grid = new GridPane();
+        grid.setHgap(15);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20, 0, 0, 0));
 
-        // Section DG
-        VBox dgSection = new VBox(5);
-        Label dgTitleLabel = new Label("Directeur Général (DG)");
-        dgTitleLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14;");
+        // Labels pour afficher les actuels
+        Label currentDDLabel = new Label("Chargement...");
+        Label currentDGLabel = new Label("Chargement...");
 
-        HBox dgBox = new HBox(10);
-        dgBox.setAlignment(Pos.CENTER_LEFT);
-        ComboBox<Agent> dgComboBox = new ComboBox<>();
-        dgComboBox.setPrefWidth(350);
-        Label currentDGLabel = new Label("Actuel: Aucun");
-        currentDGLabel.setStyle("-fx-text-fill: gray;");
+        // DD Section
+        Label ddLabel = new Label("Directeur Départemental (DD):");
+        ddLabel.setStyle("-fx-font-weight: bold;");
 
-        dgBox.getChildren().addAll(dgComboBox, currentDGLabel);
-        dgSection.getChildren().addAll(dgTitleLabel, dgBox);
+        TextField ddSearchField = new TextField();
+        ddSearchField.setPromptText("Tapez pour rechercher un agent (nom, prénom ou code)");
+        ddSearchField.setPrefWidth(400);
 
-        content.getChildren().addAll(infoLabel, new Separator(), ddSection, new Separator(), dgSection);
+        // Utiliser un VBox au lieu de ListView pour éviter les bugs
+        VBox ddResultsBox = new VBox(2);
+        ddResultsBox.setStyle("-fx-border-color: #ccc; -fx-border-width: 1; -fx-padding: 5;");
+        ddResultsBox.setPrefHeight(120);
+        ddResultsBox.setVisible(false);
 
-        // Charger les données
-        Task<Map<String, Object>> loadTask = new Task<Map<String, Object>>() {
+        ScrollPane ddScrollPane = new ScrollPane(ddResultsBox);
+        ddScrollPane.setPrefHeight(120);
+        ddScrollPane.setVisible(false);
+        ddScrollPane.setFitToWidth(true);
+
+        Label ddSelectedLabel = new Label("Aucun agent sélectionné");
+        ddSelectedLabel.setStyle("-fx-text-fill: #666;");
+
+        // DG Section
+        Label dgLabel = new Label("Directeur Général (DG):");
+        dgLabel.setStyle("-fx-font-weight: bold;");
+
+        TextField dgSearchField = new TextField();
+        dgSearchField.setPromptText("Tapez pour rechercher un agent (nom, prénom ou code)");
+        dgSearchField.setPrefWidth(400);
+
+        // Utiliser un VBox au lieu de ListView pour éviter les bugs
+        VBox dgResultsBox = new VBox(2);
+        dgResultsBox.setStyle("-fx-border-color: #ccc; -fx-border-width: 1; -fx-padding: 5;");
+        dgResultsBox.setPrefHeight(120);
+        dgResultsBox.setVisible(false);
+
+        ScrollPane dgScrollPane = new ScrollPane(dgResultsBox);
+        dgScrollPane.setPrefHeight(120);
+        dgScrollPane.setVisible(false);
+        dgScrollPane.setFitToWidth(true);
+
+        Label dgSelectedLabel = new Label("Aucun agent sélectionné");
+        dgSelectedLabel.setStyle("-fx-text-fill: #666;");
+
+        // Charger les agents
+        Task<List<Agent>> loadTask = new Task<List<Agent>>() {
             @Override
-            protected Map<String, Object> call() throws Exception {
-                Map<String, Object> data = new HashMap<>();
-                AgentDAO agentDAO = new AgentDAO();
-
-                // Charger tous les agents actifs
-                data.put("agents", agentDAO.findAllActifs());
-
-                // Charger les DD/DG actuels
-                data.put("currentDD", agentDAO.findByRoleSpecial("DD").orElse(null));
-                data.put("currentDG", agentDAO.findByRoleSpecial("DG").orElse(null));
-
-                return data;
+            protected List<Agent> call() throws Exception {
+                AgentService agentService = new AgentService();
+                return agentService.findActiveAgents();
             }
         };
 
         loadTask.setOnSucceeded(e -> {
-            Map<String, Object> data = loadTask.getValue();
-            List<Agent> agents = (List<Agent>) data.get("agents");
-            Agent currentDD = (Agent) data.get("currentDD");
-            Agent currentDG = (Agent) data.get("currentDG");
+            allAgents[0] = loadTask.getValue();
 
-            // Configuration des ComboBox
-            ObservableList<Agent> agentsList = FXCollections.observableArrayList(agents);
+            // Configurer la recherche pour DD
+            ddSearchField.textProperty().addListener((observable, oldValue, newValue) -> {
+                ddResultsBox.getChildren().clear();
 
-            StringConverter<Agent> converter = new StringConverter<Agent>() {
-                @Override
-                public String toString(Agent agent) {
-                    return agent != null ?
-                            agent.getCodeAgent() + " - " + agent.getNomComplet() +
-                                    (agent.getService() != null ? " (" + agent.getService().getNomService() + ")" : "") : "";
+                if (newValue == null || newValue.trim().isEmpty()) {
+                    ddScrollPane.setVisible(false);
+                } else {
+                    String lowerCaseFilter = newValue.toLowerCase();
+                    List<Agent> filteredAgents = allAgents[0].stream()
+                            .filter(agent ->
+                                    agent.getNomComplet().toLowerCase().contains(lowerCaseFilter) ||
+                                            agent.getCodeAgent().toLowerCase().contains(lowerCaseFilter) ||
+                                            (agent.getService() != null &&
+                                                    agent.getService().getNomService().toLowerCase().contains(lowerCaseFilter))
+                            )
+                            .limit(10) // Limiter à 10 résultats
+                            .collect(Collectors.toList());
+
+                    if (!filteredAgents.isEmpty()) {
+                        for (Agent agent : filteredAgents) {
+                            Button agentButton = new Button();
+                            String text = agent.getCodeAgent() + " - " + agent.getNomComplet();
+                            if (agent.getService() != null) {
+                                text += " (" + agent.getService().getNomService() + ")";
+                            }
+                            agentButton.setText(text);
+                            agentButton.setMaxWidth(Double.MAX_VALUE);
+                            agentButton.setStyle("-fx-alignment: CENTER-LEFT; -fx-padding: 5;");
+
+                            agentButton.setOnAction(event -> {
+                                selectedDD[0] = agent;
+                                ddSelectedLabel.setText("Sélectionné: " + agent.getCodeAgent() + " - " + agent.getNomComplet());
+                                ddSelectedLabel.setStyle("-fx-text-fill: green; -fx-font-weight: bold;");
+                                ddSearchField.setText(agent.getCodeAgent() + " - " + agent.getNomComplet());
+                                ddScrollPane.setVisible(false);
+                            });
+
+                            ddResultsBox.getChildren().add(agentButton);
+                        }
+                        ddScrollPane.setVisible(true);
+                    } else {
+                        ddScrollPane.setVisible(false);
+                    }
                 }
+            });
 
-                @Override
-                public Agent fromString(String string) {
-                    return null;
+            // Configurer la recherche pour DG
+            dgSearchField.textProperty().addListener((observable, oldValue, newValue) -> {
+                dgResultsBox.getChildren().clear();
+
+                if (newValue == null || newValue.trim().isEmpty()) {
+                    dgScrollPane.setVisible(false);
+                } else {
+                    String lowerCaseFilter = newValue.toLowerCase();
+                    List<Agent> filteredAgents = allAgents[0].stream()
+                            .filter(agent ->
+                                    agent.getNomComplet().toLowerCase().contains(lowerCaseFilter) ||
+                                            agent.getCodeAgent().toLowerCase().contains(lowerCaseFilter) ||
+                                            (agent.getService() != null &&
+                                                    agent.getService().getNomService().toLowerCase().contains(lowerCaseFilter))
+                            )
+                            .limit(10) // Limiter à 10 résultats
+                            .collect(Collectors.toList());
+
+                    if (!filteredAgents.isEmpty()) {
+                        for (Agent agent : filteredAgents) {
+                            Button agentButton = new Button();
+                            String text = agent.getCodeAgent() + " - " + agent.getNomComplet();
+                            if (agent.getService() != null) {
+                                text += " (" + agent.getService().getNomService() + ")";
+                            }
+                            agentButton.setText(text);
+                            agentButton.setMaxWidth(Double.MAX_VALUE);
+                            agentButton.setStyle("-fx-alignment: CENTER-LEFT; -fx-padding: 5;");
+
+                            agentButton.setOnAction(event -> {
+                                selectedDG[0] = agent;
+                                dgSelectedLabel.setText("Sélectionné: " + agent.getCodeAgent() + " - " + agent.getNomComplet());
+                                dgSelectedLabel.setStyle("-fx-text-fill: green; -fx-font-weight: bold;");
+                                dgSearchField.setText(agent.getCodeAgent() + " - " + agent.getNomComplet());
+                                dgScrollPane.setVisible(false);
+                            });
+
+                            dgResultsBox.getChildren().add(agentButton);
+                        }
+                        dgScrollPane.setVisible(true);
+                    } else {
+                        dgScrollPane.setVisible(false);
+                    }
                 }
-            };
+            });
 
-            ddComboBox.setItems(agentsList);
-            ddComboBox.setConverter(converter);
-
-            dgComboBox.setItems(agentsList);
-            dgComboBox.setConverter(converter);
+            // Charger les rôles actuels
+            AgentDAO agentDAO = new AgentDAO();
 
             // Afficher les actuels
-            if (currentDD != null) {
-                ddComboBox.setValue(currentDD);
-                currentDDLabel.setText("Actuel: " + currentDD.getNomComplet());
-                currentDDLabel.setStyle("-fx-text-fill: green;");
+            try {
+                Optional<Agent> currentDDOpt = agentDAO.findByRoleSpecial("DD");
+                if (currentDDOpt.isPresent()) {
+                    Agent currentDD = currentDDOpt.get();
+                    selectedDD[0] = currentDD;
+                    currentDDLabel.setText("Actuel: " + currentDD.getNomComplet());
+                    currentDDLabel.setStyle("-fx-text-fill: green;");
+                    ddSelectedLabel.setText("Actuel: " + currentDD.getCodeAgent() + " - " + currentDD.getNomComplet());
+                    ddSelectedLabel.setStyle("-fx-text-fill: green; -fx-font-weight: bold;");
+                    ddSearchField.setText(currentDD.getCodeAgent() + " - " + currentDD.getNomComplet());
+                } else {
+                    currentDDLabel.setText("Aucun DD actuellement");
+                    currentDDLabel.setStyle("-fx-text-fill: orange;");
+                }
+            } catch (Exception ex) {
+                logger.warn("Erreur lors du chargement du DD actuel", ex);
+                currentDDLabel.setText("Aucun DD actuellement");
+                currentDDLabel.setStyle("-fx-text-fill: orange;");
             }
 
-            if (currentDG != null) {
-                dgComboBox.setValue(currentDG);
-                currentDGLabel.setText("Actuel: " + currentDG.getNomComplet());
-                currentDGLabel.setStyle("-fx-text-fill: green;");
+            try {
+                Optional<Agent> currentDGOpt = agentDAO.findByRoleSpecial("DG");
+                if (currentDGOpt.isPresent()) {
+                    Agent currentDG = currentDGOpt.get();
+                    selectedDG[0] = currentDG;
+                    currentDGLabel.setText("Actuel: " + currentDG.getNomComplet());
+                    currentDGLabel.setStyle("-fx-text-fill: green;");
+                    dgSelectedLabel.setText("Actuel: " + currentDG.getCodeAgent() + " - " + currentDG.getNomComplet());
+                    dgSelectedLabel.setStyle("-fx-text-fill: green; -fx-font-weight: bold;");
+                    dgSearchField.setText(currentDG.getCodeAgent() + " - " + currentDG.getNomComplet());
+                } else {
+                    currentDGLabel.setText("Aucun DG actuellement");
+                    currentDGLabel.setStyle("-fx-text-fill: orange;");
+                }
+            } catch (Exception ex) {
+                logger.warn("Erreur lors du chargement du DG actuel", ex);
+                currentDGLabel.setText("Aucun DG actuellement");
+                currentDGLabel.setStyle("-fx-text-fill: orange;");
             }
         });
 
+        loadTask.setOnFailed(evt -> {
+            logger.error("Erreur lors du chargement des agents", loadTask.getException());
+            currentDDLabel.setText("Erreur de chargement");
+            currentDGLabel.setText("Erreur de chargement");
+        });
+
         new Thread(loadTask).start();
+
+        // Organiser le layout
+        VBox ddSection = new VBox(5);
+        ddSection.getChildren().addAll(ddLabel, currentDDLabel, ddSearchField, ddScrollPane, ddSelectedLabel);
+
+        VBox dgSection = new VBox(5);
+        dgSection.getChildren().addAll(dgLabel, currentDGLabel, dgSearchField, dgScrollPane, dgSelectedLabel);
+
+        content.getChildren().addAll(infoLabel, new Separator(), ddSection, new Separator(), dgSection);
 
         dialog.getDialogPane().setContent(content);
 
@@ -868,12 +1030,9 @@ public class MainController implements Initializable {
         // Gestionnaire de sauvegarde
         dialog.setResultConverter(dialogButton -> {
             if (dialogButton == saveButtonType) {
-                Agent selectedDD = ddComboBox.getValue();
-                Agent selectedDG = dgComboBox.getValue();
-
                 // Validation
-                if (selectedDD != null && selectedDG != null &&
-                        selectedDD.getId().equals(selectedDG.getId())) {
+                if (selectedDD[0] != null && selectedDG[0] != null &&
+                        selectedDD[0].getId().equals(selectedDG[0].getId())) {
                     AlertUtil.showErrorAlert("Erreur",
                             "Attribution impossible",
                             "Un agent ne peut pas être à la fois DD et DG.");
@@ -886,12 +1045,12 @@ public class MainController implements Initializable {
                     protected Void call() throws Exception {
                         AgentDAO agentDAO = new AgentDAO();
 
-                        if (selectedDD != null) {
-                            agentDAO.assignRoleSpecial(selectedDD.getId(), "DD");
+                        if (selectedDD[0] != null) {
+                            agentDAO.assignRoleSpecial(selectedDD[0].getId(), "DD");
                         }
 
-                        if (selectedDG != null) {
-                            agentDAO.assignRoleSpecial(selectedDG.getId(), "DG");
+                        if (selectedDG[0] != null) {
+                            agentDAO.assignRoleSpecial(selectedDG[0].getId(), "DG");
                         }
 
                         return null;
@@ -918,6 +1077,58 @@ public class MainController implements Initializable {
         });
 
         dialog.showAndWait();
+    }
+
+    /**
+     * Configure l'autocomplétion pour un ComboBox d'agents
+     */
+    private void setupAutoComplete(ComboBox<Agent> comboBox) {
+        // Sauvegarder la liste complète
+        ObservableList<Agent> allAgents = FXCollections.observableArrayList(comboBox.getItems());
+
+        // Créer une liste filtrée
+        FilteredList<Agent> filteredAgents = new FilteredList<>(allAgents, p -> true);
+
+        // Ajouter un listener sur le texte saisi
+        comboBox.getEditor().textProperty().addListener((obs, oldValue, newValue) -> {
+            final TextField editor = comboBox.getEditor();
+            final Agent selected = comboBox.getSelectionModel().getSelectedItem();
+
+            // Cette vérification évite de filtrer quand on sélectionne un élément
+            if (selected == null || !comboBox.getConverter().toString(selected).equals(editor.getText())) {
+                // Filtrer la liste
+                filteredAgents.setPredicate(agent -> {
+                    if (newValue == null || newValue.isEmpty()) {
+                        return true;
+                    }
+
+                    String lowerCaseFilter = newValue.toLowerCase();
+                    String agentInfo = (agent.getCodeAgent() + " " + agent.getNomComplet() + " " +
+                            (agent.getService() != null ? agent.getService().getNomService() : "")).toLowerCase();
+
+                    return agentInfo.contains(lowerCaseFilter);
+                });
+
+                // Mettre à jour les items
+                comboBox.setItems(filteredAgents);
+
+                // Garder le texte saisi et ouvrir le popup
+                Platform.runLater(() -> {
+                    editor.setText(newValue);
+                    editor.positionCaret(newValue.length());
+                    if (!filteredAgents.isEmpty()) {
+                        comboBox.show();
+                    }
+                });
+            }
+        });
+
+        // Quand on sélectionne un item, remettre la liste complète.
+        comboBox.setOnHidden(e -> {
+            Agent selected = comboBox.getValue();
+            comboBox.setItems(allAgents);
+            comboBox.setValue(selected);
+        });
     }
 
     /**
@@ -1227,22 +1438,22 @@ public class MainController implements Initializable {
     }
 
     /**
-     * Dialogue nouvel agent - CORRIGÉE
+     * Affiche le dialogue de création d'un nouvel agent
      */
     private void showNewAgentDialog() {
         logger.debug("Ouverture dialogue nouvel agent");
-        try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/agent-form.fxml"));
-            Parent root = loader.load();
 
-            Stage stage = new Stage();
-            stage.initModality(Modality.APPLICATION_MODAL);
-            stage.setTitle("Nouvel Agent");
-            stage.setScene(new Scene(root));
-            stage.show();
-        } catch (IOException e) {
-            logger.error("Erreur ouverture dialogue agent", e);
-        }
+        // Pour l'instant, charger la liste des agents et ouvrir le dialogue simple
+        loadView("/view/agent-list.fxml");
+
+        // Après un court délai pour laisser la vue se charger
+        Platform.runLater(() -> {
+            if (currentController instanceof AgentListController) {
+                AgentListController agentController = (AgentListController) currentController;
+                // Déclencher la création d'un nouvel agent
+                agentController.createNewAgent();
+            }
+        });
     }
 
     /**

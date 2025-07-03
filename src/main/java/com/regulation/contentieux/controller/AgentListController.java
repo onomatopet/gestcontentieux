@@ -15,6 +15,7 @@ import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.geometry.Insets;
+import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.CheckBoxTableCell;
 import javafx.scene.layout.GridPane;
@@ -23,6 +24,9 @@ import javafx.util.Callback;
 import javafx.util.StringConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.regulation.contentieux.model.Service;
+import com.regulation.contentieux.dao.ServiceDAO;
 
 import java.net.URL;
 import java.time.LocalDateTime;
@@ -62,6 +66,7 @@ public class AgentListController implements Initializable {
     @FXML private TableColumn<AgentViewModel, String> prenomColumn;
     @FXML private TableColumn<AgentViewModel, String> gradeColumn;
     @FXML private TableColumn<AgentViewModel, String> serviceColumn;
+    @FXML private TableColumn<AgentViewModel, String> roleSpecialColumn;
     @FXML private TableColumn<AgentViewModel, Boolean> actifColumn;
     @FXML private TableColumn<AgentViewModel, LocalDateTime> dateCreationColumn;
     @FXML private TableColumn<AgentViewModel, Void> actionsColumn;
@@ -382,6 +387,38 @@ public class AgentListController implements Initializable {
         // Données du tableau
         agentsTableView.setItems(agents);
         agentsTableView.setEditable(true);
+
+        // AJOUT : Colonne Rôle Spécial
+        if (roleSpecialColumn != null) {
+            roleSpecialColumn.setCellValueFactory(cellData -> {
+                // Chercher le rôle spécial de cet agent dans la base de données
+                AgentDAO agentDAO = new AgentDAO();
+                String roleSpecial = agentDAO.getRoleSpecial(cellData.getValue().getId());
+                return new javafx.beans.property.SimpleStringProperty(roleSpecial != null ? roleSpecial : "");
+            });
+
+            // Style spécial pour DD et DG
+            roleSpecialColumn.setCellFactory(column -> new TableCell<AgentViewModel, String>() {
+                @Override
+                protected void updateItem(String roleSpecial, boolean empty) {
+                    super.updateItem(roleSpecial, empty);
+                    if (empty || roleSpecial == null || roleSpecial.isEmpty()) {
+                        setText("");
+                        setStyle("");
+                    } else {
+                        setText(roleSpecial);
+                        // Mettre en évidence les rôles DD et DG
+                        if ("DD".equals(roleSpecial)) {
+                            setStyle("-fx-font-weight: bold; -fx-text-fill: #2196F3;"); // Bleu
+                        } else if ("DG".equals(roleSpecial)) {
+                            setStyle("-fx-font-weight: bold; -fx-text-fill: #4CAF50;"); // Vert
+                        } else {
+                            setStyle("");
+                        }
+                    }
+                }
+            });
+        }
     }
 
     /**
@@ -458,7 +495,7 @@ public class AgentListController implements Initializable {
         });
 
         // Actions principales
-        newAgentButton.setOnAction(e -> createNewAgent());
+        newAgentButton.setOnAction(e -> showSimpleAgentCreationDialog());
         exportButton.setOnAction(e -> exportData());
 
         // Actions sur sélection
@@ -521,7 +558,29 @@ public class AgentListController implements Initializable {
                         agentsList.size(), totalElements);
 
                 return agentsList.stream()
-                        .map(this::convertToViewModel)
+                        .map(agent -> {
+                            AgentViewModel vm = new AgentViewModel();
+                            vm.setId(agent.getId());
+                            vm.setCodeAgent(agent.getCodeAgent());
+                            vm.setNom(agent.getNom());
+                            vm.setPrenom(agent.getPrenom());
+                            vm.setGrade(agent.getGrade());
+                            vm.setServiceId(agent.getServiceId());
+                            if (agent.getService() != null) {
+                                vm.setServiceNom(agent.getService().getNomService());
+                            }
+                            vm.setActif(agent.isActif());
+                            vm.setCreatedAt(agent.getCreatedAt());
+
+                            // AJOUT : Charger le rôle spécial si la colonne existe
+                            if (roleSpecialColumn != null) {
+                                AgentDAO agentDAO = new AgentDAO();
+                                String roleSpecial = agentDAO.getRoleSpecial(agent.getId());
+                                vm.setRoleSpecial(roleSpecial);
+                            }
+
+                            return vm;
+                        })
                         .collect(Collectors.toList());
             }
 
@@ -600,12 +659,184 @@ public class AgentListController implements Initializable {
         performSearch();
     }
 
-    private void createNewAgent() {
-        logger.info("Création d'un nouvel agent");
-        AlertUtil.showInfoAlert("Nouvel agent",
-                "Fonctionnalité en développement",
-                "Le formulaire de création sera disponible prochainement.");
+    /**
+     * Ouvre le formulaire de création d'un nouvel agent
+     */
+    public void createNewAgent() {
+        logger.debug("Ouverture du formulaire de création d'agent");
+
+        // Pour l'instant, afficher un message car agent-form.fxml n'existe peut-être pas
+        AlertUtil.showInfoAlert("Information",
+                "Formulaire en développement",
+                "Le formulaire de création d'agent sera bientôt disponible.\n\n" +
+                        "Cette fonctionnalité est en cours de développement.");
+
+        // Alternative : créer un dialogue simple
+        showSimpleAgentCreationDialog();
     }
+
+    /**
+     * Affiche un dialogue simple pour créer un agent
+     */
+    private void showSimpleAgentCreationDialog() {
+        Dialog<Agent> dialog = new Dialog<>();
+        dialog.setTitle("Nouvel Agent");
+        dialog.setHeaderText("Création d'un nouvel agent");
+
+        // Boutons
+        ButtonType createButtonType = new ButtonType("Créer", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(createButtonType, ButtonType.CANCEL);
+
+        // Formulaire
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20, 150, 10, 10));
+
+        TextField codeField = new TextField();
+        codeField.setPromptText("CA00001");
+        codeField.setDisable(true); // Code généré automatiquement
+
+        TextField nomField = new TextField();
+        nomField.setPromptText("Nom");
+
+        TextField prenomField = new TextField();
+        prenomField.setPromptText("Prénom");
+
+        ComboBox<String> gradeCombo = new ComboBox<>();
+        gradeCombo.getItems().addAll(
+                "Inspecteur Principal", "Inspecteur",
+                "Contrôleur Principal", "Contrôleur",
+                "Agent Principal", "Agent"
+        );
+        gradeCombo.setPromptText("Sélectionner un grade");
+
+        // AJOUT : ComboBox pour les services
+        ComboBox<Service> serviceCombo = new ComboBox<>();
+        serviceCombo.setPromptText("Sélectionner un service (optionnel)");
+        serviceCombo.setPrefWidth(250);
+
+        // Charger les services
+        Task<List<Service>> loadServicesTask = new Task<List<Service>>() {
+            @Override
+            protected List<Service> call() throws Exception {
+                ServiceDAO serviceDAO = new ServiceDAO();
+                return serviceDAO.findAll();
+            }
+        };
+
+        loadServicesTask.setOnSucceeded(e -> {
+            List<Service> services = loadServicesTask.getValue();
+            serviceCombo.getItems().add(null); // Option "Aucun service"
+            serviceCombo.getItems().addAll(services);
+
+            // Convertisseur pour afficher le service
+            serviceCombo.setConverter(new StringConverter<Service>() {
+                @Override
+                public String toString(Service service) {
+                    if (service == null) {
+                        return "-- Aucun service --";
+                    }
+                    return service.getCodeService() + " - " + service.getNomService();
+                }
+
+                @Override
+                public Service fromString(String string) {
+                    return null;
+                }
+            });
+        });
+
+        new Thread(loadServicesTask).start();
+
+        // Ajouter les champs au grid
+        grid.add(new Label("Code:"), 0, 0);
+        grid.add(codeField, 1, 0);
+        grid.add(new Label("Nom:"), 0, 1);
+        grid.add(nomField, 1, 1);
+        grid.add(new Label("Prénom:"), 0, 2);
+        grid.add(prenomField, 1, 2);
+        grid.add(new Label("Grade:"), 0, 3);
+        grid.add(gradeCombo, 1, 3);
+        grid.add(new Label("Service:"), 0, 4);
+        grid.add(serviceCombo, 1, 4);
+
+        dialog.getDialogPane().setContent(grid);
+
+        // Validation du bouton
+        Node createButton = dialog.getDialogPane().lookupButton(createButtonType);
+        createButton.setDisable(true);
+
+        // Activer le bouton seulement si les champs requis sont remplis
+        nomField.textProperty().addListener((obs, old, newVal) -> {
+            boolean isValid = !nomField.getText().trim().isEmpty() &&
+                    !prenomField.getText().trim().isEmpty() &&
+                    gradeCombo.getValue() != null;
+            createButton.setDisable(!isValid);
+        });
+
+        prenomField.textProperty().addListener((obs, old, newVal) -> {
+            boolean isValid = !nomField.getText().trim().isEmpty() &&
+                    !prenomField.getText().trim().isEmpty() &&
+                    gradeCombo.getValue() != null;
+            createButton.setDisable(!isValid);
+        });
+
+        gradeCombo.valueProperty().addListener((obs, old, newVal) -> {
+            boolean isValid = !nomField.getText().trim().isEmpty() &&
+                    !prenomField.getText().trim().isEmpty() &&
+                    gradeCombo.getValue() != null;
+            createButton.setDisable(!isValid);
+        });
+
+        // Focus initial
+        Platform.runLater(() -> nomField.requestFocus());
+
+        // Convertir le résultat
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == createButtonType) {
+                Agent agent = new Agent();
+                agent.setNom(nomField.getText().trim().toUpperCase());
+                agent.setPrenom(prenomField.getText().trim());
+                agent.setGrade(gradeCombo.getValue());
+                agent.setActif(true);
+
+                // AJOUT : Assigner le service si sélectionné
+                Service selectedService = serviceCombo.getValue();
+                if (selectedService != null) {
+                    agent.setService(selectedService);
+                    agent.setServiceId(selectedService.getId());
+                }
+
+                return agent;
+            }
+            return null;
+        });
+
+        Optional<Agent> result = dialog.showAndWait();
+
+        result.ifPresent(agent -> {
+            try {
+                Agent savedAgent = agentService.saveAgent(agent);
+                AlertUtil.showSuccessAlert("Succès",
+                        "Agent créé",
+                        "L'agent " + savedAgent.getCodeAgent() + " - " +
+                                savedAgent.getNomComplet() + " a été créé avec succès." +
+                                (savedAgent.getService() != null ?
+                                        "\nService : " + savedAgent.getService().getNomService() : ""));
+                loadData(); // Rafraîchir la liste
+            } catch (Exception e) {
+                logger.error("Erreur lors de la création de l'agent", e);
+                AlertUtil.showErrorAlert("Erreur",
+                        "Création échouée",
+                        "Impossible de créer l'agent: " + e.getMessage());
+            }
+        });
+    }
+
+    /**
+     * Affiche un dialogue simple pour créer un agent
+     */
 
     private void viewAgent(AgentViewModel agent) {
         logger.info("Affichage des détails de l'agent: {}", agent.getCodeAgent());
@@ -926,6 +1157,7 @@ public class AgentListController implements Initializable {
         private String grade;
         private Long serviceId;
         private String serviceNom;
+        private String roleSpecial; // AJOUT
         private Boolean actif;
         private LocalDateTime createdAt;
 
@@ -958,6 +1190,10 @@ public class AgentListController implements Initializable {
 
         public String getServiceNom() { return serviceNom; }
         public void setServiceNom(String serviceNom) { this.serviceNom = serviceNom; }
+
+        // AJOUT : Getters et setters pour roleSpecial
+        public String getRoleSpecial() { return roleSpecial; }
+        public void setRoleSpecial(String roleSpecial) { this.roleSpecial = roleSpecial; }
 
         public Boolean getActif() { return actif; }
         public void setActif(Boolean actif) { this.actif = actif; }

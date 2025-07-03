@@ -1,5 +1,7 @@
 package com.regulation.contentieux.controller;
 
+import com.regulation.contentieux.model.enums.StatutAffaire;
+
 import com.regulation.contentieux.dao.EncaissementDAO;
 import com.regulation.contentieux.dao.AffaireDAO;
 import com.regulation.contentieux.model.Encaissement;
@@ -261,8 +263,22 @@ public class EncaissementFormController implements Initializable {
         affaireComboBox.setConverter(new StringConverter<Affaire>() {
             @Override
             public String toString(Affaire affaire) {
-                return affaire != null ?
-                        affaire.getNumeroAffaire() + " - " + CurrencyFormatter.format(affaire.getMontantAmendeTotal()) : "";
+                if (affaire == null) {
+                    return "";
+                }
+
+                // Calculer le solde restant
+                BigDecimal totalEncaisse = affaire.getMontantEncaisseTotal();
+                BigDecimal soldeRestant = affaire.getMontantAmendeTotal().subtract(totalEncaisse);
+
+                // Format: "N°Affaire - Contrevenant - Solde: XXX FCFA"
+                String contrevenant = affaire.getContrevenant() != null ?
+                        affaire.getContrevenant().getNomComplet() : "Inconnu";
+
+                return String.format("%s - %s - Solde: %s",
+                        affaire.getNumeroAffaire(),
+                        contrevenant,
+                        CurrencyFormatter.format(soldeRestant));
             }
 
             @Override
@@ -279,16 +295,28 @@ public class EncaissementFormController implements Initializable {
         Task<Void> loadTask = new Task<Void>() {
             @Override
             protected Void call() throws Exception {
-                // Chargement des affaires qui peuvent recevoir des encaissements
-                List<Affaire> affairesList = affaireDAO.findAll().stream()
-                        .filter(Affaire::peutRecevoirEncaissement)
-                        .toList();
+                // MODIFICATION : Charger uniquement les affaires EN_COURS (non soldées)
+                List<Affaire> affairesList = affaireDAO.findByStatut(StatutAffaire.EN_COURS);
+
+                // Si la méthode findByStatut n'existe pas, utiliser findAll avec filtre
+                if (affairesList == null) {
+                    affairesList = affaireDAO.findAll().stream()
+                            .filter(a -> a.getStatut() == StatutAffaire.EN_COURS)
+                            .toList();
+                }
 
                 Platform.runLater(() -> {
                     affaires.clear();
                     affaires.addAll(affairesList);
 
-                    logger.info("Données du formulaire chargées: {} affaires disponibles", affairesList.size());
+                    logger.info("Affaires non soldées chargées: {} affaires disponibles", affairesList.size());
+
+                    if (affairesList.isEmpty()) {
+                        AlertUtil.showInfoAlert("Information",
+                                "Aucune affaire en cours",
+                                "Il n'y a aucune affaire non soldée pouvant recevoir un encaissement.\n\n" +
+                                        "Pour créer une nouvelle affaire, utilisez le menu 'Affaires > Nouvelle Affaire'.");
+                    }
                 });
 
                 return null;
@@ -359,14 +387,118 @@ public class EncaissementFormController implements Initializable {
         }
     }
 
+    @FXML
     private void handleAffaireSelection() {
-        Affaire selected = affaireComboBox.getValue();
-        if (selected != null) {
-            updateAffaireDetails(selected);
-            loadEncaissementsHistory(selected.getId());
-        } else {
-            hideAffaireDetails();
+        Affaire selectedAffaire = affaireComboBox.getValue();
+
+        if (selectedAffaire == null) {
+            // Masquer les détails si aucune affaire sélectionnée
+            affaireDetailsBox.setVisible(false);
+            affaireDetailsBox.setManaged(false);
+
+            // Réinitialiser le champ montant
+            montantEncaisseField.clear();
+            montantEncaisseField.setDisable(false);
+
+            return;
         }
+
+        // Afficher les détails de l'affaire
+        affaireDetailsBox.setVisible(true);
+        affaireDetailsBox.setManaged(true);
+
+        // Remplir les informations
+        String contrevenant = selectedAffaire.getContrevenant() != null ?
+                selectedAffaire.getContrevenant().getNomComplet() : "Non renseigné";
+        contrevenantLabel.setText(contrevenant);
+
+        // Montant total de l'amende
+        BigDecimal montantTotal = selectedAffaire.getMontantAmendeTotal();
+        montantTotalLabel.setText(CurrencyFormatter.format(montantTotal));
+
+        // Calculer le montant déjà encaissé
+        BigDecimal montantDejaEncaisse = selectedAffaire.getMontantEncaisseTotal();
+        montantEncaisseAnterieurLabel.setText(CurrencyFormatter.format(montantDejaEncaisse));
+
+        // Calculer le solde restant
+        BigDecimal soldeRestant = montantTotal.subtract(montantDejaEncaisse);
+        soldeRestantLabel.setText(CurrencyFormatter.format(soldeRestant));
+
+        // Configurer le style du solde
+        if (soldeRestant.compareTo(BigDecimal.ZERO) > 0) {
+            soldeRestantLabel.setStyle("-fx-text-fill: #ff6b6b; -fx-font-weight: bold;"); // Rouge
+        } else {
+            soldeRestantLabel.setStyle("-fx-text-fill: #51cf66; -fx-font-weight: bold;"); // Vert
+        }
+
+        // Limiter le montant maximum au solde restant
+        montantEncaisseField.setPromptText("Maximum: " + CurrencyFormatter.format(soldeRestant));
+
+        // Ajouter un listener pour valider le montant en temps réel
+        montantEncaisseField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (!newVal.isEmpty()) {
+                try {
+                    BigDecimal montantSaisi = new BigDecimal(newVal.replace(" ", "").replace(",", "."));
+                    if (montantSaisi.compareTo(soldeRestant) > 0) {
+                        montantEncaisseField.setStyle("-fx-border-color: red;");
+                        AlertUtil.showWarningAlert("Montant incorrect",
+                                "Dépassement du solde",
+                                "Le montant saisi (" + CurrencyFormatter.format(montantSaisi) +
+                                        ") dépasse le solde restant (" + CurrencyFormatter.format(soldeRestant) + ")");
+                    } else {
+                        montantEncaisseField.setStyle("");
+                    }
+                } catch (NumberFormatException e) {
+                    // Ignorer si ce n'est pas un nombre valide
+                }
+            }
+        });
+
+        // Charger l'historique des encaissements si disponible
+        loadEncaissementHistory(selectedAffaire);
+
+        logger.debug("Affaire sélectionnée: {} - Solde restant: {}",
+                selectedAffaire.getNumeroAffaire(), soldeRestant);
+    }
+
+    /**
+     * Charge l'historique des encaissements pour l'affaire sélectionnée
+     */
+    private void loadEncaissementHistory(Affaire affaire) {
+        if (encaissementsTableView == null || !encaissementsTableView.isVisible()) {
+            return;
+        }
+
+        Task<List<Encaissement>> historyTask = new Task<List<Encaissement>>() {
+            @Override
+            protected List<Encaissement> call() throws Exception {
+                return encaissementDAO.findByAffaireId(affaire.getId());
+            }
+        };
+
+        historyTask.setOnSucceeded(e -> {
+            List<Encaissement> encaissements = historyTask.getValue();
+            ObservableList<EncaissementHistoryViewModel> historyItems = FXCollections.observableArrayList();
+
+            for (Encaissement enc : encaissements) {
+                EncaissementHistoryViewModel vm = new EncaissementHistoryViewModel();
+                vm.setReference(enc.getReference());
+                vm.setDateEncaissement(enc.getDateEncaissement());
+                vm.setMontant(enc.getMontantEncaisse().doubleValue());
+                vm.setModeReglement(enc.getModeReglement());
+                vm.setStatut(enc.getStatut());
+                historyItems.add(vm);
+            }
+
+            encaissementsTableView.setItems(historyItems);
+            encaissementsCountLabel.setText(encaissements.size() + " encaissement(s) précédent(s)");
+
+            // Afficher la section historique s'il y a des encaissements
+            encaissementsHistoryBox.setVisible(!encaissements.isEmpty());
+            encaissementsHistoryBox.setManaged(!encaissements.isEmpty());
+        });
+
+        new Thread(historyTask).start();
     }
 
     private void updateAffaireDetails(Affaire affaire) {
@@ -563,61 +695,71 @@ public class EncaissementFormController implements Initializable {
     private boolean validateForm() {
         StringBuilder errors = new StringBuilder();
 
-        // Validation de la référence
-        if (referenceField.getText() == null || referenceField.getText().trim().isEmpty()) {
-            errors.append("• La référence d'encaissement est obligatoire\n");
+        // Vérifier la référence
+        if (referenceField.getText().trim().isEmpty()) {
+            errors.append("- La référence est obligatoire\n");
         }
 
-        // Validation de la date
-        if (dateEncaissementPicker.getValue() == null) {
-            errors.append("• La date d'encaissement est obligatoire\n");
+        // Vérifier l'affaire
+        Affaire selectedAffaire = affaireComboBox.getValue();
+        if (selectedAffaire == null) {
+            errors.append("- Veuillez sélectionner une affaire\n");
+            if (!errors.toString().isEmpty()) {
+                AlertUtil.showErrorAlert("Erreur de validation",
+                        "Formulaire incomplet",
+                        errors.toString());
+                return false;
+            }
         }
 
-        // Validation du montant
-        if (montantEncaisseField.getText() == null || montantEncaisseField.getText().trim().isEmpty()) {
-            errors.append("• Le montant encaissé est obligatoire\n");
-        } else {
-            try {
-                double montant = Double.parseDouble(montantEncaisseField.getText().replace(",", "."));
-                if (montant <= 0) {
-                    errors.append("• Le montant encaissé doit être positif\n");
+        // Vérifier le montant
+        try {
+            String montantText = montantEncaisseField.getText().replace(" ", "").replace(",", ".");
+            if (montantText.isEmpty()) {
+                errors.append("- Le montant est obligatoire\n");
+            } else {
+                BigDecimal montant = new BigDecimal(montantText);
+
+                if (montant.compareTo(BigDecimal.ZERO) <= 0) {
+                    errors.append("- Le montant doit être supérieur à zéro\n");
                 }
-            } catch (NumberFormatException e) {
-                errors.append("• Le montant encaissé doit être un nombre valide\n");
+
+                // IMPORTANT : Vérifier que le montant ne dépasse pas le solde restant
+                if (selectedAffaire != null) {
+                    BigDecimal soldeRestant = selectedAffaire.getMontantAmendeTotal()
+                            .subtract(selectedAffaire.getMontantEncaisseTotal());
+
+                    if (montant.compareTo(soldeRestant) > 0) {
+                        errors.append("- Le montant ne peut pas dépasser le solde restant (" +
+                                CurrencyFormatter.format(soldeRestant) + ")\n");
+                    }
+                }
             }
+        } catch (NumberFormatException e) {
+            errors.append("- Le montant n'est pas valide\n");
         }
 
-        // Validation de l'affaire
-        if (affaireComboBox.getValue() == null) {
-            errors.append("• L'affaire liée est obligatoire\n");
+        // Vérifier la date
+        if (dateEncaissementPicker.getValue() == null) {
+            errors.append("- La date d'encaissement est obligatoire\n");
+        } else if (dateEncaissementPicker.getValue().isAfter(LocalDate.now())) {
+            errors.append("- La date d'encaissement ne peut pas être dans le futur\n");
         }
 
-        // Validation du mode de règlement
+        // Vérifier le mode de règlement
         if (modeReglementComboBox.getValue() == null) {
-            errors.append("• Le mode de règlement est obligatoire\n");
-        } else {
-            ModeReglement mode = modeReglementComboBox.getValue();
-
-            // Validation banque si nécessaire
-            if (mode.isNecessiteBanque() && banqueComboBox.getValue() == null) {
-                errors.append("• Une banque est obligatoire pour le mode de règlement " + mode.getLibelle() + "\n");
-            }
-
-            // Validation référence externe si nécessaire
-            if (mode.isNecessiteReference() &&
-                    (referenceExterneField.getText() == null || referenceExterneField.getText().trim().isEmpty())) {
-                errors.append("• Une référence externe est obligatoire pour le mode de règlement " + mode.getLibelle() + "\n");
+            errors.append("- Le mode de règlement est obligatoire\n");
+        } else if (modeReglementComboBox.getValue() == ModeReglement.CHEQUE) {
+            // Vérifier les informations du chèque
+            if (numeroChequeField.getText().trim().isEmpty()) {
+                errors.append("- Le numéro de chèque est obligatoire pour un paiement par chèque\n");
             }
         }
 
-        // Validation du statut
-        if (statutComboBox.getValue() == null) {
-            errors.append("• Le statut est obligatoire\n");
-        }
-
-        if (errors.length() > 0) {
-            AlertUtil.showErrorAlert("Erreurs de validation",
-                    "Veuillez corriger les erreurs suivantes :",
+        // Afficher les erreurs s'il y en a
+        if (!errors.toString().isEmpty()) {
+            AlertUtil.showErrorAlert("Erreur de validation",
+                    "Formulaire incomplet",
                     errors.toString());
             return false;
         }
@@ -628,84 +770,48 @@ public class EncaissementFormController implements Initializable {
     /**
      * Sauvegarde de l'encaissement - SUIT LE PATTERN ÉTABLI
      */
+    @FXML
     private void saveEncaissement() {
-        Task<Encaissement> saveTask = new Task<Encaissement>() {
-            @Override
-            protected Encaissement call() throws Exception {
-                Encaissement encaissement = isEditMode ? currentEncaissement : new Encaissement();
+        if (!validateForm()) {
+            return;
+        }
 
-                // Remplissage des données
-                encaissement.setReference(referenceField.getText().trim());
-                encaissement.setDateEncaissement(dateEncaissementPicker.getValue());
+        try {
+            // Collecter les données
+            Encaissement encaissement = collectFormData();
+            Affaire affaire = affaireComboBox.getValue();
 
-                // CORRECTION LIGNE 495: Conversion correcte vers BigDecimal
-                BigDecimal montant = new BigDecimal(montantEncaisseField.getText().replace(",", "."));
-                encaissement.setMontantEncaisse(montant);
-
-                encaissement.setStatut(statutComboBox.getValue());
-                encaissement.setAffaireId(affaireComboBox.getValue().getId());
-                encaissement.setModeReglement(modeReglementComboBox.getValue());
-
-                // Référence externe si applicable
-                if (referenceExterneField.isVisible() && !referenceExterneField.getText().trim().isEmpty()) {
-                    // Note: On stocke la référence externe dans le champ reference principal
-                    // ou on peut l'ajouter comme attribut supplémentaire selon le modèle
-                }
-
-                // Banque si applicable
-                if (banqueComboBox.getValue() != null) {
-                    // TODO: Récupérer l'ID de la banque sélectionnée
-                    // encaissement.setBanqueId(banqueComboBox.getValue().getId());
-                }
-
-                // Métadonnées
-                String currentUser = authService.getCurrentUser().getUsername();
-                if (isEditMode) {
-                    encaissement.setUpdatedBy(currentUser);
-                    return encaissementService.updateEncaissement(encaissement);
-                } else {
-                    encaissement.setCreatedBy(currentUser);
-                    return encaissementService.saveEncaissement(encaissement);
-                }
+            // Sauvegarder via le service
+            if (isEditMode) {
+                encaissement.setId(currentEncaissement.getId());
+                encaissement = encaissementService.updateEncaissement(encaissement);
+            } else {
+                // Pour un nouvel encaissement, utiliser la méthode du service qui gère tout
+                encaissement = affaireService.addEncaissementToAffaire(affaire.getId(), encaissement);
             }
 
-            @Override
-            protected void succeeded() {
-                Platform.runLater(() -> {
-                    Encaissement savedEncaissement = getValue();
-                    String message = isEditMode ? "Encaissement modifié avec succès" : "Encaissement créé avec succès";
+            // Message de succès avec information sur le statut
+            String message = "L'encaissement " + encaissement.getReference() + " a été enregistré avec succès.";
 
-                    AlertUtil.showSuccessAlert("Sauvegarde réussie", message,
-                            "Référence: " + savedEncaissement.getReference());
-
-                    // Mise à jour de l'état
-                    currentEncaissement = savedEncaissement;
-                    isEditMode = true;
-                    updateUIMode();
-
-                    // Recharger l'historique
-                    if (affaireComboBox.getValue() != null) {
-                        loadEncaissementsHistory(affaireComboBox.getValue().getId());
-                    }
-
-                    logger.info("Encaissement sauvegardé: {}", savedEncaissement.getReference());
-                });
+            // Vérifier si l'affaire est maintenant soldée
+            BigDecimal nouveauTotal = affaire.getMontantEncaisseTotal().add(encaissement.getMontantEncaisse());
+            if (nouveauTotal.compareTo(affaire.getMontantAmendeTotal()) >= 0) {
+                message += "\n\nL'affaire " + affaire.getNumeroAffaire() + " est maintenant SOLDÉE.";
             }
 
-            @Override
-            protected void failed() {
-                Platform.runLater(() -> {
-                    logger.error("Erreur lors de la sauvegarde", getException());
-                    AlertUtil.showErrorAlert("Erreur de sauvegarde",
-                            "Impossible de sauvegarder l'encaissement",
-                            "Vérifiez les données et réessayez.\n\nDétail: " + getException().getMessage());
-                });
-            }
-        };
+            AlertUtil.showSuccessAlert("Succès",
+                    "Encaissement enregistré",
+                    message);
 
-        Thread saveThread = new Thread(saveTask);
-        saveThread.setDaemon(true);
-        saveThread.start();
+            // Fermer le formulaire
+            closeForm();
+
+        } catch (Exception e) {
+            logger.error("Erreur lors de l'enregistrement", e);
+            AlertUtil.showErrorAlert("Erreur",
+                    "Échec de l'enregistrement",
+                    "Impossible d'enregistrer l'encaissement : " + e.getMessage());
+        }
     }
 
     /**
@@ -864,6 +970,39 @@ public class EncaissementFormController implements Initializable {
 
         public ModeReglement getModeReglement() { return modeReglement; }
         public void setModeReglement(ModeReglement modeReglement) { this.modeReglement = modeReglement; }
+
+        public StatutEncaissement getStatut() { return statut; }
+        public void setStatut(StatutEncaissement statut) { this.statut = statut; }
+    }
+
+    /**
+     * ViewModel pour l'affichage de l'historique des encaissements
+     * À ajouter comme classe interne dans EncaissementFormController
+     */
+
+    public static class EncaissementHistoryViewModel {
+        private String reference;
+        private LocalDate dateEncaissement;
+        private Double montant;
+        private ModeReglement modeReglement;
+        private StatutEncaissement statut;
+
+        // Getters et setters
+        public String getReference() { return reference; }
+        public void setReference(String reference) { this.reference = reference; }
+
+        public LocalDate getDateEncaissement() { return dateEncaissement; }
+        public void setDateEncaissement(LocalDate dateEncaissement) {
+            this.dateEncaissement = dateEncaissement;
+        }
+
+        public Double getMontant() { return montant; }
+        public void setMontant(Double montant) { this.montant = montant; }
+
+        public ModeReglement getModeReglement() { return modeReglement; }
+        public void setModeReglement(ModeReglement modeReglement) {
+            this.modeReglement = modeReglement;
+        }
 
         public StatutEncaissement getStatut() { return statut; }
         public void setStatut(StatutEncaissement statut) { this.statut = statut; }

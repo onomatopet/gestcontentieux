@@ -43,6 +43,7 @@ module com.regulation.contentieux {
     requires jdk.jdi;
     requires html2pdf;
     requires mysql.connector.j;
+    requires org.apache.commons.compress;
 
     // Exports pour FXML
     exports com.regulation.contentieux;

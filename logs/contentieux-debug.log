@@ -480,3 +480,439 @@
 2025-07-03 13:14:19.487 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Vue chargée dans mainContentArea: /view/affaire-list.fxml
 2025-07-03 13:14:25.812 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Vue chargée dans mainContentArea: /view/encaissement-list.fxml
 2025-07-03 13:14:25.943 [JavaFX Application Thread] DEBUG c.r.c.c.EncaissementListController - Interface mise à jour: 25 encaissements affichés
+2025-07-03 13:39:25.028 [JavaFX-Launcher] DEBUG c.r.c.util.DatabaseSchemaUpdate - Schéma de base de données à jour
+2025-07-03 13:39:31.662 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Thème AtlantaFX appliqué
+2025-07-03 13:39:31.669 [JavaFX Application Thread] DEBUG c.r.contentieux.util.StageManager - ⚠️ Icône non trouvée: /images/icon.png
+2025-07-03 13:39:31.680 [JavaFX Application Thread] DEBUG c.r.contentieux.util.StageManager - ✅ Stage principal configuré
+2025-07-03 13:39:32.032 [JavaFX Application Thread] DEBUG c.r.c.controller.LoginController - LoginController initialisé
+2025-07-03 13:39:32.172 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Écran de connexion chargé
+2025-07-03 13:40:51.390 [JavaFX Application Thread] DEBUG c.r.contentieux.dao.UtilisateurDAO - Entité mise à jour avec succès: Utilisateur{id=1, login='admin', nom='Administrateur', prenom='Système', role=Super Administrateur, actif=true}
+2025-07-03 13:40:51.466 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Informations utilisateur configurées: Système Administrateur
+2025-07-03 13:40:51.467 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Affaires - Accès: true
+2025-07-03 13:40:51.467 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Agents - Accès: true
+2025-07-03 13:40:51.467 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Contrevenants - Accès: true
+2025-07-03 13:40:51.467 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Encaissements - Accès: true
+2025-07-03 13:40:51.467 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Rapports - Accès: true
+2025-07-03 13:40:51.467 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Administration - Accès: true
+2025-07-03 13:40:51.476 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des handlers ToolBar...
+2025-07-03 13:40:51.494 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration de la navigation clavier...
+2025-07-03 13:40:51.495 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des gestionnaires de menus
+2025-07-03 13:40:51.495 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des raccourcis globaux
+2025-07-03 13:40:51.495 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Gestionnaires d'événements configurés
+2025-07-03 13:40:51.496 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration du menu Gestion des Mandats
+2025-07-03 13:40:57.368 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Ouverture du dialogue DD/DG depuis le menu Agents
+2025-07-03 13:54:13.192 [JavaFX-Launcher] DEBUG c.r.c.util.DatabaseSchemaUpdate - Schéma de base de données à jour
+2025-07-03 13:54:19.523 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Thème AtlantaFX appliqué
+2025-07-03 13:54:19.528 [JavaFX Application Thread] DEBUG c.r.contentieux.util.StageManager - ⚠️ Icône non trouvée: /images/icon.png
+2025-07-03 13:54:19.533 [JavaFX Application Thread] DEBUG c.r.contentieux.util.StageManager - ✅ Stage principal configuré
+2025-07-03 13:54:19.844 [JavaFX Application Thread] DEBUG c.r.c.controller.LoginController - LoginController initialisé
+2025-07-03 13:54:19.924 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Écran de connexion chargé
+2025-07-03 13:54:25.082 [JavaFX Application Thread] DEBUG c.r.contentieux.dao.UtilisateurDAO - Entité mise à jour avec succès: Utilisateur{id=1, login='admin', nom='Système', prenom='Administrateur', role=Super Administrateur, actif=true}
+2025-07-03 13:54:25.159 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Informations utilisateur configurées: Administrateur Système
+2025-07-03 13:54:25.160 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Affaires - Accès: true
+2025-07-03 13:54:25.160 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Agents - Accès: true
+2025-07-03 13:54:25.160 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Contrevenants - Accès: true
+2025-07-03 13:54:25.160 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Encaissements - Accès: true
+2025-07-03 13:54:25.160 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Rapports - Accès: true
+2025-07-03 13:54:25.160 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Administration - Accès: true
+2025-07-03 13:54:25.168 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des handlers ToolBar...
+2025-07-03 13:54:25.191 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration de la navigation clavier...
+2025-07-03 13:54:25.192 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des gestionnaires de menus
+2025-07-03 13:54:25.192 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des raccourcis globaux
+2025-07-03 13:54:25.192 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Gestionnaires d'événements configurés
+2025-07-03 13:54:25.193 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration du menu Gestion des Mandats
+2025-07-03 13:54:30.753 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Ouverture du dialogue DD/DG depuis le menu Agents
+2025-07-03 13:59:22.807 [JavaFX-Launcher] DEBUG c.r.c.util.DatabaseSchemaUpdate - Schéma de base de données à jour
+2025-07-03 13:59:28.107 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Thème AtlantaFX appliqué
+2025-07-03 13:59:28.110 [JavaFX Application Thread] DEBUG c.r.contentieux.util.StageManager - ⚠️ Icône non trouvée: /images/icon.png
+2025-07-03 13:59:28.115 [JavaFX Application Thread] DEBUG c.r.contentieux.util.StageManager - ✅ Stage principal configuré
+2025-07-03 13:59:28.397 [JavaFX Application Thread] DEBUG c.r.c.controller.LoginController - LoginController initialisé
+2025-07-03 13:59:28.471 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Écran de connexion chargé
+2025-07-03 14:00:16.961 [JavaFX Application Thread] DEBUG c.r.contentieux.dao.UtilisateurDAO - Entité mise à jour avec succès: Utilisateur{id=1, login='admin', nom='Administrateur', prenom='Système', role=Super Administrateur, actif=true}
+2025-07-03 14:00:17.037 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Informations utilisateur configurées: Système Administrateur
+2025-07-03 14:00:17.037 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Affaires - Accès: true
+2025-07-03 14:00:17.037 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Agents - Accès: true
+2025-07-03 14:00:17.037 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Contrevenants - Accès: true
+2025-07-03 14:00:17.037 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Encaissements - Accès: true
+2025-07-03 14:00:17.037 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Rapports - Accès: true
+2025-07-03 14:00:17.037 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Administration - Accès: true
+2025-07-03 14:00:17.045 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des handlers ToolBar...
+2025-07-03 14:00:17.065 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration de la navigation clavier...
+2025-07-03 14:00:17.066 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des gestionnaires de menus
+2025-07-03 14:00:17.066 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des raccourcis globaux
+2025-07-03 14:00:17.066 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Gestionnaires d'événements configurés
+2025-07-03 14:00:17.068 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration du menu Gestion des Mandats
+2025-07-03 14:00:20.007 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Ouverture du dialogue DD/DG depuis le menu Agents
+2025-07-03 14:38:47.764 [JavaFX-Launcher] DEBUG c.r.c.util.DatabaseSchemaUpdate - Schéma de base de données à jour
+2025-07-03 14:38:53.827 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Thème AtlantaFX appliqué
+2025-07-03 14:38:53.832 [JavaFX Application Thread] DEBUG c.r.contentieux.util.StageManager - ⚠️ Icône non trouvée: /images/icon.png
+2025-07-03 14:38:53.836 [JavaFX Application Thread] DEBUG c.r.contentieux.util.StageManager - ✅ Stage principal configuré
+2025-07-03 14:38:54.122 [JavaFX Application Thread] DEBUG c.r.c.controller.LoginController - LoginController initialisé
+2025-07-03 14:38:54.210 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Écran de connexion chargé
+2025-07-03 14:38:59.813 [JavaFX Application Thread] DEBUG c.r.contentieux.dao.UtilisateurDAO - Entité mise à jour avec succès: Utilisateur{id=1, login='admin', nom='Système', prenom='Administrateur', role=Super Administrateur, actif=true}
+2025-07-03 14:38:59.885 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Informations utilisateur configurées: Administrateur Système
+2025-07-03 14:38:59.885 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Affaires - Accès: true
+2025-07-03 14:38:59.886 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Agents - Accès: true
+2025-07-03 14:38:59.886 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Contrevenants - Accès: true
+2025-07-03 14:38:59.886 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Encaissements - Accès: true
+2025-07-03 14:38:59.886 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Rapports - Accès: true
+2025-07-03 14:38:59.886 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Administration - Accès: true
+2025-07-03 14:38:59.893 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des handlers ToolBar...
+2025-07-03 14:38:59.912 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration de la navigation clavier...
+2025-07-03 14:38:59.913 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des gestionnaires de menus
+2025-07-03 14:38:59.913 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des raccourcis globaux
+2025-07-03 14:38:59.913 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Gestionnaires d'événements configurés
+2025-07-03 14:38:59.915 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration du menu Gestion des Mandats
+2025-07-03 15:00:27.538 [JavaFX-Launcher] DEBUG c.r.c.util.DatabaseSchemaUpdate - Schéma de base de données à jour
+2025-07-03 15:00:33.216 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Thème AtlantaFX appliqué
+2025-07-03 15:00:33.220 [JavaFX Application Thread] DEBUG c.r.contentieux.util.StageManager - ⚠️ Icône non trouvée: /images/icon.png
+2025-07-03 15:00:33.224 [JavaFX Application Thread] DEBUG c.r.contentieux.util.StageManager - ✅ Stage principal configuré
+2025-07-03 15:00:33.544 [JavaFX Application Thread] DEBUG c.r.c.controller.LoginController - LoginController initialisé
+2025-07-03 15:00:33.642 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Écran de connexion chargé
+2025-07-03 15:00:45.947 [JavaFX Application Thread] DEBUG c.r.contentieux.dao.UtilisateurDAO - Entité mise à jour avec succès: Utilisateur{id=1, login='admin', nom='Administrateur', prenom='Système', role=Super Administrateur, actif=true}
+2025-07-03 15:00:46.021 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Informations utilisateur configurées: Système Administrateur
+2025-07-03 15:00:46.021 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Affaires - Accès: true
+2025-07-03 15:00:46.021 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Agents - Accès: true
+2025-07-03 15:00:46.021 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Contrevenants - Accès: true
+2025-07-03 15:00:46.021 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Encaissements - Accès: true
+2025-07-03 15:00:46.022 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Rapports - Accès: true
+2025-07-03 15:00:46.022 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Administration - Accès: true
+2025-07-03 15:00:46.029 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des handlers ToolBar...
+2025-07-03 15:00:46.052 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration de la navigation clavier...
+2025-07-03 15:00:46.052 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des gestionnaires de menus
+2025-07-03 15:00:46.052 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des raccourcis globaux
+2025-07-03 15:00:46.053 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Gestionnaires d'événements configurés
+2025-07-03 15:00:46.054 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration du menu Gestion des Mandats
+2025-07-03 15:03:31.301 [JavaFX-Launcher] DEBUG c.r.c.util.DatabaseSchemaUpdate - Schéma de base de données à jour
+2025-07-03 15:03:36.998 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Thème AtlantaFX appliqué
+2025-07-03 15:03:37.003 [JavaFX Application Thread] DEBUG c.r.contentieux.util.StageManager - ⚠️ Icône non trouvée: /images/icon.png
+2025-07-03 15:03:37.007 [JavaFX Application Thread] DEBUG c.r.contentieux.util.StageManager - ✅ Stage principal configuré
+2025-07-03 15:03:37.307 [JavaFX Application Thread] DEBUG c.r.c.controller.LoginController - LoginController initialisé
+2025-07-03 15:03:37.414 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Écran de connexion chargé
+2025-07-03 15:04:19.540 [JavaFX Application Thread] DEBUG c.r.contentieux.dao.UtilisateurDAO - Entité mise à jour avec succès: Utilisateur{id=1, login='admin', nom='Système', prenom='Administrateur', role=Super Administrateur, actif=true}
+2025-07-03 15:04:19.614 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Informations utilisateur configurées: Administrateur Système
+2025-07-03 15:04:19.614 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Affaires - Accès: true
+2025-07-03 15:04:19.614 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Agents - Accès: true
+2025-07-03 15:04:19.614 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Contrevenants - Accès: true
+2025-07-03 15:04:19.615 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Encaissements - Accès: true
+2025-07-03 15:04:19.615 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Rapports - Accès: true
+2025-07-03 15:04:19.615 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Administration - Accès: true
+2025-07-03 15:04:19.622 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des handlers ToolBar...
+2025-07-03 15:04:19.644 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration de la navigation clavier...
+2025-07-03 15:04:19.644 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des gestionnaires de menus
+2025-07-03 15:04:19.645 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des raccourcis globaux
+2025-07-03 15:04:19.645 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Gestionnaires d'événements configurés
+2025-07-03 15:04:19.647 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration du menu Gestion des Mandats
+2025-07-03 15:05:38.061 [JavaFX-Launcher] DEBUG c.r.c.util.DatabaseSchemaUpdate - Schéma de base de données à jour
+2025-07-03 15:05:42.676 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Thème AtlantaFX appliqué
+2025-07-03 15:05:42.681 [JavaFX Application Thread] DEBUG c.r.contentieux.util.StageManager - ⚠️ Icône non trouvée: /images/icon.png
+2025-07-03 15:05:42.686 [JavaFX Application Thread] DEBUG c.r.contentieux.util.StageManager - ✅ Stage principal configuré
+2025-07-03 15:05:42.954 [JavaFX Application Thread] DEBUG c.r.c.controller.LoginController - LoginController initialisé
+2025-07-03 15:05:43.028 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Écran de connexion chargé
+2025-07-03 15:06:16.220 [JavaFX Application Thread] DEBUG c.r.contentieux.dao.UtilisateurDAO - Entité mise à jour avec succès: Utilisateur{id=1, login='admin', nom='Administrateur', prenom='Système', role=Super Administrateur, actif=true}
+2025-07-03 15:06:16.293 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Informations utilisateur configurées: Système Administrateur
+2025-07-03 15:06:16.293 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Affaires - Accès: true
+2025-07-03 15:06:16.293 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Agents - Accès: true
+2025-07-03 15:06:16.293 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Contrevenants - Accès: true
+2025-07-03 15:06:16.293 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Encaissements - Accès: true
+2025-07-03 15:06:16.293 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Rapports - Accès: true
+2025-07-03 15:06:16.293 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Administration - Accès: true
+2025-07-03 15:06:16.301 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des handlers ToolBar...
+2025-07-03 15:06:16.323 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration de la navigation clavier...
+2025-07-03 15:06:16.323 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des gestionnaires de menus
+2025-07-03 15:06:16.323 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des raccourcis globaux
+2025-07-03 15:06:16.323 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Gestionnaires d'événements configurés
+2025-07-03 15:06:16.325 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration du menu Gestion des Mandats
+2025-07-03 15:07:44.976 [JavaFX-Launcher] DEBUG c.r.c.util.DatabaseSchemaUpdate - Schéma de base de données à jour
+2025-07-03 15:07:49.836 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Thème AtlantaFX appliqué
+2025-07-03 15:07:49.843 [JavaFX Application Thread] DEBUG c.r.contentieux.util.StageManager - ⚠️ Icône non trouvée: /images/icon.png
+2025-07-03 15:07:49.848 [JavaFX Application Thread] DEBUG c.r.contentieux.util.StageManager - ✅ Stage principal configuré
+2025-07-03 15:07:50.138 [JavaFX Application Thread] DEBUG c.r.c.controller.LoginController - LoginController initialisé
+2025-07-03 15:07:50.239 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Écran de connexion chargé
+2025-07-03 15:07:55.470 [JavaFX Application Thread] DEBUG c.r.contentieux.dao.UtilisateurDAO - Entité mise à jour avec succès: Utilisateur{id=1, login='admin', nom='Système', prenom='Administrateur', role=Super Administrateur, actif=true}
+2025-07-03 15:07:55.543 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Informations utilisateur configurées: Administrateur Système
+2025-07-03 15:07:55.543 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Affaires - Accès: true
+2025-07-03 15:07:55.543 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Agents - Accès: true
+2025-07-03 15:07:55.544 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Contrevenants - Accès: true
+2025-07-03 15:07:55.544 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Encaissements - Accès: true
+2025-07-03 15:07:55.544 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Rapports - Accès: true
+2025-07-03 15:07:55.544 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Administration - Accès: true
+2025-07-03 15:07:55.553 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des handlers ToolBar...
+2025-07-03 15:07:55.577 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration de la navigation clavier...
+2025-07-03 15:07:55.577 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des gestionnaires de menus
+2025-07-03 15:07:55.577 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des raccourcis globaux
+2025-07-03 15:07:55.577 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Gestionnaires d'événements configurés
+2025-07-03 15:07:55.579 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration du menu Gestion des Mandats
+2025-07-03 15:09:28.184 [JavaFX-Launcher] DEBUG c.r.c.util.DatabaseSchemaUpdate - Schéma de base de données à jour
+2025-07-03 15:09:31.771 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Thème AtlantaFX appliqué
+2025-07-03 15:09:31.775 [JavaFX Application Thread] DEBUG c.r.contentieux.util.StageManager - ⚠️ Icône non trouvée: /images/icon.png
+2025-07-03 15:09:31.779 [JavaFX Application Thread] DEBUG c.r.contentieux.util.StageManager - ✅ Stage principal configuré
+2025-07-03 15:09:32.173 [JavaFX Application Thread] DEBUG c.r.c.controller.LoginController - LoginController initialisé
+2025-07-03 15:09:32.272 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Écran de connexion chargé
+2025-07-03 15:10:03.687 [JavaFX Application Thread] DEBUG c.r.contentieux.dao.UtilisateurDAO - Entité mise à jour avec succès: Utilisateur{id=1, login='admin', nom='Administrateur', prenom='Système', role=Super Administrateur, actif=true}
+2025-07-03 15:10:03.761 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Informations utilisateur configurées: Système Administrateur
+2025-07-03 15:10:03.762 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Affaires - Accès: true
+2025-07-03 15:10:03.762 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Agents - Accès: true
+2025-07-03 15:10:03.762 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Contrevenants - Accès: true
+2025-07-03 15:10:03.762 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Encaissements - Accès: true
+2025-07-03 15:10:03.762 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Rapports - Accès: true
+2025-07-03 15:10:03.762 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Administration - Accès: true
+2025-07-03 15:10:03.772 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des handlers ToolBar...
+2025-07-03 15:10:03.792 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration de la navigation clavier...
+2025-07-03 15:10:03.792 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des gestionnaires de menus
+2025-07-03 15:10:03.792 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des raccourcis globaux
+2025-07-03 15:10:03.792 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Gestionnaires d'événements configurés
+2025-07-03 15:10:03.794 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration du menu Gestion des Mandats
+2025-07-03 15:10:07.516 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Vue chargée dans mainContentArea: /view/agent-list.fxml
+2025-07-03 15:10:07.955 [JavaFX Application Thread] DEBUG c.r.c.controller.AgentListController - Interface mise à jour: 25 agents affichés
+2025-07-03 15:11:05.800 [JavaFX Application Thread] DEBUG c.r.c.controller.AgentListController - Interface mise à jour: 25 agents affichés
+2025-07-03 15:11:11.432 [JavaFX Application Thread] DEBUG c.r.c.controller.AgentListController - Interface mise à jour: 25 agents affichés
+2025-07-03 15:11:13.202 [JavaFX Application Thread] DEBUG c.r.c.controller.AgentListController - Interface mise à jour: 25 agents affichés
+2025-07-03 15:11:17.854 [JavaFX Application Thread] DEBUG c.r.c.controller.AgentListController - Interface mise à jour: 25 agents affichés
+2025-07-03 15:11:30.707 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Vue chargée dans mainContentArea: /view/encaissement-list.fxml
+2025-07-03 15:11:30.825 [JavaFX Application Thread] DEBUG c.r.c.c.EncaissementListController - Interface mise à jour: 25 encaissements affichés
+2025-07-03 15:12:08.657 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Vue chargée dans mainContentArea: /view/encaissement-list.fxml
+2025-07-03 15:12:08.773 [JavaFX Application Thread] DEBUG c.r.c.c.EncaissementListController - Interface mise à jour: 25 encaissements affichés
+2025-07-03 15:12:12.402 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Vue chargée dans mainContentArea: /view/agent-list.fxml
+2025-07-03 15:12:12.472 [JavaFX Application Thread] DEBUG c.r.c.controller.AgentListController - Interface mise à jour: 25 agents affichés
+2025-07-03 15:12:22.477 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Gestionnaires d'événements configurés
+2025-07-03 15:12:22.478 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🔧 Configuration colonnes génériques
+2025-07-03 15:12:22.480 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Colonnes génériques configurées: 2
+2025-07-03 15:12:22.517 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Vue chargée dans mainContentArea: /view/rapport-list.fxml
+2025-07-03 15:12:35.369 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🎯 === DÉBUT GÉNÉRATION RAPPORT ===
+2025-07-03 15:12:35.369 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Génération rapport: ETAT DE REPARTITION DES AFFAIRES CONTENTIEUSE
+2025-07-03 15:12:35.369 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📅 Période: 2025-07-01 - 2025-07-31
+2025-07-03 15:12:35.377 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Colonnes Template 1 configurées : 14 colonnes exactes
+2025-07-03 15:12:35.380 [Thread-13] DEBUG c.r.c.controller.RapportController - 🔄 Début génération asynchrone...
+2025-07-03 15:12:35.401 [Thread-13] DEBUG c.r.contentieux.dao.AgentDAO - Agent trouvé avec rôle spécial DD: Jean Pierre MAKOSSO
+2025-07-03 15:12:35.402 [Thread-13] DEBUG c.r.contentieux.dao.AgentDAO - Agent trouvé avec rôle spécial DG: KOUMOU GUENOLE MBONGO
+2025-07-03 15:12:35.417 [Thread-13] DEBUG c.r.contentieux.dao.AgentDAO - Agent trouvé avec rôle spécial DD: Jean Pierre MAKOSSO
+2025-07-03 15:12:35.422 [Thread-13] DEBUG c.r.contentieux.dao.AgentDAO - Agent trouvé avec rôle spécial DG: KOUMOU GUENOLE MBONGO
+2025-07-03 15:12:35.431 [Thread-13] DEBUG c.r.contentieux.dao.AgentDAO - Agent trouvé avec rôle spécial DD: Jean Pierre MAKOSSO
+2025-07-03 15:12:35.433 [Thread-13] DEBUG c.r.contentieux.dao.AgentDAO - Agent trouvé avec rôle spécial DG: KOUMOU GUENOLE MBONGO
+2025-07-03 15:12:35.521 [Thread-13] DEBUG c.r.c.controller.RapportController - ✅ Données générées: RapportRepartitionDTO
+2025-07-03 15:12:35.521 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🎉 Génération réussie
+2025-07-03 15:12:35.522 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📦 Données récupérées: RapportRepartitionDTO
+2025-07-03 15:12:35.522 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - === DÉBUT updateTableViewData ===
+2025-07-03 15:12:35.522 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Paramètres reçus:
+2025-07-03 15:12:35.522 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - - resultatsTableView: EXISTS
+2025-07-03 15:12:35.522 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - - rapportData: RapportRepartitionDTO
+2025-07-03 15:12:35.522 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🔍 Type de données reçues: com.regulation.contentieux.service.RapportService$RapportRepartitionDTO
+2025-07-03 15:12:35.522 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Ajouté 13 affaires de répartition
+2025-07-03 15:12:35.522 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Mise à jour TableView avec 13 éléments
+2025-07-03 15:12:35.523 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ TableView mise à jour avec 13 éléments
+2025-07-03 15:12:35.811 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Nombre de résultats affiché: 13
+2025-07-03 15:12:51.963 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Gestionnaires d'événements configurés
+2025-07-03 15:12:51.963 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🔧 Configuration colonnes génériques
+2025-07-03 15:12:51.963 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Colonnes génériques configurées: 2
+2025-07-03 15:12:51.981 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Vue chargée dans mainContentArea: /view/rapport-list.fxml
+2025-07-03 15:12:57.907 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🎯 === DÉBUT GÉNÉRATION RAPPORT ===
+2025-07-03 15:12:57.907 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Génération rapport: ETAT DE REPARTITION DES AFFAIRES CONTENTIEUSE
+2025-07-03 15:12:57.907 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📅 Période: 2025-07-01 - 2025-07-31
+2025-07-03 15:12:57.908 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Colonnes Template 1 configurées : 14 colonnes exactes
+2025-07-03 15:12:57.909 [Thread-14] DEBUG c.r.c.controller.RapportController - 🔄 Début génération asynchrone...
+2025-07-03 15:12:57.955 [Thread-14] DEBUG c.r.c.controller.RapportController - ✅ Données générées: RapportRepartitionDTO
+2025-07-03 15:12:57.956 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🎉 Génération réussie
+2025-07-03 15:12:57.956 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📦 Données récupérées: RapportRepartitionDTO
+2025-07-03 15:12:57.956 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - === DÉBUT updateTableViewData ===
+2025-07-03 15:12:57.956 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Paramètres reçus:
+2025-07-03 15:12:57.956 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - - resultatsTableView: EXISTS
+2025-07-03 15:12:57.956 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - - rapportData: RapportRepartitionDTO
+2025-07-03 15:12:57.956 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🔍 Type de données reçues: com.regulation.contentieux.service.RapportService$RapportRepartitionDTO
+2025-07-03 15:12:57.956 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Ajouté 13 affaires de répartition
+2025-07-03 15:12:57.956 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Mise à jour TableView avec 13 éléments
+2025-07-03 15:12:57.957 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ TableView mise à jour avec 13 éléments
+2025-07-03 15:12:58.081 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Nombre de résultats affiché: 13
+2025-07-03 15:13:14.471 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Gestionnaires d'événements configurés
+2025-07-03 15:13:14.471 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🔧 Configuration colonnes génériques
+2025-07-03 15:13:14.471 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Colonnes génériques configurées: 2
+2025-07-03 15:13:19.279 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🎯 === DÉBUT GÉNÉRATION RAPPORT ===
+2025-07-03 15:13:19.280 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Génération rapport: ETAT DE REPARTITION DES AFFAIRES CONTENTIEUSE
+2025-07-03 15:13:19.280 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📅 Période: 2025-07-01 - 2025-07-31
+2025-07-03 15:13:19.281 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Colonnes Template 1 configurées : 14 colonnes exactes
+2025-07-03 15:13:19.282 [Thread-15] DEBUG c.r.c.controller.RapportController - 🔄 Début génération asynchrone...
+2025-07-03 15:13:19.360 [Thread-15] DEBUG c.r.c.controller.RapportController - ✅ Données générées: RapportRepartitionDTO
+2025-07-03 15:13:19.361 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🎉 Génération réussie
+2025-07-03 15:13:19.362 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📦 Données récupérées: RapportRepartitionDTO
+2025-07-03 15:13:19.362 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - === DÉBUT updateTableViewData ===
+2025-07-03 15:13:19.362 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Paramètres reçus:
+2025-07-03 15:13:19.362 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - - resultatsTableView: EXISTS
+2025-07-03 15:13:19.363 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - - rapportData: RapportRepartitionDTO
+2025-07-03 15:13:19.363 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🔍 Type de données reçues: com.regulation.contentieux.service.RapportService$RapportRepartitionDTO
+2025-07-03 15:13:19.363 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Ajouté 13 affaires de répartition
+2025-07-03 15:13:19.364 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Mise à jour TableView avec 13 éléments
+2025-07-03 15:13:19.364 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ TableView mise à jour avec 13 éléments
+2025-07-03 15:13:19.532 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Nombre de résultats affiché: 13
+2025-07-03 15:13:27.322 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Gestionnaires d'événements configurés
+2025-07-03 15:13:27.322 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🔧 Configuration colonnes génériques
+2025-07-03 15:13:27.322 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Colonnes génériques configurées: 2
+2025-07-03 15:13:31.637 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🎯 === DÉBUT GÉNÉRATION RAPPORT ===
+2025-07-03 15:13:31.638 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Génération rapport: ETAT DE REPARTITION DES AFFAIRES CONTENTIEUSE
+2025-07-03 15:13:31.638 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📅 Période: 2025-07-01 - 2025-07-31
+2025-07-03 15:13:31.639 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Colonnes Template 1 configurées : 14 colonnes exactes
+2025-07-03 15:13:31.639 [Thread-16] DEBUG c.r.c.controller.RapportController - 🔄 Début génération asynchrone...
+2025-07-03 15:13:31.671 [Thread-16] DEBUG c.r.c.controller.RapportController - ✅ Données générées: RapportRepartitionDTO
+2025-07-03 15:13:31.671 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🎉 Génération réussie
+2025-07-03 15:13:31.671 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📦 Données récupérées: RapportRepartitionDTO
+2025-07-03 15:13:31.672 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - === DÉBUT updateTableViewData ===
+2025-07-03 15:13:31.672 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Paramètres reçus:
+2025-07-03 15:13:31.672 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - - resultatsTableView: EXISTS
+2025-07-03 15:13:31.672 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - - rapportData: RapportRepartitionDTO
+2025-07-03 15:13:31.672 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🔍 Type de données reçues: com.regulation.contentieux.service.RapportService$RapportRepartitionDTO
+2025-07-03 15:13:31.672 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Ajouté 13 affaires de répartition
+2025-07-03 15:13:31.672 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Mise à jour TableView avec 13 éléments
+2025-07-03 15:13:31.672 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ TableView mise à jour avec 13 éléments
+2025-07-03 15:13:31.830 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Nombre de résultats affiché: 13
+2025-07-03 15:13:40.658 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Ouverture dialogue nouvel encaissement
+2025-07-03 15:13:57.230 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Ouverture dialogue nouvel agent
+2025-07-03 15:14:27.035 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Ouverture dialogue nouvel agent
+2025-07-03 15:31:05.480 [JavaFX-Launcher] DEBUG c.r.c.util.DatabaseSchemaUpdate - Schéma de base de données à jour
+2025-07-03 15:31:11.351 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Thème AtlantaFX appliqué
+2025-07-03 15:31:11.356 [JavaFX Application Thread] DEBUG c.r.contentieux.util.StageManager - ⚠️ Icône non trouvée: /images/icon.png
+2025-07-03 15:31:11.360 [JavaFX Application Thread] DEBUG c.r.contentieux.util.StageManager - ✅ Stage principal configuré
+2025-07-03 15:31:11.689 [JavaFX Application Thread] DEBUG c.r.c.controller.LoginController - LoginController initialisé
+2025-07-03 15:31:11.800 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Écran de connexion chargé
+2025-07-03 15:31:36.175 [JavaFX-Launcher] DEBUG c.r.c.util.DatabaseSchemaUpdate - Schéma de base de données à jour
+2025-07-03 15:31:40.899 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Thème AtlantaFX appliqué
+2025-07-03 15:31:40.903 [JavaFX Application Thread] DEBUG c.r.contentieux.util.StageManager - ⚠️ Icône non trouvée: /images/icon.png
+2025-07-03 15:31:40.907 [JavaFX Application Thread] DEBUG c.r.contentieux.util.StageManager - ✅ Stage principal configuré
+2025-07-03 15:31:41.186 [JavaFX Application Thread] DEBUG c.r.c.controller.LoginController - LoginController initialisé
+2025-07-03 15:31:41.268 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Écran de connexion chargé
+2025-07-03 15:31:46.594 [JavaFX Application Thread] DEBUG c.r.contentieux.dao.UtilisateurDAO - Entité mise à jour avec succès: Utilisateur{id=1, login='admin', nom='Système', prenom='Administrateur', role=Super Administrateur, actif=true}
+2025-07-03 15:31:46.668 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Informations utilisateur configurées: Administrateur Système
+2025-07-03 15:31:46.668 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Affaires - Accès: true
+2025-07-03 15:31:46.668 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Agents - Accès: true
+2025-07-03 15:31:46.668 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Contrevenants - Accès: true
+2025-07-03 15:31:46.668 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Encaissements - Accès: true
+2025-07-03 15:31:46.669 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Rapports - Accès: true
+2025-07-03 15:31:46.669 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Administration - Accès: true
+2025-07-03 15:31:46.678 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des handlers ToolBar...
+2025-07-03 15:31:46.698 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration de la navigation clavier...
+2025-07-03 15:31:46.699 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des gestionnaires de menus
+2025-07-03 15:31:46.699 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des raccourcis globaux
+2025-07-03 15:31:46.699 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Gestionnaires d'événements configurés
+2025-07-03 15:31:46.700 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration du menu Gestion des Mandats
+2025-07-03 15:31:51.392 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Vue chargée dans mainContentArea: /view/agent-list.fxml
+2025-07-03 15:31:51.856 [JavaFX Application Thread] DEBUG c.r.c.controller.AgentListController - Interface mise à jour: 25 agents affichés
+2025-07-03 15:31:55.603 [JavaFX Application Thread] DEBUG c.r.c.controller.AgentListController - Ouverture du formulaire de création d'agent
+2025-07-03 15:32:15.079 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Ouverture dialogue nouvel agent
+2025-07-03 15:32:15.130 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Vue chargée dans mainContentArea: /view/agent-list.fxml
+2025-07-03 15:32:15.222 [JavaFX Application Thread] DEBUG c.r.c.controller.AgentListController - Ouverture du formulaire de création d'agent
+2025-07-03 15:32:15.346 [JavaFX Application Thread] DEBUG c.r.c.controller.AgentListController - Interface mise à jour: 25 agents affichés
+2025-07-03 15:43:40.807 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Gestionnaires d'événements configurés
+2025-07-03 15:43:40.807 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🔧 Configuration colonnes génériques
+2025-07-03 15:43:40.807 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Colonnes génériques configurées: 2
+2025-07-03 15:43:40.838 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Vue chargée dans mainContentArea: /view/rapport-list.fxml
+2025-07-03 15:43:44.405 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🎯 === DÉBUT GÉNÉRATION RAPPORT ===
+2025-07-03 15:43:44.406 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Génération rapport: ETAT DE REPARTITION DES AFFAIRES CONTENTIEUSE
+2025-07-03 15:43:44.406 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📅 Période: 2025-07-01 - 2025-07-31
+2025-07-03 15:43:44.414 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Colonnes Template 1 configurées : 14 colonnes exactes
+2025-07-03 15:43:44.416 [Thread-7] DEBUG c.r.c.controller.RapportController - 🔄 Début génération asynchrone...
+2025-07-03 15:43:44.466 [Thread-7] DEBUG c.r.contentieux.dao.AgentDAO - Agent trouvé avec rôle spécial DD: Jean Pierre MAKOSSO
+2025-07-03 15:43:44.470 [Thread-7] DEBUG c.r.contentieux.dao.AgentDAO - Agent trouvé avec rôle spécial DG: KOUMOU GUENOLE MBONGO
+2025-07-03 15:43:44.486 [Thread-7] DEBUG c.r.contentieux.dao.AgentDAO - Agent trouvé avec rôle spécial DD: Jean Pierre MAKOSSO
+2025-07-03 15:43:44.487 [Thread-7] DEBUG c.r.contentieux.dao.AgentDAO - Agent trouvé avec rôle spécial DG: KOUMOU GUENOLE MBONGO
+2025-07-03 15:43:44.494 [Thread-7] DEBUG c.r.contentieux.dao.AgentDAO - Agent trouvé avec rôle spécial DD: Jean Pierre MAKOSSO
+2025-07-03 15:43:44.497 [Thread-7] DEBUG c.r.contentieux.dao.AgentDAO - Agent trouvé avec rôle spécial DG: KOUMOU GUENOLE MBONGO
+2025-07-03 15:43:44.587 [Thread-7] DEBUG c.r.c.controller.RapportController - ✅ Données générées: RapportRepartitionDTO
+2025-07-03 15:43:44.588 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🎉 Génération réussie
+2025-07-03 15:43:44.588 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📦 Données récupérées: RapportRepartitionDTO
+2025-07-03 15:43:44.588 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - === DÉBUT updateTableViewData ===
+2025-07-03 15:43:44.588 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Paramètres reçus:
+2025-07-03 15:43:44.589 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - - resultatsTableView: EXISTS
+2025-07-03 15:43:44.589 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - - rapportData: RapportRepartitionDTO
+2025-07-03 15:43:44.589 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🔍 Type de données reçues: com.regulation.contentieux.service.RapportService$RapportRepartitionDTO
+2025-07-03 15:43:44.589 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Ajouté 13 affaires de répartition
+2025-07-03 15:43:44.589 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Mise à jour TableView avec 13 éléments
+2025-07-03 15:43:44.590 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ TableView mise à jour avec 13 éléments
+2025-07-03 15:43:44.877 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Nombre de résultats affiché: 13
+2025-07-03 15:43:58.989 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Colonnes Template 6 configurées : 7 colonnes (colonnes indésirables supprimées)
+2025-07-03 15:43:58.994 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Type de rapport changé: ETAT CUMULE PAR AGENT
+2025-07-03 15:43:58.995 [Thread-8] DEBUG c.r.c.controller.RapportController - 🔄 Chargement automatique des données pour: ETAT CUMULE PAR AGENT
+2025-07-03 15:43:59.044 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Impossible d'extraire le champ agent: agent
+2025-07-03 15:43:59.046 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Extraction impossible: partEnTantQueChef
+2025-07-03 15:43:59.047 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Extraction impossible: partEnTantQueSaisissant
+2025-07-03 15:43:59.047 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Extraction impossible: partEnTantQueDG
+2025-07-03 15:43:59.047 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Extraction impossible: partEnTantQueDD
+2025-07-03 15:43:59.048 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Extraction impossible: partTotaleAgent
+2025-07-03 15:43:59.052 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Impossible d'extraire le champ agent: agent
+2025-07-03 15:43:59.052 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Extraction impossible: partEnTantQueChef
+2025-07-03 15:43:59.056 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Impossible d'extraire le champ agent: agent
+2025-07-03 15:43:59.060 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Impossible d'extraire le champ agent: agent
+2025-07-03 15:43:59.066 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Impossible d'extraire le champ agent: agent
+2025-07-03 15:43:59.069 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Impossible d'extraire le champ agent: agent
+2025-07-03 15:43:59.345 [Thread-8] DEBUG c.r.contentieux.dao.AgentDAO - Trouvé 2890 entités
+2025-07-03 15:44:00.662 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📦 Données automatiques chargées: EtatCumuleAgentDTO
+2025-07-03 15:44:00.663 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - === DÉBUT updateTableViewData ===
+2025-07-03 15:44:00.663 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - Paramètres reçus:
+2025-07-03 15:44:00.663 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - - resultatsTableView: EXISTS
+2025-07-03 15:44:00.663 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - - rapportData: EtatCumuleAgentDTO
+2025-07-03 15:44:00.663 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 🔍 Type de données reçues: com.regulation.contentieux.service.RapportService$EtatCumuleAgentDTO
+2025-07-03 15:44:00.670 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📋 Traitement DTO générique: EtatCumuleAgentDTO
+2025-07-03 15:44:00.672 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Collection trouvée via champ: agents (8 éléments)
+2025-07-03 15:44:00.673 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Ajouté 8 éléments génériques
+2025-07-03 15:44:00.673 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Mise à jour TableView avec 8 éléments
+2025-07-03 15:44:00.683 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ TableView mise à jour avec 8 éléments
+2025-07-03 15:44:00.749 [JavaFX Application Thread] DEBUG c.r.contentieux.dao.AgentDAO - Trouvé 2890 entités
+2025-07-03 15:44:01.302 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - ✅ Aperçu HTML généré automatiquement pour ETAT CUMULE PAR AGENT
+2025-07-03 15:44:01.346 [JavaFX Application Thread] DEBUG c.r.c.controller.RapportController - 📊 Nombre de résultats affiché: 8
+2025-07-03 15:48:29.546 [Thread-13] DEBUG c.r.contentieux.dao.ServiceDAO - Trouvé 82 entités
+2025-07-03 15:48:29.547 [Thread-12] DEBUG c.r.contentieux.dao.CentreDAO - Trouvé 26 entités
+2025-07-03 15:48:29.555 [Thread-14] DEBUG c.r.contentieux.dao.BureauDAO - Trouvé 16 entités
+2025-07-03 15:48:29.578 [Thread-15] DEBUG c.r.contentieux.dao.BanqueDAO - Trouvé 1 entités
+2025-07-03 15:48:32.559 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireEncaissementController - Contrevenant sélectionné: STE LOG ET STE PRECIEUX
+2025-07-03 15:49:27.095 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Ouverture dialogue nouvel agent
+2025-07-03 15:49:27.127 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Vue chargée dans mainContentArea: /view/agent-list.fxml
+2025-07-03 15:49:27.180 [JavaFX Application Thread] DEBUG c.r.c.controller.AgentListController - Ouverture du formulaire de création d'agent
+2025-07-03 15:49:27.288 [JavaFX Application Thread] DEBUG c.r.c.controller.AgentListController - Interface mise à jour: 25 agents affichés
+2025-07-03 15:58:01.530 [JavaFX-Launcher] DEBUG c.r.c.util.DatabaseSchemaUpdate - Schéma de base de données à jour
+2025-07-03 15:58:31.962 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Thème AtlantaFX appliqué
+2025-07-03 15:58:31.966 [JavaFX Application Thread] DEBUG c.r.contentieux.util.StageManager - ⚠️ Icône non trouvée: /images/icon.png
+2025-07-03 15:58:31.969 [JavaFX Application Thread] DEBUG c.r.contentieux.util.StageManager - ✅ Stage principal configuré
+2025-07-03 15:58:32.241 [JavaFX Application Thread] DEBUG c.r.c.controller.LoginController - LoginController initialisé
+2025-07-03 15:58:32.325 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Écran de connexion chargé
+2025-07-03 16:04:13.858 [JavaFX Application Thread] DEBUG c.r.contentieux.dao.UtilisateurDAO - Entité mise à jour avec succès: Utilisateur{id=1, login='admin', nom='Administrateur', prenom='Système', role=Super Administrateur, actif=true}
+2025-07-03 16:04:13.931 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Informations utilisateur configurées: Système Administrateur
+2025-07-03 16:04:13.931 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Affaires - Accès: true
+2025-07-03 16:04:13.931 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Agents - Accès: true
+2025-07-03 16:04:13.931 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Contrevenants - Accès: true
+2025-07-03 16:04:13.931 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Encaissements - Accès: true
+2025-07-03 16:04:13.931 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Rapports - Accès: true
+2025-07-03 16:04:13.931 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Administration - Accès: true
+2025-07-03 16:04:13.940 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des handlers ToolBar...
+2025-07-03 16:04:13.961 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration de la navigation clavier...
+2025-07-03 16:04:13.961 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des gestionnaires de menus
+2025-07-03 16:04:13.962 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des raccourcis globaux
+2025-07-03 16:04:13.962 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Gestionnaires d'événements configurés
+2025-07-03 16:04:13.963 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration du menu Gestion des Mandats
+2025-07-03 16:04:16.758 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Ouverture dialogue nouvel agent
+2025-07-03 16:04:16.906 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Vue chargée dans mainContentArea: /view/agent-list.fxml
+2025-07-03 16:04:17.245 [JavaFX Application Thread] DEBUG c.r.c.controller.AgentListController - Ouverture du formulaire de création d'agent
+2025-07-03 16:04:17.416 [JavaFX Application Thread] DEBUG c.r.c.controller.AgentListController - Interface mise à jour: 25 agents affichés
+2025-07-03 16:04:19.001 [Thread-6] DEBUG c.r.contentieux.dao.ServiceDAO - Trouvé 82 entités
+2025-07-03 16:05:41.351 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Ouverture dialogue nouvel agent
+2025-07-03 16:05:41.400 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Vue chargée dans mainContentArea: /view/agent-list.fxml
+2025-07-03 16:05:41.510 [JavaFX Application Thread] DEBUG c.r.c.controller.AgentListController - Ouverture du formulaire de création d'agent
+2025-07-03 16:05:41.626 [JavaFX Application Thread] DEBUG c.r.c.controller.AgentListController - Interface mise à jour: 25 agents affichés
+2025-07-03 16:05:42.944 [Thread-8] DEBUG c.r.contentieux.dao.ServiceDAO - Trouvé 82 entités
+2025-07-03 16:06:11.009 [JavaFX-Launcher] DEBUG c.r.c.util.DatabaseSchemaUpdate - Schéma de base de données à jour
+2025-07-03 16:06:18.220 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Thème AtlantaFX appliqué
+2025-07-03 16:06:18.225 [JavaFX Application Thread] DEBUG c.r.contentieux.util.StageManager - ⚠️ Icône non trouvée: /images/icon.png
+2025-07-03 16:06:18.231 [JavaFX Application Thread] DEBUG c.r.contentieux.util.StageManager - ✅ Stage principal configuré
+2025-07-03 16:06:18.687 [JavaFX Application Thread] DEBUG c.r.c.controller.LoginController - LoginController initialisé
+2025-07-03 16:06:19.113 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Écran de connexion chargé
+2025-07-03 16:07:06.817 [JavaFX Application Thread] DEBUG c.r.contentieux.dao.UtilisateurDAO - Entité mise à jour avec succès: Utilisateur{id=1, login='admin', nom='Système', prenom='Administrateur', role=Super Administrateur, actif=true}
+2025-07-03 16:07:06.890 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Informations utilisateur configurées: Administrateur Système
+2025-07-03 16:07:06.890 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Affaires - Accès: true
+2025-07-03 16:07:06.890 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Agents - Accès: true
+2025-07-03 16:07:06.890 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Contrevenants - Accès: true
+2025-07-03 16:07:06.890 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Encaissements - Accès: true
+2025-07-03 16:07:06.890 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Rapports - Accès: true
+2025-07-03 16:07:06.890 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Administration - Accès: true
+2025-07-03 16:07:06.900 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des handlers ToolBar...
+2025-07-03 16:07:06.921 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration de la navigation clavier...
+2025-07-03 16:07:06.921 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des gestionnaires de menus
+2025-07-03 16:07:06.921 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des raccourcis globaux
+2025-07-03 16:07:06.921 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Gestionnaires d'événements configurés
+2025-07-03 16:07:06.922 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration du menu Gestion des Mandats
+2025-07-03 16:07:10.063 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Ouverture dialogue nouvel encaissement

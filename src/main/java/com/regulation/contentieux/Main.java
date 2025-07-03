@@ -120,7 +120,7 @@ public class Main extends Application {
         });
 
         primaryStage.setMinWidth(400);
-        primaryStage.setMinHeight(300);
+        primaryStage.setMinHeight(500);
     }
 
     /**

@@ -24,6 +24,7 @@ import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
+import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.CheckBoxTableCell;
 import javafx.scene.layout.HBox;
@@ -422,76 +423,93 @@ public class AffaireListController implements Initializable {
     /**
      * Chargement des données RÉELLES de la base
      */
+    /**
+     * Chargement des données depuis la base
+     */
     private void loadData() {
         logger.debug("Chargement des données depuis la base...");
 
-        try {
+        // Afficher immédiatement un indicateur de chargement
+        Platform.runLater(() -> {
             affaires.clear();
+            if (totalCountLabel != null) {
+                totalCountLabel.setText("Chargement...");
+            }
+            if (paginationInfoLabel != null) {
+                paginationInfoLabel.setText("Chargement en cours...");
+            }
+        });
 
-            // CHARGEMENT DES VRAIES DONNÉES depuis votre base
-            List<Affaire> affairesFromDb = affaireDAO.findAll(
-                    (currentPage - 1) * pageSize, // offset
-                    pageSize // limit
-            );
+        // Créer une tâche asynchrone pour le chargement
+        Task<List<AffaireViewModel>> loadTask = new Task<List<AffaireViewModel>>() {
+            @Override
+            protected List<AffaireViewModel> call() throws Exception {
+                logger.info("Début du chargement asynchrone - page {} (pageSize: {})", currentPage, pageSize);
 
-            logger.info("Chargées {} affaires depuis la base (page {}, taille {})",
-                    affairesFromDb.size(), currentPage, pageSize);
+                // Chargement des affaires depuis la base
+                List<Affaire> affairesFromDb = affaireDAO.findAll(
+                        (currentPage - 1) * pageSize, // offset
+                        pageSize // limit
+                );
 
-            // Conversion en ViewModels
-            for (Affaire affaire : affairesFromDb) {
-                AffaireViewModel viewModel = new AffaireViewModel();
+                // Comptage total
+                totalElements = affaireDAO.count();
 
-                // Mapping des vraies données
-                viewModel.setNumeroAffaire(affaire.getNumeroAffaire());
-                viewModel.setDateCreation(affaire.getDateCreation());
-                viewModel.setMontantAmendeTotal(affaire.getMontantTotal() != null ?
-                        affaire.getMontantTotal().doubleValue() : 0.0);
+                logger.info("Chargées {} affaires depuis la base (total: {})",
+                        affairesFromDb.size(), totalElements);
 
-                // Données liées (avec vérification null)
-                if (affaire.getContrevenant() != null) {
-                    viewModel.setContrevenantNom(affaire.getContrevenant().getNomComplet());
-                } else {
-                    viewModel.setContrevenantNom("N/A");
+                // Conversion en ViewModels
+                List<AffaireViewModel> viewModels = new ArrayList<>();
+                for (Affaire affaire : affairesFromDb) {
+                    viewModels.add(convertToViewModel(affaire));
                 }
 
-                // CORRIGÉ : utilise getContraventions() au lieu de getContravention()
-                if (affaire.getContraventions() != null && !affaire.getContraventions().isEmpty()) {
-                    viewModel.setContraventionLibelle(affaire.getContraventions().get(0).getLibelle());
-                } else {
-                    viewModel.setContraventionLibelle("N/A");
-                }
-
-                // CORRIGÉ : getStatut() retourne déjà StatutAffaire, pas besoin de valueOf
-                viewModel.setStatut(affaire.getStatut() != null ? affaire.getStatut() : StatutAffaire.OUVERTE);
-
-                // Bureau et Service (selon votre modèle)
-                if (affaire.getBureau() != null) {
-                    viewModel.setBureauNom(affaire.getBureau().getNomBureau());
-                } else {
-                    viewModel.setBureauNom("N/A");
-                }
-
-                if (affaire.getService() != null) {
-                    viewModel.setServiceNom(affaire.getService().getNomService());
-                } else {
-                    viewModel.setServiceNom("N/A");
-                }
-
-                affaires.add(viewModel);
+                return viewModels;
             }
 
-            // Calcul du total pour la pagination
-            totalElements = affaireDAO.count(); // Méthode à implémenter dans AffaireDAO
+            @Override
+            protected void succeeded() {
+                Platform.runLater(() -> {
+                    // Mise à jour de la liste
+                    affaires.clear();
+                    affaires.addAll(getValue());
 
-            updateTotalCountLabel();
-            updatePaginationInfo();
+                    // Mise à jour des compteurs
+                    totalPages = (int) Math.ceil((double) totalElements / pageSize);
 
-            logger.info("Données chargées avec succès : {} affaires sur {} total",
-                    affaires.size(), totalElements);
+                    // Mise à jour des labels
+                    updateTotalCountLabel();
+                    updatePaginationInfo();
+                    updatePaginationButtons();
+                    updatePaginationNumbers();
 
-        } catch (Exception e) {
-            logger.error("Erreur lors du chargement des données", e);
-        }
+                    logger.info("Interface mise à jour avec succès : {} affaires affichées", affaires.size());
+                });
+            }
+
+            @Override
+            protected void failed() {
+                Platform.runLater(() -> {
+                    logger.error("Erreur lors du chargement des données", getException());
+
+                    if (totalCountLabel != null) {
+                        totalCountLabel.setText("Erreur");
+                    }
+                    if (paginationInfoLabel != null) {
+                        paginationInfoLabel.setText("Erreur de chargement");
+                    }
+
+                    AlertUtil.showErrorAlert("Erreur de chargement",
+                            "Impossible de charger les affaires",
+                            "Vérifiez la connexion à la base de données.");
+                });
+            }
+        };
+
+        // Exécuter la tâche dans un thread séparé
+        Thread loadThread = new Thread(loadTask);
+        loadThread.setDaemon(true);
+        loadThread.start();
     }
 
     // ===== MÉTHODES D'ACTION =====
@@ -571,45 +589,100 @@ public class AffaireListController implements Initializable {
     /**
      * Chargement des données avec critères de recherche
      */
+    /**
+     * Chargement des données avec critères de recherche
+     */
     private void loadDataWithCriteria(String searchTerm, StatutAffaire statut,
                                       LocalDate dateDebut, LocalDate dateFin) {
         logger.debug("Chargement avec critères: terme='{}', statut={}, dates={} à {}",
                 searchTerm, statut, dateDebut, dateFin);
 
-        try {
+        // Afficher indicateur de chargement
+        Platform.runLater(() -> {
             affaires.clear();
+            if (totalCountLabel != null) {
+                totalCountLabel.setText("Recherche...");
+            }
+            if (paginationInfoLabel != null) {
+                paginationInfoLabel.setText("Recherche en cours...");
+            }
+        });
 
-            // Utiliser une méthode de recherche avec critères dans le DAO
-            List<Affaire> affairesFromDb = affaireDAO.searchAffaires(
-                    searchTerm, statut, dateDebut, dateFin,
-                    null, // bureauId (pas utilisé pour l'instant)
-                    (currentPage - 1) * pageSize, // offset
-                    pageSize // limit
-            );
+        // Tâche asynchrone pour la recherche
+        Task<List<AffaireViewModel>> searchTask = new Task<List<AffaireViewModel>>() {
+            @Override
+            protected List<AffaireViewModel> call() throws Exception {
+                // Utiliser la méthode de recherche avec critères
+                List<Affaire> affairesFromDb = affaireDAO.searchAffaires(
+                        searchTerm, statut, dateDebut, dateFin,
+                        null, // bureauId (pas utilisé pour l'instant)
+                        (currentPage - 1) * pageSize, // offset
+                        pageSize // limit
+                );
 
-            logger.info("Trouvées {} affaires avec les critères (page {}, taille {})",
-                    affairesFromDb.size(), currentPage, pageSize);
+                // Pour le comptage avec critères, utiliser la même recherche sans limite
+                // (Idéalement, il faudrait une méthode countSearchAffaires, mais on utilise l'existant)
+                List<Affaire> allResults = affaireDAO.searchAffaires(
+                        searchTerm, statut, dateDebut, dateFin,
+                        null, 0, Integer.MAX_VALUE
+                );
+                totalElements = allResults.size();
 
-            // Conversion en ViewModels (même logique que loadData())
-            for (Affaire affaire : affairesFromDb) {
-                AffaireViewModel viewModel = convertToViewModel(affaire);
-                affaires.add(viewModel);
+                logger.info("Recherche terminée: {} résultats trouvés (page {}, total {})",
+                        affairesFromDb.size(), currentPage, totalElements);
+
+                // Conversion en ViewModels
+                List<AffaireViewModel> viewModels = new ArrayList<>();
+                for (Affaire affaire : affairesFromDb) {
+                    viewModels.add(convertToViewModel(affaire));
+                }
+
+                return viewModels;
             }
 
-            // Compter le total avec les mêmes critères
-            totalElements = affaireDAO.count(); // Utilise la méthode count() simple pour l'instant
+            @Override
+            protected void succeeded() {
+                Platform.runLater(() -> {
+                    // Mise à jour de la liste
+                    affaires.clear();
+                    affaires.addAll(getValue());
 
-            updateTotalCountLabel();
-            updatePaginationInfo();
+                    // Mise à jour des compteurs
+                    totalPages = (int) Math.ceil((double) totalElements / pageSize);
 
-            logger.info("Recherche terminée : {} résultats sur {} total",
-                    affaires.size(), totalElements);
+                    // Mise à jour de l'interface
+                    updateTotalCountLabel();
+                    updatePaginationInfo();
+                    updatePaginationButtons();
+                    updatePaginationNumbers();
 
-        } catch (Exception e) {
-            logger.error("Erreur lors de la recherche", e);
-            AlertUtil.showErrorAlert("Erreur", "Erreur de recherche",
-                    "Impossible d'effectuer la recherche : " + e.getMessage());
-        }
+                    logger.info("Recherche terminée : {} résultats affichés sur {} total",
+                            affaires.size(), totalElements);
+                });
+            }
+
+            @Override
+            protected void failed() {
+                Platform.runLater(() -> {
+                    logger.error("Erreur lors de la recherche", getException());
+
+                    if (totalCountLabel != null) {
+                        totalCountLabel.setText("Erreur");
+                    }
+                    if (paginationInfoLabel != null) {
+                        paginationInfoLabel.setText("Erreur de recherche");
+                    }
+
+                    AlertUtil.showErrorAlert("Erreur", "Erreur de recherche",
+                            "Impossible d'effectuer la recherche : " + getException().getMessage());
+                });
+            }
+        };
+
+        // Exécuter la recherche
+        Thread searchThread = new Thread(searchTask);
+        searchThread.setDaemon(true);
+        searchThread.start();
     }
 
     /**
@@ -657,13 +730,17 @@ public class AffaireListController implements Initializable {
     /**
      * Convertit une Affaire en AffaireViewModel
      */
+    /**
+     * Convertit une Affaire en AffaireViewModel
+     */
     private AffaireViewModel convertToViewModel(Affaire affaire) {
         AffaireViewModel viewModel = new AffaireViewModel();
 
+        // Données de base
         viewModel.setNumeroAffaire(affaire.getNumeroAffaire());
         viewModel.setDateCreation(affaire.getDateCreation());
 
-        // CORRECTION: Gérer le montant correctement
+        // Montant
         BigDecimal montantTotal = affaire.getMontantAmendeTotal();
         if (montantTotal != null) {
             viewModel.setMontantAmendeTotal(montantTotal.doubleValue());
@@ -671,34 +748,33 @@ public class AffaireListController implements Initializable {
             viewModel.setMontantAmendeTotal(0.0);
         }
 
-        // Données liées avec vérification null
+        // Contrevenant
         if (affaire.getContrevenant() != null) {
             viewModel.setContrevenantNom(affaire.getContrevenant().getNomComplet());
         } else {
             viewModel.setContrevenantNom("N/A");
         }
 
-        // CORRECTION: Gérer la contravention unique depuis la base
-        // La base a une colonne contravention_id, pas une liste
-        // Le DAO charge déjà la contravention via LEFT JOIN
+        // Contravention - La base utilise une contravention unique
         if (affaire.getContraventions() != null && !affaire.getContraventions().isEmpty()) {
-            // Si on a une liste, prendre la première
-            Contravention firstContravention = affaire.getContraventions().get(0);
-            viewModel.setContraventionLibelle(firstContravention.getLibelle());
+            // Prendre la première (et unique) contravention
+            Contravention contravention = affaire.getContraventions().get(0);
+            viewModel.setContraventionLibelle(contravention.getLibelle());
         } else {
-            // Sinon, mettre N/A
             viewModel.setContraventionLibelle("N/A");
         }
 
+        // Statut
         viewModel.setStatut(affaire.getStatut() != null ? affaire.getStatut() : StatutAffaire.OUVERTE);
 
-        // Bureau et Service
+        // Bureau
         if (affaire.getBureau() != null) {
             viewModel.setBureauNom(affaire.getBureau().getNomBureau());
         } else {
             viewModel.setBureauNom("N/A");
         }
 
+        // Service
         if (affaire.getService() != null) {
             viewModel.setServiceNom(affaire.getService().getNomService());
         } else {
@@ -717,21 +793,124 @@ public class AffaireListController implements Initializable {
         loadData();
     }
 
-    private void onSelectAll() {
-        boolean selectAll = selectAllCheckBox.isSelected();
-        affaires.forEach(affaire -> affaire.setSelected(selectAll));
-        updateActionButtons();
-    }
-
     // ===== MÉTHODES DE PAGINATION =====
 
+    /**
+     * Met à jour l'état des boutons de pagination
+     */
+    private void updatePaginationButtons() {
+        if (firstPageButton != null) {
+            firstPageButton.setDisable(currentPage <= 1);
+        }
+
+        if (previousPageButton != null) {
+            previousPageButton.setDisable(currentPage <= 1);
+        }
+
+        if (nextPageButton != null) {
+            nextPageButton.setDisable(currentPage >= totalPages);
+        }
+
+        if (lastPageButton != null) {
+            lastPageButton.setDisable(currentPage >= totalPages);
+        }
+
+        if (gotoPageButton != null && gotoPageField != null) {
+            gotoPageButton.setDisable(gotoPageField.getText().trim().isEmpty());
+        }
+    }
+
+    /**
+     * Met à jour les numéros de page affichés
+     */
+    private void updatePaginationNumbers() {
+        if (pageNumbersContainer == null) {
+            return;
+        }
+
+        pageNumbersContainer.getChildren().clear();
+
+        // Calculer la plage de pages à afficher
+        int startPage = Math.max(1, currentPage - 2);
+        int endPage = Math.min(totalPages, currentPage + 2);
+
+        // Ajuster pour toujours afficher 5 pages si possible
+        if (endPage - startPage < 4) {
+            if (startPage == 1) {
+                endPage = Math.min(totalPages, 5);
+            } else if (endPage == totalPages) {
+                startPage = Math.max(1, totalPages - 4);
+            }
+        }
+
+        // Ajouter le bouton "1..." si nécessaire
+        if (startPage > 1) {
+            Button firstButton = createPageButton(1);
+            pageNumbersContainer.getChildren().add(firstButton);
+
+            if (startPage > 2) {
+                Label dots = new Label("...");
+                dots.setPadding(new Insets(5));
+                pageNumbersContainer.getChildren().add(dots);
+            }
+        }
+
+        // Ajouter les boutons de page
+        for (int i = startPage; i <= endPage; i++) {
+            Button pageButton = createPageButton(i);
+            if (i == currentPage) {
+                pageButton.getStyleClass().add("page-button-active");
+                pageButton.setDisable(true);
+            }
+            pageNumbersContainer.getChildren().add(pageButton);
+        }
+
+        // Ajouter "...dernière page" si nécessaire
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) {
+                Label dots = new Label("...");
+                dots.setPadding(new Insets(5));
+                pageNumbersContainer.getChildren().add(dots);
+            }
+
+            Button lastButton = createPageButton(totalPages);
+            pageNumbersContainer.getChildren().add(lastButton);
+        }
+    }
+
+    /**
+     * Crée un bouton de page
+     */
+    private Button createPageButton(int pageNumber) {
+        Button button = new Button(String.valueOf(pageNumber));
+        button.getStyleClass().add("page-button");
+        button.setOnAction(e -> goToPage(pageNumber));
+        return button;
+    }
+
+    /**
+     * Navigation vers une page spécifique
+     */
+    private void goToPage(int pageNumber) {
+        if (pageNumber >= 1 && pageNumber <= totalPages && pageNumber != currentPage) {
+            currentPage = pageNumber;
+            loadData();
+        }
+    }
+
+    /**
+     * Navigation vers la première page
+     */
     private void goToFirstPage() {
-        if (currentPage != 1) {
+        if (currentPage > 1) {
             currentPage = 1;
             loadData();
         }
     }
 
+    /**
+     * Navigation vers la page précédente
+     */
     private void goToPreviousPage() {
         if (currentPage > 1) {
             currentPage--;
@@ -739,6 +918,9 @@ public class AffaireListController implements Initializable {
         }
     }
 
+    /**
+     * Navigation vers la page suivante
+     */
     private void goToNextPage() {
         if (currentPage < totalPages) {
             currentPage++;
@@ -746,34 +928,95 @@ public class AffaireListController implements Initializable {
         }
     }
 
+    /**
+     * Navigation vers la dernière page
+     */
     private void goToLastPage() {
-        if (currentPage != totalPages && totalPages > 0) {
+        if (currentPage < totalPages) {
             currentPage = totalPages;
             loadData();
         }
     }
 
+    /**
+     * Navigation vers une page saisie
+     */
     private void goToPage() {
-        if (gotoPageField == null || gotoPageField.getText().trim().isEmpty()) {
+        if (gotoPageField == null) {
             return;
         }
 
-        try {
-            int targetPage = Integer.parseInt(gotoPageField.getText().trim());
-            if (targetPage >= 1 && targetPage <= totalPages) {
-                currentPage = targetPage;
-                loadData();
-            } else {
-                // CORRECTION : Ajout du 3ème paramètre header
+        String pageText = gotoPageField.getText().trim();
+        if (!pageText.isEmpty()) {
+            try {
+                int pageNumber = Integer.parseInt(pageText);
+                if (pageNumber >= 1 && pageNumber <= totalPages) {
+                    currentPage = pageNumber;
+                    loadData();
+                    gotoPageField.clear();
+                } else {
+                    AlertUtil.showWarningAlert("Page invalide",
+                            "Numéro de page incorrect",
+                            "Le numéro de page doit être entre 1 et " + totalPages);
+                }
+            } catch (NumberFormatException e) {
                 AlertUtil.showWarningAlert("Page invalide",
-                        "Numéro de page incorrect",
-                        "La page doit être entre 1 et " + totalPages);
+                        "Format incorrect",
+                        "Veuillez entrer un numéro de page valide");
             }
-        } catch (NumberFormatException e) {
-            // CORRECTION : Ajout du 3ème paramètre header
-            AlertUtil.showWarningAlert("Page invalide",
-                    "Format incorrect",
-                    "Veuillez entrer un numéro de page valide");
+        }
+    }
+
+    /**
+     * Met à jour le label du nombre total
+     */
+    private void updateTotalCountLabel() {
+        if (totalCountLabel != null) {
+            String text = formatLargeNumber(totalElements) + " affaire(s)";
+            totalCountLabel.setText(text);
+        }
+    }
+
+    /**
+     * Formate un grand nombre avec séparateurs
+     */
+    private String formatLargeNumber(long number) {
+        return String.format("%,d", number);
+    }
+
+    /**
+     * Gestion de la sélection globale
+     */
+    private void onSelectAll() {
+        if (selectAllCheckBox != null) {
+            boolean selectAll = selectAllCheckBox.isSelected();
+            for (AffaireViewModel affaire : affaires) {
+                affaire.setSelected(selectAll);
+            }
+            updateSelectionButtons();
+        }
+    }
+
+    /**
+     * Met à jour l'état des boutons basés sur la sélection
+     */
+    private void updateSelectionButtons() {
+        long selectedCount = affaires.stream()
+                .filter(AffaireViewModel::isSelected)
+                .count();
+
+        boolean hasSelection = selectedCount > 0;
+
+        if (editButton != null) {
+            editButton.setDisable(!hasSelection || selectedCount > 1);
+        }
+
+        if (deleteButton != null) {
+            deleteButton.setDisable(!hasSelection);
+        }
+
+        if (duplicateButton != null) {
+            duplicateButton.setDisable(!hasSelection || selectedCount > 1);
         }
     }
 
@@ -787,12 +1030,6 @@ public class AffaireListController implements Initializable {
         if (editButton != null) editButton.setDisable(!singleSelection);
         if (deleteButton != null) deleteButton.setDisable(!hasSelection);
         if (duplicateButton != null) duplicateButton.setDisable(!hasSelection);
-    }
-
-    private void updateTotalCountLabel() {
-        if (totalCountLabel != null) {
-            totalCountLabel.setText(totalElements + " affaire(s)");
-        }
     }
 
     private void updatePaginationInfo() {

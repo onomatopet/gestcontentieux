@@ -167,3 +167,90 @@
 2025-07-03 01:17:51.484 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Chargement des données depuis la base...
 2025-07-03 01:17:51.584 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Vue chargée dans mainContentArea: /view/affaire-list.fxml
 2025-07-03 01:17:56.299 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Chargement avec critères: terme='', statut=null, dates=null à null
+2025-07-03 11:35:03.773 [JavaFX-Launcher] DEBUG c.r.c.util.DatabaseSchemaUpdate - Schéma de base de données à jour
+2025-07-03 11:35:08.518 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Thème AtlantaFX appliqué
+2025-07-03 11:35:08.523 [JavaFX Application Thread] DEBUG c.r.contentieux.util.StageManager - ⚠️ Icône non trouvée: /images/icon.png
+2025-07-03 11:35:08.530 [JavaFX Application Thread] DEBUG c.r.contentieux.util.StageManager - ✅ Stage principal configuré
+2025-07-03 11:35:08.892 [JavaFX Application Thread] DEBUG c.r.c.controller.LoginController - LoginController initialisé
+2025-07-03 11:35:09.000 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Écran de connexion chargé
+2025-07-03 11:35:16.333 [JavaFX Application Thread] DEBUG c.r.contentieux.dao.UtilisateurDAO - Entité mise à jour avec succès: Utilisateur{id=1, login='admin', nom='Système', prenom='Administrateur', role=Super Administrateur, actif=true}
+2025-07-03 11:35:16.406 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Informations utilisateur configurées: Administrateur Système
+2025-07-03 11:35:16.406 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Affaires - Accès: true
+2025-07-03 11:35:16.406 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Agents - Accès: true
+2025-07-03 11:35:16.406 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Contrevenants - Accès: true
+2025-07-03 11:35:16.407 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Encaissements - Accès: true
+2025-07-03 11:35:16.407 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Rapports - Accès: true
+2025-07-03 11:35:16.407 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Administration - Accès: true
+2025-07-03 11:35:16.414 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des handlers ToolBar...
+2025-07-03 11:35:16.437 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration de la navigation clavier...
+2025-07-03 11:35:16.438 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des gestionnaires de menus
+2025-07-03 11:35:16.438 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des raccourcis globaux
+2025-07-03 11:35:16.438 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Gestionnaires d'événements configurés
+2025-07-03 11:35:16.439 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration du menu Gestion des Mandats
+2025-07-03 11:35:19.829 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Configuration de l'interface utilisateur...
+2025-07-03 11:35:19.837 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Interface utilisateur configurée
+2025-07-03 11:35:19.837 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Configuration des colonnes du tableau...
+2025-07-03 11:35:19.844 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Colonnes du tableau configurées
+2025-07-03 11:35:19.844 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Configuration des gestionnaires d'événements...
+2025-07-03 11:35:19.846 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Gestionnaires d'événements configurés
+2025-07-03 11:35:19.846 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Configuration de la pagination...
+2025-07-03 11:35:19.847 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Chargement des données depuis la base...
+2025-07-03 11:35:19.867 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Vue chargée dans mainContentArea: /view/affaire-list.fxml
+2025-07-03 11:35:39.362 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Chargement des données depuis la base...
+2025-07-03 11:35:42.817 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Chargement des données depuis la base...
+2025-07-03 11:35:44.628 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Chargement des données depuis la base...
+2025-07-03 11:35:45.685 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Chargement des données depuis la base...
+2025-07-03 11:35:47.443 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Chargement des données depuis la base...
+2025-07-03 11:36:01.992 [Thread-15] DEBUG c.r.contentieux.dao.ServiceDAO - Trouvé 82 entités
+2025-07-03 11:36:01.993 [Thread-16] DEBUG c.r.contentieux.dao.BureauDAO - Trouvé 16 entités
+2025-07-03 11:36:02.019 [Thread-14] DEBUG c.r.contentieux.dao.CentreDAO - Trouvé 26 entités
+2025-07-03 11:36:02.058 [Thread-17] DEBUG c.r.contentieux.dao.BanqueDAO - Trouvé 1 entités
+2025-07-03 11:36:02.530 [Thread-13] DEBUG c.r.contentieux.dao.ContraventionDAO - Trouvé 4868 entités
+2025-07-03 11:36:03.117 [Thread-12] DEBUG c.r.contentieux.dao.ContrevenantDAO - Trouvé 20222 entités
+2025-07-03 11:36:32.606 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Vue chargée dans mainContentArea: /view/encaissement-list.fxml
+2025-07-03 11:36:32.727 [JavaFX Application Thread] DEBUG c.r.c.c.EncaissementListController - Interface mise à jour: 25 encaissements affichés
+2025-07-03 11:38:00.078 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Ouverture dialogue nouvel encaissement
+2025-07-03 11:39:14.965 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireEncaissementController - Contrevenant sélectionné: MAKADA ET KABA
+2025-07-03 11:41:16.025 [Thread-40] DEBUG c.r.c.util.TransactionManager - 🔄 Nouvelle transaction démarrée
+2025-07-03 11:41:16.029 [Thread-40] DEBUG c.r.contentieux.dao.AffaireDAO - Entité sauvegardée avec succès: Affaire{id=30389, numeroAffaire='250700012', dateCreation=2025-07-03, montantTotal=0, statut=En cours}
+2025-07-03 11:41:16.032 [Thread-40] DEBUG c.r.contentieux.dao.EncaissementDAO - 🔍 === GÉNÉRATION NUMÉRO ENCAISSEMENT ===
+2025-07-03 11:41:16.032 [Thread-40] DEBUG c.r.contentieux.dao.EncaissementDAO - 🔍 Format cahier des charges: YYMMRNNNNN (R = littéral 'R')
+2025-07-03 11:41:16.033 [Thread-40] DEBUG c.r.contentieux.dao.EncaissementDAO - 🔍 Préfixe attendu pour ce mois: 2507R
+2025-07-03 11:41:16.034 [Thread-40] DEBUG c.r.contentieux.dao.EncaissementDAO - 🔍 Dernier numéro trouvé: 2507R61552
+2025-07-03 11:41:16.036 [Thread-40] DEBUG c.r.contentieux.dao.EncaissementDAO - Entité sauvegardée avec succès: Encaissement{id=30384, reference='2507R61553', dateEncaissement=2025-07-03, montantEncaisse=2550000, modeReglement=Espèces, statut=Validé}
+2025-07-03 11:41:16.057 [Thread-40] DEBUG c.r.contentieux.dao.AffaireDAO - Entité mise à jour avec succès: Affaire{id=30389, numeroAffaire='250700012', dateCreation=2025-07-03, montantTotal=0, statut=Clôturée}
+2025-07-03 11:41:16.060 [Thread-40] DEBUG c.r.c.util.TransactionManager - ✅ Transaction committée avec succès
+2025-07-03 11:41:16.060 [Thread-40] DEBUG c.r.c.util.TransactionManager - 🔒 Transaction fermée
+2025-07-03 11:41:18.929 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Action Actualiser déclenchée
+2025-07-03 11:41:18.929 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Rafraîchissement du contrôleur: EncaissementListController
+2025-07-03 11:41:19.077 [JavaFX Application Thread] DEBUG c.r.c.c.EncaissementListController - Interface mise à jour: 25 encaissements affichés
+2025-07-03 11:42:02.023 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Configuration de l'interface utilisateur...
+2025-07-03 11:42:02.024 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Interface utilisateur configurée
+2025-07-03 11:42:02.024 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Configuration des colonnes du tableau...
+2025-07-03 11:42:02.024 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Colonnes du tableau configurées
+2025-07-03 11:42:02.024 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Configuration des gestionnaires d'événements...
+2025-07-03 11:42:02.024 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Gestionnaires d'événements configurés
+2025-07-03 11:42:02.024 [JavaFX Application Thread] DEBUG c.r.c.c.AffaireListController - Configuration de la pagination...
+2025-07-03 11:42:02.029 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Vue chargée dans mainContentArea: /view/affaire-list.fxml
+2025-07-03 11:47:19.252 [JavaFX-Launcher] DEBUG c.r.c.util.DatabaseSchemaUpdate - Schéma de base de données à jour
+2025-07-03 11:47:24.360 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Thème AtlantaFX appliqué
+2025-07-03 11:47:24.366 [JavaFX Application Thread] DEBUG c.r.contentieux.util.StageManager - ⚠️ Icône non trouvée: /images/icon.png
+2025-07-03 11:47:24.369 [JavaFX Application Thread] DEBUG c.r.contentieux.util.StageManager - ✅ Stage principal configuré
+2025-07-03 11:47:24.711 [JavaFX Application Thread] DEBUG c.r.c.controller.LoginController - LoginController initialisé
+2025-07-03 11:47:24.791 [JavaFX Application Thread] DEBUG com.regulation.contentieux.Main - Écran de connexion chargé
+2025-07-03 11:48:44.005 [JavaFX Application Thread] DEBUG c.r.contentieux.dao.UtilisateurDAO - Entité mise à jour avec succès: Utilisateur{id=1, login='admin', nom='Administrateur', prenom='Système', role=Super Administrateur, actif=true}
+2025-07-03 11:48:44.094 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Informations utilisateur configurées: Système Administrateur
+2025-07-03 11:48:44.094 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Affaires - Accès: true
+2025-07-03 11:48:44.094 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Agents - Accès: true
+2025-07-03 11:48:44.094 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Contrevenants - Accès: true
+2025-07-03 11:48:44.095 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Encaissements - Accès: true
+2025-07-03 11:48:44.095 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Rapports - Accès: true
+2025-07-03 11:48:44.095 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Menu Administration - Accès: true
+2025-07-03 11:48:44.101 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des handlers ToolBar...
+2025-07-03 11:48:44.123 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration de la navigation clavier...
+2025-07-03 11:48:44.123 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des gestionnaires de menus
+2025-07-03 11:48:44.123 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration des raccourcis globaux
+2025-07-03 11:48:44.123 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Gestionnaires d'événements configurés
+2025-07-03 11:48:44.124 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Configuration du menu Gestion des Mandats
+2025-07-03 11:48:47.314 [JavaFX Application Thread] DEBUG c.r.c.controller.MainController - Vue chargée dans mainContentArea: /view/encaissement-list.fxml
+2025-07-03 11:48:48.071 [JavaFX Application Thread] DEBUG c.r.c.c.EncaissementListController - Interface mise à jour: 25 encaissements affichés

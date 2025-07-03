@@ -205,12 +205,6 @@ public class AffaireService {
      * Note: ContraventionViewModel est une classe interne du contrôleur,
      * donc on passe directement les contraventions avec leurs montants
      */
-    /**
-     * CORRECTION : Méthode saveAffaireWithContraventions avec récupération des montants
-     */
-    /**
-     * CORRECTION : Méthode saveAffaireWithContraventions avec récupération des montants
-     */
     public Affaire saveAffaireWithContraventions(Affaire affaire, List<Contravention> contraventions, List<BigDecimal> montants) {
         Connection conn = null;
         try {
@@ -250,20 +244,37 @@ public class AffaireService {
                 }
             }
 
-            // DÉFINIR LE MONTANT TOTAL SUR L'AFFAIRE
+            // DÉFINIR LE MONTANT TOTAL SUR L'AFFAIRE - TRÈS IMPORTANT
             affaire.setMontantAmendeTotal(montantTotal);
-            affaire.setMontantTotal(montantTotal); // Synchroniser les deux
+            affaire.setMontantTotal(montantTotal); // Synchroniser les deux propriétés
 
             logger.info("💰 Montant total calculé pour l'affaire : {} FCFA", montantTotal);
+            logger.debug("🔍 Affaire avant sauvegarde - montantAmendeTotal: {}, montantTotal: {}",
+                    affaire.getMontantAmendeTotal(), affaire.getMontantTotal());
 
             // 1. Sauvegarder l'affaire principale avec le montant correct
             if (!contraventions.isEmpty()) {
                 affaire.setContraventionId(contraventions.get(0).getId());
             }
 
+            // VÉRIFICATION AVANT SAUVEGARDE
+            if (affaire.getMontantAmendeTotal() == null || affaire.getMontantAmendeTotal().compareTo(BigDecimal.ZERO) == 0) {
+                logger.error("❌ ATTENTION : Le montant de l'affaire est null ou zéro avant sauvegarde !");
+                throw new IllegalStateException("Le montant de l'affaire doit être défini avant la sauvegarde");
+            }
+
             Affaire savedAffaire = affaireDAO.save(affaire);
+
+            // VÉRIFICATION APRÈS SAUVEGARDE
             logger.info("✅ Affaire sauvegardée : {} avec montant : {} FCFA",
                     savedAffaire.getNumeroAffaire(), savedAffaire.getMontantAmendeTotal());
+
+            // Recharger l'affaire pour vérifier
+            Optional<Affaire> reloaded = affaireDAO.findById(savedAffaire.getId());
+            if (reloaded.isPresent()) {
+                logger.info("🔄 Affaire rechargée - montant en BD : {} FCFA",
+                        reloaded.get().getMontantAmendeTotal());
+            }
 
             // 2. Si la table affaire_contraventions existe, y sauvegarder aussi
             try {
@@ -568,7 +579,9 @@ public class AffaireService {
                                         LocalDate dateDebut, LocalDate dateFin,
                                         Integer bureauId, int page, int size) {
         int offset = page * size;
-        return affaireDAO.searchAffaires(searchTerm, statut, dateDebut, dateFin, bureauId, offset, size);
+        // Conversion Integer vers Long
+        Long bureauIdLong = bureauId != null ? bureauId.longValue() : null;
+        return affaireDAO.searchAffaires(searchTerm, statut, dateDebut, dateFin, bureauIdLong, offset, size);
     }
 
     /**
@@ -576,7 +589,9 @@ public class AffaireService {
      */
     public long countSearchAffaires(String searchTerm, StatutAffaire statut,
                                     LocalDate dateDebut, LocalDate dateFin, Integer bureauId) {
-        return affaireDAO.countSearchAffaires(searchTerm, statut, dateDebut, dateFin, bureauId);
+        // Conversion Integer vers Long
+        Long bureauIdLong = bureauId != null ? bureauId.longValue() : null;
+        return affaireDAO.countSearchAffaires(searchTerm, statut, dateDebut, dateFin, bureauIdLong);
     }
 
     /**

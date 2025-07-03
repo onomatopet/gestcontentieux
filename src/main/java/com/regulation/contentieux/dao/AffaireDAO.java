@@ -116,15 +116,31 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
             affaire.setDateCreation(dateCreation.toLocalDate());
         }
 
-        // Montant total - CORRECTION COMPLÈTE
+        // CORRECTION FINALE : Vérifier LES DEUX colonnes de montant
         BigDecimal montantAmendeTotal = rs.getBigDecimal("montant_amende_total");
-        if (montantAmendeTotal != null) {
-            affaire.setMontantTotal(montantAmendeTotal);
-            affaire.setMontantAmendeTotal(montantAmendeTotal);
-        } else {
-            affaire.setMontantTotal(BigDecimal.ZERO);
-            affaire.setMontantAmendeTotal(BigDecimal.ZERO);
+        BigDecimal montantTotal = rs.getBigDecimal("montant_total");
+
+        // Utiliser la valeur non-nulle et non-zéro en priorité
+        BigDecimal montantFinal = BigDecimal.ZERO;
+
+        // Priorité 1 : montant_amende_total si > 0
+        if (montantAmendeTotal != null && montantAmendeTotal.compareTo(BigDecimal.ZERO) > 0) {
+            montantFinal = montantAmendeTotal;
         }
+        // Priorité 2 : montant_total si > 0
+        else if (montantTotal != null && montantTotal.compareTo(BigDecimal.ZERO) > 0) {
+            montantFinal = montantTotal;
+        }
+        // Sinon, prendre la première valeur non-nulle
+        else if (montantAmendeTotal != null) {
+            montantFinal = montantAmendeTotal;
+        } else if (montantTotal != null) {
+            montantFinal = montantTotal;
+        }
+
+        // Synchroniser les deux propriétés avec la valeur finale
+        affaire.setMontantTotal(montantFinal);
+        affaire.setMontantAmendeTotal(montantFinal);
 
         // Statut
         String statutStr = rs.getString("statut");
@@ -160,6 +176,23 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
             affaire.setServiceId(serviceId);
         }
 
+        // Autres champs existants
+        Date dateConstatation = rs.getDate("date_constatation");
+        if (dateConstatation != null) {
+            affaire.setDateConstatation(dateConstatation.toLocalDate());
+        }
+
+        affaire.setLieuConstatation(rs.getString("lieu_constatation"));
+        affaire.setDescription(rs.getString("description"));
+        affaire.setObservations(rs.getString("observations"));
+
+        BigDecimal montantEncaisse = rs.getBigDecimal("montant_encaisse");
+        if (montantEncaisse != null) {
+            affaire.setMontantEncaisse(montantEncaisse);
+        } else {
+            affaire.setMontantEncaisse(BigDecimal.ZERO);
+        }
+
         // Timestamps
         Timestamp createdAt = rs.getTimestamp("created_at");
         if (createdAt != null) {
@@ -170,6 +203,9 @@ public class AffaireDAO extends AbstractSQLiteDAO<Affaire, Long> {
         if (updatedAt != null) {
             affaire.setUpdatedAt(updatedAt.toLocalDateTime());
         }
+
+        affaire.setCreatedBy(rs.getString("created_by"));
+        affaire.setUpdatedBy(rs.getString("updated_by"));
 
         // Données jointes par LEFT JOIN (si présentes)
         try {

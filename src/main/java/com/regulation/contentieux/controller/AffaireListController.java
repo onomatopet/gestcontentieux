@@ -726,8 +726,10 @@ public class AffaireListController implements Initializable {
     // ===== MÉTHODES DE PAGINATION =====
 
     private void goToFirstPage() {
-        currentPage = 1;
-        loadData();
+        if (currentPage != 1) {
+            currentPage = 1;
+            loadData();
+        }
     }
 
     private void goToPreviousPage() {
@@ -745,19 +747,33 @@ public class AffaireListController implements Initializable {
     }
 
     private void goToLastPage() {
-        currentPage = totalPages;
-        loadData();
+        if (currentPage != totalPages && totalPages > 0) {
+            currentPage = totalPages;
+            loadData();
+        }
     }
 
     private void goToPage() {
+        if (gotoPageField == null || gotoPageField.getText().trim().isEmpty()) {
+            return;
+        }
+
         try {
-            int page = Integer.parseInt(gotoPageField.getText());
-            if (page >= 1 && page <= totalPages) {
-                currentPage = page;
+            int targetPage = Integer.parseInt(gotoPageField.getText().trim());
+            if (targetPage >= 1 && targetPage <= totalPages) {
+                currentPage = targetPage;
                 loadData();
+            } else {
+                // CORRECTION : Ajout du 3ème paramètre header
+                AlertUtil.showWarningAlert("Page invalide",
+                        "Numéro de page incorrect",
+                        "La page doit être entre 1 et " + totalPages);
             }
         } catch (NumberFormatException e) {
-            // Ignore
+            // CORRECTION : Ajout du 3ème paramètre header
+            AlertUtil.showWarningAlert("Page invalide",
+                    "Format incorrect",
+                    "Veuillez entrer un numéro de page valide");
         }
     }
 

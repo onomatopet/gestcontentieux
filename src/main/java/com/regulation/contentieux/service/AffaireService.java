@@ -1,12 +1,9 @@
 package com.regulation.contentieux.service;
 
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.ArrayList;
 import java.util.Objects;
 
-import java.sql.Connection;
 import java.util.List;
 import java.math.BigDecimal;
 import com.regulation.contentieux.config.DatabaseConfig;
@@ -208,43 +205,106 @@ public class AffaireService {
      * Note: ContraventionViewModel est une classe interne du contrôleur,
      * donc on passe directement les contraventions avec leurs montants
      */
+    /**
+     * CORRECTION : Méthode saveAffaireWithContraventions avec récupération des montants
+     */
+    /**
+     * CORRECTION : Méthode saveAffaireWithContraventions avec récupération des montants
+     */
     public Affaire saveAffaireWithContraventions(Affaire affaire, List<Contravention> contraventions, List<BigDecimal> montants) {
         Connection conn = null;
         try {
             conn = DatabaseConfig.getSQLiteConnection();
             conn.setAutoCommit(false);
 
-            // 1. Sauvegarder l'affaire principale
-            // Pour la compatibilité, on garde contravention_id avec la première contravention
+            // CORRECTION IMPORTANTE : Calculer et définir le montant total AVANT de sauvegarder
+            BigDecimal montantTotal = BigDecimal.ZERO;
+
+            // Si on a des montants personnalisés, les utiliser
+            if (montants != null && !montants.isEmpty()) {
+                for (BigDecimal montant : montants) {
+                    if (montant != null) {
+                        montantTotal = montantTotal.add(montant);
+                    }
+                }
+            }
+            // Sinon, utiliser les montants des contraventions
+            else if (contraventions != null && !contraventions.isEmpty()) {
+                for (Contravention contravention : contraventions) {
+                    // Charger la contravention complète depuis la base si nécessaire
+                    if (contravention.getMontant() == null && contravention.getId() != null) {
+                        String sql = "SELECT montant FROM contraventions WHERE id = ?";
+                        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+                            stmt.setLong(1, contravention.getId());
+                            ResultSet rs = stmt.executeQuery();
+                            if (rs.next()) {
+                                BigDecimal montantDB = rs.getBigDecimal("montant");
+                                if (montantDB != null) {
+                                    montantTotal = montantTotal.add(montantDB);
+                                }
+                            }
+                        }
+                    } else if (contravention.getMontant() != null) {
+                        montantTotal = montantTotal.add(contravention.getMontant());
+                    }
+                }
+            }
+
+            // DÉFINIR LE MONTANT TOTAL SUR L'AFFAIRE
+            affaire.setMontantAmendeTotal(montantTotal);
+            affaire.setMontantTotal(montantTotal); // Synchroniser les deux
+
+            logger.info("💰 Montant total calculé pour l'affaire : {} FCFA", montantTotal);
+
+            // 1. Sauvegarder l'affaire principale avec le montant correct
             if (!contraventions.isEmpty()) {
                 affaire.setContraventionId(contraventions.get(0).getId());
             }
 
             Affaire savedAffaire = affaireDAO.save(affaire);
+            logger.info("✅ Affaire sauvegardée : {} avec montant : {} FCFA",
+                    savedAffaire.getNumeroAffaire(), savedAffaire.getMontantAmendeTotal());
 
-            // 2. Sauvegarder les contraventions dans la table de liaison
-            String insertSql = """
-            INSERT INTO affaire_contraventions (affaire_id, contravention_id, montant_applique)
-            VALUES (?, ?, ?)
-        """;
+            // 2. Si la table affaire_contraventions existe, y sauvegarder aussi
+            try {
+                // Vérifier si la table existe
+                DatabaseMetaData metaData = conn.getMetaData();
+                ResultSet tables = metaData.getTables(null, null, "affaire_contraventions", null);
 
-            try (PreparedStatement stmt = conn.prepareStatement(insertSql)) {
-                for (int i = 0; i < contraventions.size(); i++) {
-                    stmt.setLong(1, savedAffaire.getId());
-                    stmt.setLong(2, contraventions.get(i).getId());
-                    stmt.setBigDecimal(3, montants.get(i));
-                    stmt.addBatch();
+                if (tables.next()) {
+                    // La table existe, sauvegarder les relations
+                    String insertSql = """
+                    INSERT INTO affaire_contraventions (affaire_id, contravention_id, montant_applique)
+                    VALUES (?, ?, ?)
+                """;
+
+                    try (PreparedStatement pstmt = conn.prepareStatement(insertSql)) {
+                        for (int i = 0; i < contraventions.size(); i++) {
+                            Contravention contravention = contraventions.get(i);
+                            BigDecimal montantApplique = (montants != null && i < montants.size())
+                                    ? montants.get(i)
+                                    : contravention.getMontant();
+
+                            pstmt.setLong(1, savedAffaire.getId());
+                            pstmt.setLong(2, contravention.getId());
+                            pstmt.setBigDecimal(3, montantApplique);
+                            pstmt.addBatch();
+                        }
+                        pstmt.executeBatch();
+                        logger.info("✅ Relations affaire-contraventions sauvegardées");
+                    }
+                } else {
+                    logger.warn("⚠️ Table affaire_contraventions introuvable - relations non sauvegardées");
                 }
-                stmt.executeBatch();
+            } catch (SQLException e) {
+                logger.warn("⚠️ Impossible de sauvegarder dans affaire_contraventions : {}", e.getMessage());
+                // Ne pas faire échouer la transaction pour ça
             }
 
             conn.commit();
-            logger.info("Affaire {} sauvegardée avec {} contraventions",
-                    savedAffaire.getNumeroAffaire(), contraventions.size());
-
             return savedAffaire;
 
-        } catch (SQLException e) {
+        } catch (Exception e) {
             if (conn != null) {
                 try {
                     conn.rollback();
@@ -252,7 +312,8 @@ public class AffaireService {
                     logger.error("Erreur lors du rollback", ex);
                 }
             }
-            throw new RuntimeException("Erreur lors de la sauvegarde de l'affaire", e);
+            logger.error("Erreur lors de la sauvegarde de l'affaire avec contraventions", e);
+            throw new RuntimeException("Erreur lors de la sauvegarde: " + e.getMessage(), e);
         } finally {
             if (conn != null) {
                 try {

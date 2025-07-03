@@ -1963,69 +1963,215 @@ public class RapportService {
     /**
      * Calcule la part d'un agent en tant que chef
      */
+    /**
+     * Calcule la part d'un agent en tant que chef
+     * CORRIGÉ : Division de la part totale par le nombre de bénéficiaires
+     */
     private BigDecimal calculerPartChefAgent(Agent agent, LocalDate dateDebut, LocalDate dateFin) {
         try {
+            BigDecimal partTotale = BigDecimal.ZERO;
+
+            // Récupérer toutes les affaires où l'agent est chef
             String sql = """
-        SELECT COALESCE(SUM(r.part_chefs), 0) as total_chef
-        FROM repartition_resultats r
-        JOIN encaissements e ON r.encaissement_id = e.id
-        JOIN affaires a ON e.affaire_id = a.id
-        JOIN affaire_acteurs aa ON a.id = aa.affaire_id
-        WHERE aa.agent_id = ? AND aa.role_sur_affaire = 'CHEF'
-        AND e.date_encaissement BETWEEN ? AND ?
+            SELECT DISTINCT a.id, e.id as encaissement_id, r.part_chefs
+            FROM affaires a
+            JOIN affaire_acteurs aa ON a.id = aa.affaire_id
+            JOIN encaissements e ON a.id = e.affaire_id
+            JOIN repartition_resultats r ON e.id = r.encaissement_id
+            WHERE aa.agent_id = ? 
+            AND aa.role_sur_affaire = 'Chef'
+            AND e.date_encaissement BETWEEN ? AND ?
+            AND e.statut = 'VALIDE'
         """;
 
             try (Connection conn = DatabaseConfig.getSQLiteConnection();
                  PreparedStatement stmt = conn.prepareStatement(sql)) {
+
                 stmt.setLong(1, agent.getId());
                 stmt.setDate(2, Date.valueOf(dateDebut));
                 stmt.setDate(3, Date.valueOf(dateFin));
 
                 try (ResultSet rs = stmt.executeQuery()) {
-                    if (rs.next()) {
-                        return rs.getBigDecimal("total_chef");
+                    while (rs.next()) {
+                        Long affaireId = rs.getLong("id");
+                        BigDecimal partChefsTotal = rs.getBigDecimal("part_chefs");
+
+                        // CORRECTION : Compter TOUS les bénéficiaires de la part chefs
+                        long nbChefs = compterActeursParRole(affaireId, "Chef");
+
+                        // Vérifier si DD et DG existent dans le système
+                        long nbDD = existeRoleSpecial("DD") ? 1 : 0;
+                        long nbDG = existeRoleSpecial("DG") ? 1 : 0;
+
+                        long totalBeneficiairesChefs = nbChefs + nbDD + nbDG;
+
+                        if (totalBeneficiairesChefs > 0 && partChefsTotal != null) {
+                            // DIVISER la part totale par le nombre de bénéficiaires
+                            BigDecimal partIndividuelle = partChefsTotal.divide(
+                                    BigDecimal.valueOf(totalBeneficiairesChefs), 2, RoundingMode.HALF_UP);
+                            partTotale = partTotale.add(partIndividuelle);
+
+                            logger.debug("Affaire {} : Part chefs totale {} / {} bénéficiaires = {} par chef",
+                                    affaireId, partChefsTotal, totalBeneficiairesChefs, partIndividuelle);
+                        }
                     }
                 }
             }
+
+            return partTotale;
+
         } catch (Exception e) {
             logger.error("Erreur calcul part chef agent {}: {}", agent.getNom(), e.getMessage());
+            return BigDecimal.ZERO;
+        }
+    }
+
+    /**
+     * Vérifie si un rôle spécial existe dans le système
+     * Version simplifiée qui vérifie juste l'existence du rôle
+     */
+    private boolean existeRoleSpecial(String role) {
+        String sql = "SELECT COUNT(*) FROM roles_speciaux WHERE role_nom = ?";
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, role);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                return rs.getInt(1) > 0;
+            }
+
+        } catch (SQLException e) {
+            logger.error("Erreur vérification existence rôle spécial {}", role, e);
         }
 
-        return BigDecimal.ZERO;
+        return false;
     }
 
     /**
      * Calcule la part d'un agent en tant que saisissant
+     * CORRIGÉ : Division de la part totale par le nombre de saisissants
      */
     private BigDecimal calculerPartSaisissantAgent(Agent agent, LocalDate dateDebut, LocalDate dateFin) {
         try {
+            BigDecimal partTotale = BigDecimal.ZERO;
+
+            // Récupérer toutes les affaires où l'agent est saisissant
             String sql = """
-        SELECT COALESCE(SUM(r.part_saisissants), 0) as total_saisissant
-        FROM repartition_resultats r
-        JOIN encaissements e ON r.encaissement_id = e.id
-        JOIN affaires a ON e.affaire_id = a.id
-        JOIN affaire_acteurs aa ON a.id = aa.affaire_id
-        WHERE aa.agent_id = ? AND aa.role_sur_affaire = 'SAISISSANT'
-        AND e.date_encaissement BETWEEN ? AND ?
+            SELECT DISTINCT a.id, e.id as encaissement_id, r.part_saisissants
+            FROM affaires a
+            JOIN affaire_acteurs aa ON a.id = aa.affaire_id
+            JOIN encaissements e ON a.id = e.affaire_id
+            JOIN repartition_resultats r ON e.id = r.encaissement_id
+            WHERE aa.agent_id = ? 
+            AND aa.role_sur_affaire = 'Saisissant'
+            AND e.date_encaissement BETWEEN ? AND ?
+            AND e.statut = 'VALIDE'
         """;
 
             try (Connection conn = DatabaseConfig.getSQLiteConnection();
                  PreparedStatement stmt = conn.prepareStatement(sql)) {
+
                 stmt.setLong(1, agent.getId());
                 stmt.setDate(2, Date.valueOf(dateDebut));
                 stmt.setDate(3, Date.valueOf(dateFin));
 
                 try (ResultSet rs = stmt.executeQuery()) {
-                    if (rs.next()) {
-                        return rs.getBigDecimal("total_saisissant");
+                    while (rs.next()) {
+                        Long affaireId = rs.getLong("id");
+                        BigDecimal partSaisissantsTotal = rs.getBigDecimal("part_saisissants");
+
+                        // CORRECTION : Compter le nombre de saisissants
+                        long nbSaisissants = compterActeursParRole(affaireId, "Saisissant");
+
+                        if (nbSaisissants > 0 && partSaisissantsTotal != null) {
+                            // DIVISER la part totale par le nombre de saisissants
+                            BigDecimal partIndividuelle = partSaisissantsTotal.divide(
+                                    BigDecimal.valueOf(nbSaisissants), 2, RoundingMode.HALF_UP);
+                            partTotale = partTotale.add(partIndividuelle);
+
+                            logger.debug("Affaire {} : Part saisissants totale {} / {} saisissants = {} par saisissant",
+                                    affaireId, partSaisissantsTotal, nbSaisissants, partIndividuelle);
+                        }
                     }
                 }
             }
+
+            return partTotale;
+
         } catch (Exception e) {
             logger.error("Erreur calcul part saisissant agent {}: {}", agent.getNom(), e.getMessage());
+            return BigDecimal.ZERO;
+        }
+    }
+
+    /**
+     * Calcule la part d'un agent ayant un rôle spécial (DD ou DG)
+     * NOUVEAU : DD et DG font partie du pool des chefs
+     */
+    private BigDecimal calculerPartRoleSpecialAgent(Agent agent, String roleSpecial, LocalDate dateDebut, LocalDate dateFin) {
+        if (!"DD".equals(roleSpecial) && !"DG".equals(roleSpecial)) {
+            return BigDecimal.ZERO;
         }
 
-        return BigDecimal.ZERO;
+        try {
+            BigDecimal partTotale = BigDecimal.ZERO;
+
+            // DD et DG touchent sur TOUTES les affaires avec une part chefs
+            String sql = """
+            SELECT DISTINCT e.id as encaissement_id, a.id as affaire_id, r.part_chefs
+            FROM encaissements e
+            JOIN affaires a ON e.affaire_id = a.id
+            JOIN repartition_resultats r ON e.id = r.encaissement_id
+            WHERE e.date_encaissement BETWEEN ? AND ?
+            AND e.statut = 'VALIDE'
+            AND r.part_chefs > 0
+        """;
+
+            try (Connection conn = DatabaseConfig.getSQLiteConnection();
+                 PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+                stmt.setDate(1, Date.valueOf(dateDebut));
+                stmt.setDate(2, Date.valueOf(dateFin));
+
+                try (ResultSet rs = stmt.executeQuery()) {
+                    while (rs.next()) {
+                        Long affaireId = rs.getLong("affaire_id");
+                        BigDecimal partChefsTotal = rs.getBigDecimal("part_chefs");
+
+                        // Compter TOUS les bénéficiaires de la part chefs
+                        long nbChefs = compterActeursParRole(affaireId, "Chef");
+                        long nbDD = existeRoleSpecial("DD") ? 1 : 0;
+                        long nbDG = existeRoleSpecial("DG") ? 1 : 0;
+
+                        // Vérifier que le rôle spécial concerné existe
+                        if ((roleSpecial.equals("DD") && nbDD == 0) || (roleSpecial.equals("DG") && nbDG == 0)) {
+                            continue; // Pas de part si le rôle n'existe pas
+                        }
+
+                        long totalBeneficiairesChefs = nbChefs + nbDD + nbDG;
+
+                        if (totalBeneficiairesChefs > 0 && partChefsTotal != null) {
+                            // DD/DG touche sa part comme un chef
+                            BigDecimal partIndividuelle = partChefsTotal.divide(
+                                    BigDecimal.valueOf(totalBeneficiairesChefs), 2, RoundingMode.HALF_UP);
+                            partTotale = partTotale.add(partIndividuelle);
+
+                            logger.debug("Affaire {} : {} touche {} FCFA (part chefs {} / {} bénéficiaires)",
+                                    affaireId, roleSpecial, partIndividuelle, partChefsTotal, totalBeneficiairesChefs);
+                        }
+                    }
+                }
+            }
+
+            return partTotale;
+
+        } catch (Exception e) {
+            logger.error("Erreur calcul part {} : {}", roleSpecial, e.getMessage());
+            return BigDecimal.ZERO;
+        }
     }
 
     /**

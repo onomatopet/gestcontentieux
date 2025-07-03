@@ -142,6 +142,10 @@ public class RepartitionService {
      * Calcule les parts individuelles des acteurs
      * CORRIGÉ : DD et DG font partie du pool des chefs
      */
+    /**
+     * Calcule les parts individuelles des acteurs
+     * CORRIGÉ : Division correcte des parts entre tous les bénéficiaires
+     */
     private void calculerPartsIndividuelles(RepartitionResultat resultat, Affaire affaire) {
         logger.info("👥 === CALCUL DES PARTS INDIVIDUELLES ===");
 
@@ -149,7 +153,6 @@ public class RepartitionService {
         List<Agent> saisissants = getSaisissants(affaire);
 
         // CORRECTION : DD et DG font partie du pool des chefs
-        // Récupérer DD et DG
         Agent dd = getAgentDD();
         Agent dg = getAgentDG();
 
@@ -159,22 +162,35 @@ public class RepartitionService {
         // Ajouter DD s'il existe et n'est pas déjà dans la liste
         if (dd != null && !beneficiairesChefs.stream().anyMatch(a -> a.getId().equals(dd.getId()))) {
             beneficiairesChefs.add(dd);
+            logger.info("➕ DD ajouté aux bénéficiaires de la part chefs");
         }
 
         // Ajouter DG s'il existe et n'est pas déjà dans la liste
         if (dg != null && !beneficiairesChefs.stream().anyMatch(a -> a.getId().equals(dg.getId()))) {
             beneficiairesChefs.add(dg);
+            logger.info("➕ DG ajouté aux bénéficiaires de la part chefs");
         }
 
-        // Parts des chefs (incluant DD et DG)
+        logger.info("📊 Nombre total de bénéficiaires part chefs: {} (dont {} chefs)",
+                beneficiairesChefs.size(), chefs.size());
+
+        // CORRECTION IMPORTANTE : Division équitable de la part des chefs
         if (!beneficiairesChefs.isEmpty()) {
-            BigDecimal partParBeneficiaire = resultat.getPartChefs()
-                    .divide(new BigDecimal(beneficiairesChefs.size()), 0, RoundingMode.HALF_UP);
+            // Part totale pour tous les chefs (15% du produit net ayants droits)
+            BigDecimal partTotaleChefs = resultat.getPartChefs();
+
+            // DIVISER la part totale par le nombre de bénéficiaires
+            BigDecimal partParBeneficiaire = partTotaleChefs
+                    .divide(new BigDecimal(beneficiairesChefs.size()), 2, RoundingMode.HALF_UP);
+
+            logger.info("💰 Part totale chefs: {} FCFA à diviser entre {} bénéficiaires",
+                    partTotaleChefs, beneficiairesChefs.size());
+            logger.info("💰 Part par bénéficiaire chef: {} FCFA", partParBeneficiaire);
 
             for (Agent beneficiaire : beneficiairesChefs) {
                 String role = "CHEF";
 
-                // Identifier le rôle spécifique
+                // Identifier le rôle spécifique pour le logging
                 if (dd != null && beneficiaire.getId().equals(dd.getId())) {
                     role = "DD";
                 } else if (dg != null && beneficiaire.getId().equals(dg.getId())) {
@@ -185,18 +201,78 @@ public class RepartitionService {
                 logger.info("👤 {} {} - {} : {} FCFA",
                         role, beneficiaire.getCodeAgent(), beneficiaire.getNomComplet(), partParBeneficiaire);
             }
+        } else {
+            logger.warn("⚠️ Aucun chef trouvé pour l'affaire!");
         }
 
-        // Parts des saisissants
+        // CORRECTION IMPORTANTE : Division équitable de la part des saisissants
         if (!saisissants.isEmpty()) {
-            BigDecimal partParSaisissant = resultat.getPartSaisissants()
-                    .divide(new BigDecimal(saisissants.size()), 0, RoundingMode.HALF_UP);
+            // Part totale pour tous les saisissants (35% du produit net ayants droits)
+            BigDecimal partTotaleSaisissants = resultat.getPartSaisissants();
+
+            // DIVISER la part totale par le nombre de saisissants
+            BigDecimal partParSaisissant = partTotaleSaisissants
+                    .divide(new BigDecimal(saisissants.size()), 2, RoundingMode.HALF_UP);
+
+            logger.info("💰 Part totale saisissants: {} FCFA à diviser entre {} saisissants",
+                    partTotaleSaisissants, saisissants.size());
+            logger.info("💰 Part par saisissant: {} FCFA", partParSaisissant);
 
             for (Agent saisissant : saisissants) {
                 resultat.addPartIndividuelle(saisissant, partParSaisissant, "SAISISSANT");
-                logger.info("👤 Saisissant {} - {} : {} FCFA",
+                logger.info("👤 SAISISSANT {} - {} : {} FCFA",
                         saisissant.getCodeAgent(), saisissant.getNomComplet(), partParSaisissant);
             }
+        } else {
+            logger.warn("⚠️ Aucun saisissant trouvé pour l'affaire!");
+        }
+
+        // Résumé du calcul
+        logger.info("📊 === RÉSUMÉ RÉPARTITION ===");
+        logger.info("📊 Montant encaissé: {} FCFA", resultat.getProduitDisponible());
+        logger.info("📊 Part chefs totale: {} FCFA pour {} bénéficiaires",
+                resultat.getPartChefs(), beneficiairesChefs.size());
+        logger.info("📊 Part saisissants totale: {} FCFA pour {} saisissants",
+                resultat.getPartSaisissants(), saisissants.size());
+    }
+
+    /**
+     * Enregistre les parts individuelles dans la base
+     * NOUVEAU : Méthode pour sauvegarder correctement les parts individuelles
+     */
+    public void enregistrerPartsIndividuelles(Long repartitionId, RepartitionResultat resultat) {
+        logger.info("💾 Enregistrement des parts individuelles...");
+
+        String sql = """
+        INSERT INTO repartition_details (
+            repartition_resultat_id, agent_id, type_part, montant
+        ) VALUES (?, ?, ?, ?)
+    """;
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            conn.setAutoCommit(false);
+
+            for (RepartitionResultat.PartIndividuelle part : resultat.getPartsIndividuelles()) {
+                stmt.setLong(1, repartitionId);
+                stmt.setLong(2, part.getAgent().getId());
+                stmt.setString(3, part.getRole());
+                stmt.setBigDecimal(4, part.getMontant());
+                stmt.addBatch();
+
+                logger.debug("💾 Part individuelle: Agent {} - Role {} - Montant {}",
+                        part.getAgent().getCodeAgent(), part.getRole(), part.getMontant());
+            }
+
+            int[] results = stmt.executeBatch();
+            conn.commit();
+
+            logger.info("✅ {} parts individuelles enregistrées", results.length);
+
+        } catch (SQLException e) {
+            logger.error("❌ Erreur lors de l'enregistrement des parts individuelles", e);
+            throw new RuntimeException("Erreur lors de l'enregistrement des parts", e);
         }
     }
 

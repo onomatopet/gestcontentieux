@@ -429,19 +429,26 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
      * Génère le prochain numéro d'encaissement selon le format YYMMRNNNNN
      * MÉTHODE UNIFIÉE ET ENRICHIE - REMPLACE L'ANCIENNE VERSION
      */
+    /**
+     * Génère le prochain numéro d'encaissement selon le format YYMMRNNNNN
+     * CORRECTION DU BUG : Utilisation d'une vraie séquence au lieu des millisecondes
+     */
     public String generateNextNumeroEncaissement() {
         logger.debug("🔍 === GÉNÉRATION NUMÉRO ENCAISSEMENT ===");
-        logger.debug("🔍 Format cahier des charges: YYMMRNNNNN (R = littéral 'R')");
+        logger.debug("🔍 Format cahier des charges: YYMMRNNNNN");
 
         LocalDate now = LocalDate.now();
         String yearMonth = now.format(DateTimeFormatter.ofPattern("yyMM"));
         String expectedPrefix = yearMonth + "R";
         logger.debug("🔍 Préfixe attendu pour ce mois: {}", expectedPrefix);
 
+        // CORRECTION : Rechercher le VRAI dernier numéro séquentiel
         String sql = """
-        SELECT numero_encaissement FROM encaissements
+        SELECT numero_encaissement 
+        FROM encaissements
         WHERE numero_encaissement LIKE ?
-        ORDER BY numero_encaissement DESC
+        AND LENGTH(numero_encaissement) = 10
+        ORDER BY CAST(SUBSTR(numero_encaissement, 6) AS INTEGER) DESC
         LIMIT 1
     """;
 
@@ -455,24 +462,179 @@ public class EncaissementDAO extends AbstractSQLiteDAO<Encaissement, Long> {
                 String lastNumero = rs.getString("numero_encaissement");
                 logger.debug("🔍 Dernier numéro trouvé: {}", lastNumero);
 
-                // Extraire la partie numérique et incrémenter
-                String numberPart = lastNumero.substring(5); // Après YYMMR
-                int lastNumber = Integer.parseInt(numberPart);
-                String newNumero = expectedPrefix + String.format("%05d", lastNumber + 1);
-                logger.info("✅ Nouveau numéro généré: {}", newNumero);
-                return newNumero;
-            } else {
-                String newNumero = expectedPrefix + "00001";
-                logger.info("✅ Premier numéro du mois généré: {}", newNumero);
-                return newNumero;
+                // Vérifier que le format est correct
+                if (lastNumero != null && lastNumero.startsWith(expectedPrefix) && lastNumero.length() == 10) {
+                    try {
+                        // Extraire la partie numérique (5 derniers caractères)
+                        String numberPart = lastNumero.substring(5);
+                        int lastNumber = Integer.parseInt(numberPart);
+
+                        // Vérifier la limite
+                        if (lastNumber >= 99999) {
+                            logger.error("❌ LIMITE ATTEINTE : {} encaissements ce mois", lastNumber);
+                            throw new RuntimeException("Limite mensuelle d'encaissements atteinte (99999)");
+                        }
+
+                        // Incrémenter de 1
+                        String newNumero = expectedPrefix + String.format("%05d", lastNumber + 1);
+                        logger.info("✅ Nouveau numéro généré: {} (séquence: {})", newNumero, lastNumber + 1);
+
+                        // Vérification supplémentaire : s'assurer que ce numéro n'existe pas déjà
+                        if (existsByReference(newNumero)) {
+                            logger.error("❌ COLLISION DÉTECTÉE : Le numéro {} existe déjà!", newNumero);
+                            // Rechercher le prochain numéro libre
+                            return findNextAvailableNumero(expectedPrefix, lastNumber + 1);
+                        }
+
+                        return newNumero;
+
+                    } catch (NumberFormatException e) {
+                        logger.error("❌ Format invalide pour le numéro: {}", lastNumero);
+                    }
+                }
             }
 
-        } catch (Exception e) {
-            logger.error("❌ Erreur lors de la génération du numéro d'encaissement", e);
-            // Numéro de secours avec timestamp
-            String fallback = yearMonth + "R" + String.format("%05d", System.currentTimeMillis() % 100000);
-            logger.error("🔄 Numéro de secours généré: {}", fallback);
-            return fallback;
+            // Aucun encaissement ce mois ou erreur : commencer à 00001
+            String firstNumero = expectedPrefix + "00001";
+            logger.info("🆕 Premier numéro du mois: {}", firstNumero);
+            return firstNumero;
+
+        } catch (SQLException e) {
+            logger.error("❌ Erreur SQL lors de la génération du numéro", e);
+            // En cas d'erreur, utiliser un fallback sécurisé
+            return generateSafetyFallbackNumero(expectedPrefix);
+        }
+    }
+
+    /**
+     * Trouve le prochain numéro disponible en cas de collision
+     */
+    private String findNextAvailableNumero(String prefix, int startNumber) {
+        logger.warn("🔍 Recherche du prochain numéro disponible à partir de {}", startNumber);
+
+        String checkSql = "SELECT 1 FROM encaissements WHERE numero_encaissement = ?";
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(checkSql)) {
+
+            for (int i = startNumber; i <= 99999; i++) {
+                String testNumero = prefix + String.format("%05d", i);
+                stmt.setString(1, testNumero);
+
+                try (ResultSet rs = stmt.executeQuery()) {
+                    if (!rs.next()) {
+                        logger.info("✅ Numéro disponible trouvé: {}", testNumero);
+                        return testNumero;
+                    }
+                }
+            }
+
+            throw new RuntimeException("Aucun numéro disponible trouvé!");
+
+        } catch (SQLException e) {
+            logger.error("Erreur lors de la recherche de numéro disponible", e);
+            throw new RuntimeException("Erreur lors de la recherche de numéro disponible", e);
+        }
+    }
+
+    /**
+     * Génère un numéro de secours en cas d'erreur critique
+     */
+    private String generateSafetyFallbackNumero(String prefix) {
+        logger.error("⚠️ UTILISATION DU FALLBACK DE SÉCURITÉ");
+
+        // Compter tous les encaissements du mois pour avoir une estimation
+        String countSql = """
+        SELECT COUNT(*) as total
+        FROM encaissements
+        WHERE numero_encaissement LIKE ?
+    """;
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(countSql)) {
+
+            stmt.setString(1, prefix + "%");
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                int count = rs.getInt("total");
+                // Commencer après le nombre existant + marge de sécurité
+                int safeStart = count + 100;
+
+                String safeNumero = prefix + String.format("%05d", safeStart);
+                logger.warn("🔧 Numéro de secours généré: {}", safeNumero);
+
+                // Vérifier qu'il n'existe pas
+                while (existsByReference(safeNumero) && safeStart < 99999) {
+                    safeStart++;
+                    safeNumero = prefix + String.format("%05d", safeStart);
+                }
+
+                return safeNumero;
+            }
+
+        } catch (SQLException e) {
+            logger.error("Erreur critique dans le fallback", e);
+        }
+
+        // Dernier recours : utiliser l'heure actuelle modulo 90000 + 10000
+        int emergency = (int) ((System.currentTimeMillis() / 1000) % 90000) + 10000;
+        return prefix + String.format("%05d", emergency);
+    }
+
+    /**
+     * Méthode de diagnostic pour vérifier la cohérence des numéros
+     */
+    public void diagnosticNumerotation() {
+        logger.info("🔍 === DIAGNOSTIC NUMÉROTATION ===");
+
+        String sql = """
+        SELECT 
+            numero_encaissement,
+            date_encaissement,
+            created_at,
+            CAST(SUBSTR(numero_encaissement, 6) AS INTEGER) as sequence_num
+        FROM encaissements
+        WHERE numero_encaissement LIKE ?
+        ORDER BY sequence_num DESC
+        LIMIT 20
+    """;
+
+        LocalDate now = LocalDate.now();
+        String currentPrefix = now.format(DateTimeFormatter.ofPattern("yyMM")) + "R";
+
+        try (Connection conn = DatabaseConfig.getSQLiteConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, currentPrefix + "%");
+            ResultSet rs = stmt.executeQuery();
+
+            int previousSeq = Integer.MAX_VALUE;
+            int anomalies = 0;
+
+            while (rs.next()) {
+                String numero = rs.getString("numero_encaissement");
+                int seq = rs.getInt("sequence_num");
+                Timestamp created = rs.getTimestamp("created_at");
+
+                // Détecter les anomalies
+                if (seq > previousSeq) {
+                    logger.warn("❌ ANOMALIE : {} (seq={}) créé après un numéro plus grand", numero, seq);
+                    anomalies++;
+                }
+
+                logger.info("📄 {} - Séquence: {} - Créé: {}", numero, seq, created);
+                previousSeq = seq;
+            }
+
+            if (anomalies > 0) {
+                logger.error("⚠️ {} ANOMALIES DÉTECTÉES dans la séquence!", anomalies);
+            } else {
+                logger.info("✅ Séquence cohérente");
+            }
+
+        } catch (SQLException e) {
+            logger.error("Erreur lors du diagnostic", e);
         }
     }
 
